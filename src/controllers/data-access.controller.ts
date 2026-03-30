@@ -56,8 +56,22 @@ export class DataAccessController {
     return await this.db.tableInfo(table);
   }
 
+  @Get('table/:table/info')
+  async tableInfoLegacy(@Param('table') table: string): Promise<any> {
+    return await this.db.tableInfo(table);
+  }
+
   @Get(':table')
   async index(
+    @Param('table') table: string,
+    @Query('pageIndex') pageIndex = 0,
+    @Query('pageSize') pageSize = 10,
+  ): Promise<Record> {
+    return await this.db.index(table, pageIndex, pageSize);
+  }
+
+  @Get('table/:table')
+  async indexLegacy(
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
     @Query('pageSize') pageSize = 10,

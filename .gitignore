@@ -33,3 +33,7 @@ lerna-debug.log*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+# Local data imports
+/resources/postgres/import/*
+!/resources/postgres/import/.gitkeep

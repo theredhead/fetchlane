@@ -11,7 +11,7 @@ export class FetchRequestSQLWriter {
   private logger = new Logger('FetchRequestSQLWriter');
 
   quote(objectName: string): string {
-    return ['`', objectName, '`'].join('');
+    return ['"', objectName, '"'].join('');
   }
 
   write(request: FetchRequest) {
@@ -78,6 +78,8 @@ export class FetchRequestSQLWriter {
   }
 
   protected expandPagination(pagination: { index: number; size: number }) {
-    return `LIMIT ${pagination.index * pagination.size}, ${pagination.size}`;
+    const limit = Number(pagination.size);
+    const offset = Number(pagination.index) * limit;
+    return `LIMIT ${limit} OFFSET ${offset}`;
   }
 }

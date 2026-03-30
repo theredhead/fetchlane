@@ -1,22 +1,54 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { DataAccessController } from './controllers/data-access.controller';
+import { DataAccessService } from './service/data-access.service';
+import { FetchRequestHandlerService } from './service/fetch-request-handler.service';
 
-describe('AppController', () => {
-  let appController: AppController;
+describe('DataAccessController', () => {
+  let controller: DataAccessController;
+  const dataAccessService = {
+    index: vi.fn(),
+    tableInfo: vi.fn(),
+  };
 
   beforeEach(async () => {
+    vi.clearAllMocks();
+
     const app: TestingModule = await Test.createTestingModule({
-      controllers: [AppController],
-      providers: [AppService],
+      controllers: [DataAccessController],
+      providers: [
+        {
+          provide: DataAccessService,
+          useValue: dataAccessService,
+        },
+        {
+          provide: FetchRequestHandlerService,
+          useValue: {
+            handleRequest: vi.fn(),
+          },
+        },
+      ],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    controller = app.get<DataAccessController>(DataAccessController);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
-    });
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  it('supports the legacy table route alias', async () => {
+    dataAccessService.index.mockResolvedValueOnce([]);
+
+    await controller.indexLegacy('test', 2, 3);
+
+    expect(dataAccessService.index).toHaveBeenCalledWith('test', 2, 3);
+  });
+
+  it('supports the legacy table info route alias', async () => {
+    dataAccessService.tableInfo.mockResolvedValueOnce([]);
+
+    await controller.tableInfoLegacy('member');
+
+    expect(dataAccessService.tableInfo).toHaveBeenCalledWith('member');
   });
 });
