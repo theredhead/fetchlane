@@ -26,7 +26,15 @@ describe('StreetsController', () => {
 
   it('returns the nearest streets for a lat/long pair', async () => {
     dataAccessService.nearestStreets.mockResolvedValueOnce([
-      { straatnaam: 'Damrak', distance_m: 12.34 },
+      {
+        openbareruimte_id: '0363300000001911',
+        straatnaam: 'Museumstraat',
+        woonplaats_id: '1024',
+        woonplaats: 'Amsterdam',
+        latitude: 52.359942,
+        longitude: 4.885386,
+        distance_m: 12.34,
+      },
     ]);
 
     const result = await controller.nearestStreets(52.370216, 4.895168);
@@ -35,6 +43,16 @@ describe('StreetsController', () => {
       52.370216,
       4.895168,
     );
-    expect(result).toEqual([{ straatnaam: 'Damrak', distance_m: 12.34 }]);
+    expect(result).toEqual([
+      {
+        openbareruimte_id: '0363300000001911',
+        straatnaam: 'Museumstraat',
+        woonplaats_id: '1024',
+        woonplaats: 'Amsterdam',
+        latitude: 52.359942,
+        longitude: 4.885386,
+        distance_m: 12.34,
+      },
+    ]);
   });
 });

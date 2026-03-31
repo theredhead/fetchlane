@@ -111,36 +111,114 @@ export class DataAccessService {
     latitude: number,
     longitude: number,
   ): Promise<NearestStreet[]> {
+    const hasWoonplaatsTable = await this.db.tableExists('bag_woonplaats');
     const data = await this.db.execute(
-      `
-      WITH input AS (
-        SELECT ST_Transform(
-          ST_SetSRID(ST_Point($1, $2), 4326),
-          28992
-        ) AS geom
-      ),
-      candidates AS (
-        SELECT
-          b.straatnaam,
-          ST_Distance(b.geom, input.geom) AS distance_m
-        FROM bag_street_points b
-        CROSS JOIN input
-        ORDER BY b.geom <-> input.geom
-        LIMIT 1000
-      )
-      SELECT
-        straatnaam,
-        MIN(distance_m) AS distance_m
-      FROM candidates
-      GROUP BY straatnaam
-      ORDER BY distance_m ASC
-      LIMIT 5
-      `,
+      hasWoonplaatsTable
+        ? `
+          WITH input AS (
+            SELECT ST_Transform(
+              ST_SetSRID(ST_Point($1, $2), 4326),
+              28992
+            ) AS geom
+          ),
+          candidates AS (
+            SELECT
+              b.openbareruimte_id,
+              b.straatnaam,
+              b.woonplaats_id,
+              w.naam AS woonplaats,
+              b.geom,
+              ST_Distance(b.geom, input.geom) AS distance_m
+            FROM bag_street_points b
+            LEFT JOIN bag_woonplaats w ON w.identificatie = b.woonplaats_id
+            CROSS JOIN input
+            ORDER BY b.geom <-> input.geom
+            LIMIT 1000
+          ),
+          ranked AS (
+            SELECT
+              openbareruimte_id,
+              straatnaam,
+              woonplaats_id,
+              woonplaats,
+              geom,
+              distance_m,
+              ROW_NUMBER() OVER (
+                PARTITION BY openbareruimte_id
+                ORDER BY distance_m ASC, straatnaam ASC
+              ) AS row_num
+            FROM candidates
+          )
+          SELECT
+            openbareruimte_id,
+            straatnaam,
+            woonplaats_id,
+            woonplaats,
+            ST_Y(ST_Transform(geom, 4326)) AS latitude,
+            ST_X(ST_Transform(geom, 4326)) AS longitude,
+            distance_m
+          FROM ranked
+          WHERE row_num = 1
+          ORDER BY distance_m ASC
+          LIMIT 5
+          `
+        : `
+          WITH input AS (
+            SELECT ST_Transform(
+              ST_SetSRID(ST_Point($1, $2), 4326),
+              28992
+            ) AS geom
+          ),
+          candidates AS (
+            SELECT
+              b.openbareruimte_id,
+              b.straatnaam,
+              b.woonplaats_id,
+              NULL::text AS woonplaats,
+              b.geom,
+              ST_Distance(b.geom, input.geom) AS distance_m
+            FROM bag_street_points b
+            CROSS JOIN input
+            ORDER BY b.geom <-> input.geom
+            LIMIT 1000
+          ),
+          ranked AS (
+            SELECT
+              openbareruimte_id,
+              straatnaam,
+              woonplaats_id,
+              woonplaats,
+              geom,
+              distance_m,
+              ROW_NUMBER() OVER (
+                PARTITION BY openbareruimte_id
+                ORDER BY distance_m ASC, straatnaam ASC
+              ) AS row_num
+            FROM candidates
+          )
+          SELECT
+            openbareruimte_id,
+            straatnaam,
+            woonplaats_id,
+            woonplaats,
+            ST_Y(ST_Transform(geom, 4326)) AS latitude,
+            ST_X(ST_Transform(geom, 4326)) AS longitude,
+            distance_m
+          FROM ranked
+          WHERE row_num = 1
+          ORDER BY distance_m ASC
+          LIMIT 5
+          `,
       [longitude, latitude],
     );
 
     return data.rows.map((row) => ({
+      openbareruimte_id: String(row.openbareruimte_id),
       straatnaam: String(row.straatnaam),
+      woonplaats_id: row.woonplaats_id ? String(row.woonplaats_id) : null,
+      woonplaats: row.woonplaats ? String(row.woonplaats) : null,
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
       distance_m: Number(row.distance_m),
     }));
   }
@@ -264,7 +342,12 @@ export interface ColumnDescription {
 }
 
 export interface NearestStreet {
+  openbareruimte_id: string;
   straatnaam: string;
+  woonplaats_id: string | null;
+  woonplaats: string | null;
+  latitude: number;
+  longitude: number;
   distance_m: number;
 }
 

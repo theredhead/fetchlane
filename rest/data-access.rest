@@ -7,6 +7,23 @@ GET http://localhost:3000/api/data-access/member/info
 GET http://localhost:3000/api/status
 
 
+POST http://localhost:3000/api/data-access/tables/customer_notes
+Content-Type: application/json
+
+[
+  {
+    "name": "note",
+    "type": "text",
+    "nullable": false
+  },
+  {
+    "name": "created_at",
+    "type": "timestamp",
+    "nullable": false
+  }
+]
+
+
 GET http://localhost:3000/streets/52.370216/4.895168
 
 

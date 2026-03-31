@@ -25,10 +25,12 @@
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^11.2.6",
     "mysql2": "^3.0.0",
     "pg": "^8.13.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
@@ -50,8 +52,8 @@
     "ts-loader": "^9.5.0",
     "ts-node": "^10.9.0",
     "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.0",
     "unplugin-swc": "^1.5.0",
-    "vitest": "^3.0.0",
-    "typescript": "^5.7.0"
+    "vitest": "^3.0.0"
   }
 }
