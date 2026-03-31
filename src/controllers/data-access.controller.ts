@@ -2,6 +2,7 @@ import { FetchRequest } from './../data/fetch-predicate.types';
 import {
   ColumnDescription,
   DataAccessService,
+  TableSchemaDescription,
 } from './../service/data-access.service';
 import { FetchRequestHandlerService } from './../service/fetch-request-handler.service';
 
@@ -26,6 +27,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Record } from 'src/data/database';
+import { TableSchemaDescriptionDto } from 'src/swagger/models';
 
 /**
  * As is good practice, this controller follows REST principles:
@@ -164,6 +166,30 @@ export class DataAccessController {
   @Get('table/:table/info')
   async tableInfoLegacy(@Param('table') table: string): Promise<any> {
     return await this.db.tableInfo(table);
+  }
+
+  @ApiOperation({
+    summary: 'Get detailed schema metadata for a table',
+  })
+  @ApiParam({ name: 'table', example: 'member' })
+  @ApiOkResponse({ type: TableSchemaDescriptionDto })
+  @Get(':table/schema')
+  async describeTable(
+    @Param('table') table: string,
+  ): Promise<TableSchemaDescription | null> {
+    return await this.db.describeTable(table);
+  }
+
+  @ApiOperation({
+    summary: 'Get detailed schema metadata for a table (legacy route)',
+  })
+  @ApiParam({ name: 'table', example: 'member' })
+  @ApiOkResponse({ type: TableSchemaDescriptionDto })
+  @Get('table/:table/schema')
+  async describeTableLegacy(
+    @Param('table') table: string,
+  ): Promise<TableSchemaDescription | null> {
+    return await this.db.describeTable(table);
   }
 
   @ApiOperation({ summary: 'List records from a table' })

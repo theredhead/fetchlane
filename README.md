@@ -1,80 +1,91 @@
 # data-access API
 
-Presents a simple RESTfull API that exposes a mysql database over HTTP.
+A generic NestJS API for browsing table data, describing schemas, and exposing database content over HTTP.
 
-- [data-access API](#data-access-api)
-  - [Conventions](#conventions)
-  - [Defined routes](#defined-routes)
-    - [/api/data-access/table/:table/info, GET](#apidata-accesstabletableinfo-get)
-    - [/api/data-access/table/:table, GET](#apidata-accesstabletable-get)
-    - [/api/data-access/table/:table, POST](#apidata-accesstabletable-post)
-    - [/api/data-access/table/:table/record/:id, GET](#apidata-accesstabletablerecordid-get)
-    - [/api/data-access/table/:table/record/:id/column/:column, GET](#apidata-accesstabletablerecordidcolumncolumn-get)
-    - [/api/data-access/table/:table/record/:id/column/:column, PATCH](#apidata-accesstabletablerecordidcolumncolumn-patch)
-    - [/api/data-access/table/:table/record/:id, PUT](#apidata-accesstabletablerecordid-put)
-    - [/api/data-access/table/:table/record/:id, DELETE](#apidata-accesstabletablerecordid-delete)
-    - [/api/data-access/table/:table, POST](#apidata-accesstabletable-post-1)
+Swagger UI is available at `http://localhost:3000/api/docs` when the app is running.
 
-## Conventions
+## Environment setup
 
-This API is designed to work with tables that have a numeric id column as their primary key. It is intended for development situations.
+This project now loads a local `.env` file automatically at startup.
 
-Important types:
+1. Copy `.env.example` to `.env`
+2. Adjust the values for your local database
+3. Start the app
 
-```typescript
+Real `.env` files are gitignored so local credentials do not get committed. Only `.env.example` is tracked.
 
-  interface Record {
-    id?: number;
-    [field: string]: any;
-  }
+## Database connector factory
 
-  interface RecordSet {
-    info?: any;
-    fields?: any[];
-    rows: Record[];
-  }
+The generic data-access layer selects its connector from `DB_URL`.
 
+Supported URL format:
+
+```text
+<engine>://<user>:<password>@<host>:<port?>/<database>
 ```
 
-Because this is a generic API, there are no strictly defined DTO types per table, all records of all tables are dealt with in terms of the `Record` interface.
+Examples:
 
-- Records that have not been inserted yet should not have an `id` property.
-- If you try to inssert a record that has an `id` property, it is ignored.
-- if you update a record using the API, it's `id` property is ignored and the `id` given on the url is used to update the record.
+```text
+postgres://postgres:password@127.0.0.1:5432/northwind
+mysql://root:password@127.0.0.1:3306/northwind
+```
 
+Supported engines:
 
-## Defined routes
-### /api/data-access/table/:table/info, GET
+- `postgres`
+- `mysql`
 
-Get schema information about a table
+## Example `.env`
 
-### /api/data-access/table/:table, GET
+```env
+DB_URL=postgres://postgres:password@127.0.0.1:5432/northwind
+```
 
-Get a page of table content. optionally takes pageIndex and pageSize from the Querystring
+For MySQL:
 
-### /api/data-access/table/:table, POST
+```env
+DB_URL=mysql://root:password@127.0.0.1:3306/northwind
+```
 
-Creates a record
+`DB_URL` is required.
 
-### /api/data-access/table/:table/record/:id, GET
+## Important note
 
-Gets a singe record
+The generic data-access routes and schema-description endpoint are connector-aware and support both Postgres and MySQL.
 
-### /api/data-access/table/:table/record/:id/column/:column, GET
+The location endpoints are not fully database-agnostic:
 
-Gets the value of a single column
+- `/streets/:lat/:long`
+- `/geocode/:street/:number/:city`
+- `/geocode/postcode/:postcode/:number`
 
-### /api/data-access/table/:table/record/:id/column/:column, PATCH
+These require PostgreSQL + PostGIS + the BAG import data.
 
-Updates a single column of a single record
+## Main routes
 
-### /api/data-access/table/:table/record/:id, PUT
+### Generic data-access
 
-Updates a record
+- `GET /api/data-access/table-names`
+- `GET /api/data-access/:table`
+- `GET /api/data-access/:table/info`
+- `GET /api/data-access/:table/schema`
+- `GET /api/data-access/:table/record/:id`
+- `GET /api/data-access/:table/record/:id/column/:column`
+- `POST /api/data-access/fetch`
+- `POST /api/data-access/:table`
+- `POST /api/data-access/tables/:table`
+- `PATCH /api/data-access/:table/record/:id/column/:column`
+- `PUT /api/data-access/:table/record/:id`
+- `DELETE /api/data-access/:table/record/:id`
 
-### /api/data-access/table/:table/record/:id, DELETE
+### Location routes
 
-Deletes a record (there is no bulk delete)
-### /api/data-access/table/:table, POST
+- `GET /streets/:lat/:long`
+- `GET /geocode/:street/:number/:city`
+- `GET /geocode/postcode/:postcode/:number`
 
-Creates a table
+### Docs and status
+
+- `GET /api/docs`
+- `GET /api/status`
