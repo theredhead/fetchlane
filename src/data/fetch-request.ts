@@ -10,8 +10,14 @@ import {
 export class FetchRequestSQLWriter {
   private logger = new Logger('FetchRequestSQLWriter');
 
+  constructor(
+    private readonly quoteObjectName: (objectName: string) => string = (
+      objectName,
+    ) => ['"', objectName, '"'].join(''),
+  ) {}
+
   quote(objectName: string): string {
-    return ['"', objectName, '"'].join('');
+    return this.quoteObjectName(objectName);
   }
 
   write(request: FetchRequest) {

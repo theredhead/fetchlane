@@ -3,6 +3,7 @@ import { DataAccessController } from './controllers/data-access.controller';
 import { GeocodeController } from './controllers/geocode.controller';
 import { StatusController } from './controllers/status.controller';
 import { StreetsController } from './controllers/streets.controller';
+import { databaseProviders } from './data/database.providers';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 import { DataAccessService } from './service/data-access.service';
 import { FetchRequestHandlerService } from './service/fetch-request-handler.service';
@@ -15,7 +16,12 @@ import { LoggerService } from './service/logger.service';
     StatusController,
     StreetsController,
   ],
-  providers: [LoggerService, DataAccessService, FetchRequestHandlerService],
+  providers: [
+    LoggerService,
+    ...databaseProviders,
+    DataAccessService,
+    FetchRequestHandlerService,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

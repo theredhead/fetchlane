@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { LoggerService } from 'src/service/logger.service';
-import { StatusResponseDto } from 'src/swagger/models';
+import { LoggerService } from '../service/logger.service';
+import { StatusResponseDto } from '../swagger/models';
 
 @ApiTags('status')
 @Controller('api/status')

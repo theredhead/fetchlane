@@ -1,40 +1,11 @@
-/** @format  */
-
-export type DatabaseEngine = 'mysql' | 'postgres';
-
 export interface ParsedDatabaseUrl {
-  engine: DatabaseEngine;
+  engine: string;
   user: string;
   password: string;
   host: string;
   port?: number;
   database: string;
 }
-
-const rawDatabaseUrl = process.env.DB_URL;
-if (!rawDatabaseUrl) {
-  throw new Error('Missing DB_URL. Expected format: <engine>://<user>:<password>@<host>:<port?>/<database>');
-}
-
-const parsedDatabaseUrl = parseDatabaseUrl(rawDatabaseUrl);
-
-export const databaseEngine: DatabaseEngine = parsedDatabaseUrl.engine;
-
-export const databaseConfiguration = {
-  user: parsedDatabaseUrl.user,
-  password: parsedDatabaseUrl.password,
-  host: parsedDatabaseUrl.host,
-  port: parsedDatabaseUrl.engine === 'mysql' ? parsedDatabaseUrl.port || 3306 : undefined,
-  database: parsedDatabaseUrl.database,
-};
-
-export const pgDatabaseConfiguration = {
-  user: parsedDatabaseUrl.user,
-  password: parsedDatabaseUrl.password,
-  host: parsedDatabaseUrl.host,
-  port: parsedDatabaseUrl.engine === 'postgres' ? parsedDatabaseUrl.port || 5432 : 5432,
-  database: parsedDatabaseUrl.database,
-};
 
 export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   let url: URL;
@@ -46,10 +17,10 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
     );
   }
 
-  const engine = normalizeEngine(url.protocol.replace(/:$/, ''));
+  const engine = normalizeEngine(url.protocol);
   if (!engine) {
     throw new Error(
-      `Unsupported database engine "${url.protocol}". Expected mysql:// or postgres://`,
+      `Invalid database URL "${value}". Missing database engine in protocol.`,
     );
   }
 
@@ -62,22 +33,16 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
 
   const user = url.username ? decodeURIComponent(url.username) : '';
   if (!user) {
-    throw new Error(
-      `Invalid database URL "${value}". Missing username.`,
-    );
+    throw new Error(`Invalid database URL "${value}". Missing username.`);
   }
 
   const password = url.password ? decodeURIComponent(url.password) : '';
   if (!password) {
-    throw new Error(
-      `Invalid database URL "${value}". Missing password.`,
-    );
+    throw new Error(`Invalid database URL "${value}". Missing password.`);
   }
 
   if (!url.hostname) {
-    throw new Error(
-      `Invalid database URL "${value}". Missing host.`,
-    );
+    throw new Error(`Invalid database URL "${value}". Missing host.`);
   }
 
   return {
@@ -90,15 +55,18 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   };
 }
 
-function normalizeEngine(value?: string | null): DatabaseEngine | null {
-  const normalized = (value || '').toLowerCase();
-  if (normalized === 'mysql') {
-    return 'mysql';
+export function readDatabaseUrlFromEnvironment(): ParsedDatabaseUrl {
+  const rawDatabaseUrl = process.env.DB_URL;
+  if (!rawDatabaseUrl) {
+    throw new Error(
+      'Missing DB_URL. Expected format: <engine>://<user>:<password>@<host>:<port?>/<database>',
+    );
   }
 
-  if (normalized === 'postgres' || normalized === 'postgresql') {
-    return 'postgres';
-  }
+  return parseDatabaseUrl(rawDatabaseUrl);
+}
 
-  return null;
+function normalizeEngine(value?: string | null): string | null {
+  const normalized = (value || '').replace(/:$/, '').trim().toLowerCase();
+  return normalized || null;
 }

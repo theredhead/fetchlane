@@ -7,7 +7,6 @@ afterEach(() => {
 
 describe('db.conf', () => {
   it('parses a postgres url with credentials and an explicit port', async () => {
-    process.env.DB_URL = 'postgres://bootstrap:bootstrap@localhost:5432/bootstrap';
     const { parseDatabaseUrl } = await import('./db.conf');
 
     expect(
@@ -36,33 +35,37 @@ describe('db.conf', () => {
     });
   });
 
-  it('derives the active engine and postgres config from DB_URL', async () => {
+  it('reads postgres config from DB_URL', async () => {
     process.env.DB_URL = 'postgres://shared-user:shared-pass@pg.local:5544/locationdb';
 
-    const conf = await import('./db.conf');
+    const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
+    const conf = readDatabaseUrlFromEnvironment();
 
-    expect(conf.databaseEngine).toBe('postgres');
-    expect(conf.pgDatabaseConfiguration.host).toBe('pg.local');
-    expect(conf.pgDatabaseConfiguration.port).toBe(5544);
-    expect(conf.pgDatabaseConfiguration.database).toBe('locationdb');
-    expect(conf.pgDatabaseConfiguration.user).toBe('shared-user');
-    expect(conf.pgDatabaseConfiguration.password).toBe('shared-pass');
+    expect(conf.engine).toBe('postgres');
+    expect(conf.host).toBe('pg.local');
+    expect(conf.port).toBe(5544);
+    expect(conf.database).toBe('locationdb');
+    expect(conf.user).toBe('shared-user');
+    expect(conf.password).toBe('shared-pass');
   });
 
-  it('derives the active engine and mysql config from DB_URL', async () => {
+  it('reads mysql config from DB_URL', async () => {
     process.env.DB_URL = 'mysql://root:password@mysql.local:3307/appdb';
 
-    const conf = await import('./db.conf');
+    const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
+    const conf = readDatabaseUrlFromEnvironment();
 
-    expect(conf.databaseEngine).toBe('mysql');
-    expect(conf.databaseConfiguration.user).toBe('root');
-    expect(conf.databaseConfiguration.password).toBe('password');
-    expect(conf.databaseConfiguration.host).toBe('mysql.local');
-    expect(conf.databaseConfiguration.port).toBe(3307);
-    expect(conf.databaseConfiguration.database).toBe('appdb');
+    expect(conf.engine).toBe('mysql');
+    expect(conf.user).toBe('root');
+    expect(conf.password).toBe('password');
+    expect(conf.host).toBe('mysql.local');
+    expect(conf.port).toBe(3307);
+    expect(conf.database).toBe('appdb');
   });
 
   it('requires DB_URL to be present', async () => {
-    await expect(import('./db.conf')).rejects.toThrow(/Missing DB_URL/);
+    const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
+
+    expect(() => readDatabaseUrlFromEnvironment()).toThrow(/Missing DB_URL/);
   });
 });
