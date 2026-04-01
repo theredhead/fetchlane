@@ -1,0 +1,119 @@
+<svg width="1600" height="640" viewBox="0 0 1600 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="banner-bg" x1="108" y1="46" x2="1497" y2="612" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22070D"/>
+      <stop offset="0.45" stop-color="#3A0B14"/>
+      <stop offset="1" stop-color="#17060C"/>
+    </linearGradient>
+    <radialGradient id="banner-glow-left" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(341 220) rotate(29.9677) scale(418.567 271.258)">
+      <stop stop-color="#FF725D" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#FF725D" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="banner-glow-right" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1242 254) rotate(145.989) scale(528.278 318.197)">
+      <stop stop-color="#D7263D" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#D7263D" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lane-a" x1="136" y1="400" x2="923" y2="124" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFB36B"/>
+      <stop offset="0.42" stop-color="#FF725D"/>
+      <stop offset="1" stop-color="#D7263D"/>
+    </linearGradient>
+    <linearGradient id="lane-b" x1="199" y1="475" x2="1070" y2="174" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFC88A"/>
+      <stop offset="0.3" stop-color="#FF8464"/>
+      <stop offset="1" stop-color="#F03A47"/>
+    </linearGradient>
+    <linearGradient id="lane-c" x1="267" y1="547" x2="1184" y2="254" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD9A8"/>
+      <stop offset="0.34" stop-color="#FF8A67"/>
+      <stop offset="1" stop-color="#FF5C53"/>
+    </linearGradient>
+    <linearGradient id="mark-main" x1="0" y1="0" x2="170" y2="182" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF6B57"/>
+      <stop offset="1" stop-color="#D7263D"/>
+    </linearGradient>
+    <linearGradient id="mark-accent" x1="34" y1="26" x2="168" y2="156" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFB36B"/>
+      <stop offset="1" stop-color="#FF6B57"/>
+    </linearGradient>
+    <filter id="soft-blur" x="0" y="0" width="1600" height="640" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="20" result="effect1_foregroundBlur"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="640" rx="40" fill="url(#banner-bg)"/>
+  <rect width="1600" height="640" rx="40" fill="url(#banner-glow-left)"/>
+  <rect width="1600" height="640" rx="40" fill="url(#banner-glow-right)"/>
+
+  <g opacity="0.12">
+    <path d="M0 106H1600" stroke="#FFD8D1"/>
+    <path d="M0 186H1600" stroke="#FFD8D1"/>
+    <path d="M0 266H1600" stroke="#FFD8D1"/>
+    <path d="M0 346H1600" stroke="#FFD8D1"/>
+    <path d="M0 426H1600" stroke="#FFD8D1"/>
+    <path d="M0 506H1600" stroke="#FFD8D1"/>
+    <path d="M220 0V640" stroke="#FFD8D1"/>
+    <path d="M380 0V640" stroke="#FFD8D1"/>
+    <path d="M540 0V640" stroke="#FFD8D1"/>
+    <path d="M700 0V640" stroke="#FFD8D1"/>
+    <path d="M860 0V640" stroke="#FFD8D1"/>
+    <path d="M1020 0V640" stroke="#FFD8D1"/>
+    <path d="M1180 0V640" stroke="#FFD8D1"/>
+    <path d="M1340 0V640" stroke="#FFD8D1"/>
+  </g>
+
+  <g filter="url(#soft-blur)" opacity="0.3">
+    <path d="M-52 498C84 498 144 480 260 432C384 380 469 289 588 254C712 218 785 244 912 214C1025 187 1104 120 1238 120H1638" stroke="url(#lane-a)" stroke-width="42" stroke-linecap="round"/>
+    <path d="M20 570C148 570 240 548 360 500C484 450 576 354 702 327C840 298 898 332 1039 299C1171 268 1281 194 1458 194H1638" stroke="url(#lane-b)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M110 642C242 642 324 628 442 590C568 548 664 454 793 431C921 408 1010 441 1145 406C1282 371 1380 293 1540 293H1638" stroke="url(#lane-c)" stroke-width="22" stroke-linecap="round"/>
+  </g>
+
+  <path d="M-52 498C84 498 144 480 260 432C384 380 469 289 588 254C712 218 785 244 912 214C1025 187 1104 120 1238 120H1638" stroke="url(#lane-a)" stroke-width="14" stroke-linecap="round"/>
+  <path d="M20 570C148 570 240 548 360 500C484 450 576 354 702 327C840 298 898 332 1039 299C1171 268 1281 194 1458 194H1638" stroke="url(#lane-b)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M110 642C242 642 324 628 442 590C568 548 664 454 793 431C921 408 1010 441 1145 406C1282 371 1380 293 1540 293H1638" stroke="url(#lane-c)" stroke-width="8" stroke-linecap="round"/>
+
+  <g opacity="0.95">
+    <circle cx="618" cy="248" r="10" fill="#FFF2ED"/>
+    <circle cx="1001" cy="199" r="9" fill="#FFF2ED"/>
+    <circle cx="1316" cy="182" r="8" fill="#FFF2ED"/>
+    <circle cx="702" cy="327" r="9" fill="#FFF2ED"/>
+    <circle cx="1149" cy="250" r="8" fill="#FFF2ED"/>
+    <circle cx="793" cy="431" r="8" fill="#FFF2ED"/>
+    <circle cx="1295" cy="359" r="7" fill="#FFF2ED"/>
+  </g>
+
+  <g opacity="0.78">
+    <rect x="1064" y="96" width="188" height="54" rx="18" fill="#FFF4F1" fill-opacity="0.08" stroke="#FFD4CB" stroke-opacity="0.24"/>
+    <rect x="1100" y="115" width="44" height="8" rx="4" fill="#FFB36B"/>
+    <rect x="1154" y="115" width="64" height="8" rx="4" fill="#FFD7BF" fill-opacity="0.86"/>
+
+    <rect x="1236" y="224" width="228" height="64" rx="20" fill="#FFF4F1" fill-opacity="0.08" stroke="#FFD4CB" stroke-opacity="0.24"/>
+    <rect x="1271" y="248" width="72" height="9" rx="4.5" fill="#FF725D"/>
+    <rect x="1354" y="248" width="72" height="9" rx="4.5" fill="#FFD7BF" fill-opacity="0.86"/>
+
+    <rect x="1002" y="352" width="202" height="58" rx="18" fill="#FFF4F1" fill-opacity="0.08" stroke="#FFD4CB" stroke-opacity="0.24"/>
+    <rect x="1038" y="375" width="58" height="8" rx="4" fill="#D7263D"/>
+    <rect x="1108" y="375" width="62" height="8" rx="4" fill="#FFD7BF" fill-opacity="0.86"/>
+  </g>
+
+  <g transform="translate(118 160)">
+    <rect x="0" y="0" width="182" height="182" rx="42" fill="#FFF7F5" fill-opacity="0.96"/>
+    <rect x="0" y="0" width="182" height="182" rx="42" stroke="#F3B9AE" stroke-width="3"/>
+
+    <path d="M48 40C48 32.268 54.268 26 62 26H79C86.732 26 93 32.268 93 40V145C93 152.732 86.732 159 79 159H62C54.268 159 48 152.732 48 145V40Z" fill="#3A0F16"/>
+    <path d="M66 40H126.935C131.884 40 136.63 41.9661 140.13 45.4659L155.901 61.2365C164.717 70.0527 158.472 85.102 145.999 85.102H66V40Z" fill="url(#mark-main)"/>
+    <path d="M66 82H117.134C121.916 82 126.501 83.9005 129.882 87.2816L146.298 103.698C155.114 112.514 148.869 127.564 136.396 127.564H66V82Z" fill="url(#mark-main)"/>
+    <path d="M66 123H104.498C109.328 123 113.96 124.952 117.353 128.414L130.675 142.006C139.295 150.801 133.063 165.47 120.749 165.47H66V123Z" fill="url(#mark-accent)"/>
+    <circle cx="142.5" cy="59.5" r="6.5" fill="#FFF7F5"/>
+    <circle cx="130" cy="101" r="5.5" fill="#FFF7F5" fill-opacity="0.95"/>
+    <circle cx="116" cy="143" r="4.5" fill="#FFF7F5" fill-opacity="0.9"/>
+  </g>
+
+  <g transform="translate(344 182)">
+    <text x="0" y="88" fill="#FFF4F2" font-family="Avenir Next, Montserrat, Poppins, sans-serif" font-size="108" font-weight="700" letter-spacing="-3">Fetchlane</text>
+    <text x="4" y="142" fill="#FFC4B7" font-family="Avenir Next, Montserrat, Poppins, sans-serif" font-size="30" font-weight="600" letter-spacing="4">MULTI-ENGINE DATA ACCESS</text>
+    <text x="0" y="226" fill="#FFE2DB" fill-opacity="0.82" font-family="Avenir Next, Montserrat, Poppins, sans-serif" font-size="34" font-weight="500">Query once. Connect everywhere.</text>
+  </g>
+</svg>
