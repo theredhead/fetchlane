@@ -71,17 +71,9 @@ DB_URL=mysql://root:password@127.0.0.1:3306/northwind
 
 `DB_URL` is required.
 
-## Important note
+## Generic API scope
 
-Fetchlane's generic data-access routes and schema-description endpoint are connector-aware and support both Postgres and MySQL.
-
-The location endpoints are not fully database-agnostic:
-
-- `/streets/:lat/:long`
-- `/geocode/:street/:number/:city`
-- `/geocode/postcode/:postcode/:number`
-
-These require PostgreSQL + PostGIS + the BAG import data.
+Fetchlane focuses on the generic, database-agnostic API surface. Engine-specific behavior lives inside connector implementations rather than separate HTTP features on this branch.
 
 ## Main routes
 
@@ -99,12 +91,6 @@ These require PostgreSQL + PostGIS + the BAG import data.
 - `PATCH /api/data-access/:table/record/:id/column/:column`
 - `PUT /api/data-access/:table/record/:id`
 - `DELETE /api/data-access/:table/record/:id`
-
-### Location routes
-
-- `GET /streets/:lat/:long`
-- `GET /geocode/:street/:number/:city`
-- `GET /geocode/postcode/:postcode/:number`
 
 ### Docs and status
 

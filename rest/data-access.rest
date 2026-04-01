@@ -25,12 +25,3 @@ Content-Type: application/json
     "nullable": false
   }
 ]
-
-
-GET http://localhost:3000/streets/52.370216/4.895168
-
-
-GET http://localhost:3000/geocode/Museumstraat/1/Amsterdam
-
-
-GET http://localhost:3000/geocode/postcode/1071XX/1

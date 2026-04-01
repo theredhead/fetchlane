@@ -1,8 +1,6 @@
 import { AppModule } from './app.module';
 import { DataAccessController } from './controllers/data-access.controller';
-import { GeocodeController } from './controllers/geocode.controller';
 import { StatusController } from './controllers/status.controller';
-import { StreetsController } from './controllers/streets.controller';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
 
 describe('AppModule', () => {
@@ -16,9 +14,7 @@ describe('AppModule', () => {
     expect(apply).toHaveBeenCalledWith(RequestLoggerMiddleware);
     expect(forRoutes).toHaveBeenCalledWith(
       DataAccessController,
-      GeocodeController,
       StatusController,
-      StreetsController,
     );
   });
 });

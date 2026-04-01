@@ -1,9 +1,6 @@
 services:
   db:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: fetchlane-postgres-postgis:16
+    image: postgres:16
     restart: always
     environment:
       POSTGRES_USER: 'postgres'
@@ -14,7 +11,6 @@ services:
     volumes:
       - pg-data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
-      - ./import:/import
 
 volumes:
   pg-data:

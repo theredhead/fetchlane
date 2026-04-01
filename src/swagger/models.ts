@@ -6,57 +6,6 @@ export class StatusResponseDto {
   public status: string;
 }
 
-/** Swagger DTO for nearest-street results. */
-export class NearestStreetDto {
-  @ApiProperty({ example: '0363300000001911' })
-  public openbareruimte_id: string;
-
-  @ApiProperty({ example: 'Damrak' })
-  public straatnaam: string;
-
-  @ApiPropertyOptional({ example: '1024', nullable: true })
-  public woonplaats_id: string | null;
-
-  @ApiPropertyOptional({ example: 'Amsterdam', nullable: true })
-  public woonplaats: string | null;
-
-  @ApiProperty({ example: 52.370216 })
-  public latitude: number;
-
-  @ApiProperty({ example: 4.895168 })
-  public longitude: number;
-
-  @ApiProperty({ example: 12.34 })
-  public distance_m: number;
-}
-
-/** Swagger DTO for geocoding results. */
-export class GeocodedAddressDto {
-  @ApiProperty({ example: 'Museumstraat' })
-  public straatnaam: string;
-
-  @ApiProperty({ example: 1 })
-  public huisnummer: number;
-
-  @ApiPropertyOptional({ example: null, nullable: true })
-  public huisletter: string | null;
-
-  @ApiPropertyOptional({ example: null, nullable: true })
-  public huisnummertoevoeging: string | null;
-
-  @ApiPropertyOptional({ example: '1071XX', nullable: true })
-  public postcode: string | null;
-
-  @ApiPropertyOptional({ example: 'Amsterdam', nullable: true })
-  public woonplaats: string | null;
-
-  @ApiProperty({ example: 52.359942 })
-  public latitude: number;
-
-  @ApiProperty({ example: 4.885386 })
-  public longitude: number;
-}
-
 /** Swagger DTO for a single schema column. */
 export class TableSchemaColumnDto {
   @ApiProperty({ example: 1 })

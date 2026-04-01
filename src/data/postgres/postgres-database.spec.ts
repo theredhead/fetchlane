@@ -57,80 +57,16 @@ describe('PostgresDatabase', () => {
     expect(release).toHaveBeenCalled();
   });
 
-  it('maps nearest streets with city information when available', async () => {
-    vi.spyOn(database, 'tableExists').mockResolvedValue(true);
-    const executeSpy = vi.spyOn(database, 'execute').mockResolvedValue({
-      info: {},
-      fields: [],
-      rows: [
-        {
-          openbareruimte_id: '0363',
-          straatnaam: 'Museumstraat',
-          woonplaats_id: '1024',
-          woonplaats: 'Amsterdam',
-          latitude: '52.37',
-          longitude: '4.89',
-          distance_m: '12.34',
-        },
-      ],
+  it('casts table-existence checks to a boolean', async () => {
+    vi.spyOn(database, 'executeSingle').mockResolvedValueOnce({
+      count: 1,
     } as any);
 
-    const result = await database.nearestStreets(52.37, 4.89);
-
-    expect(executeSpy).toHaveBeenCalledWith(
-      expect.stringContaining('LEFT JOIN bag_woonplaats'),
-      [4.89, 52.37],
+    await expect(database.tableExists('member')).resolves.toBe(true);
+    expect(database.executeSingle).toHaveBeenCalledWith(
+      expect.stringContaining('information_schema.tables'),
+      ['member'],
     );
-    expect(result).toEqual([
-      {
-        openbareruimte_id: '0363',
-        straatnaam: 'Museumstraat',
-        woonplaats_id: '1024',
-        woonplaats: 'Amsterdam',
-        latitude: 52.37,
-        longitude: 4.89,
-        distance_m: 12.34,
-      },
-    ]);
-  });
-
-  it('normalizes postcode geocoding without the woonplaats table', async () => {
-    vi.spyOn(database, 'tableExists').mockResolvedValue(false);
-    const executeSpy = vi.spyOn(database, 'execute').mockResolvedValue({
-      info: {},
-      fields: [],
-      rows: [
-        {
-          straatnaam: 'Museumstraat',
-          huisnummer: '1',
-          huisletter: '',
-          huisnummertoevoeging: null,
-          postcode: '1071 XX',
-          woonplaats: null,
-          latitude: '52.359942',
-          longitude: '4.885386',
-        },
-      ],
-    } as any);
-
-    const result = await database.geocodeByPostcode('1071 xx', 1);
-
-    expect(executeSpy).toHaveBeenCalledWith(
-      expect.not.stringContaining('LEFT JOIN bag_woonplaats'),
-      ['1071XX', 1],
-    );
-    expect(result).toEqual([
-      {
-        straatnaam: 'Museumstraat',
-        huisnummer: 1,
-        huisletter: null,
-        huisnummertoevoeging: null,
-        postcode: '1071 XX',
-        woonplaats: null,
-        latitude: 52.359942,
-        longitude: 4.885386,
-      },
-    ]);
   });
 
   it('ends the pool on release', () => {

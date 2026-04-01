@@ -13,7 +13,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Fetchlane API')
     .setDescription(
-      'Multi-engine REST API for table access, FetchRequest querying, geocoding, and street lookup',
+      'Multi-engine REST API for table access, schema discovery, and FetchRequest querying',
     )
     .setVersion('1.0')
     .build();

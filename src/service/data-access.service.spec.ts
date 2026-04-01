@@ -1,7 +1,6 @@
 import { DataAccessService } from './data-access.service';
 import { Database, RecordSet } from '../data/database';
 import { DatabaseEngine } from '../data/database-engine';
-import { LocationDatabase } from '../data/location-database';
 
 function createDatabaseMock(): Database {
   return {
@@ -161,77 +160,6 @@ describe('DataAccessService', () => {
       'SELECT * FROM "member"\nLIMIT 5 OFFSET 10',
       [],
     );
-  });
-
-  it('gracefully rejects location calls when the active database lacks that capability', async () => {
-    await expect(service.nearestStreets(52.37, 4.89)).rejects.toThrow(
-      /Location endpoints require a postgres connection/i,
-    );
-    await expect(
-      service.geocodeByAddress('Museumstraat', 1, 'Amsterdam'),
-    ).rejects.toThrow(/Location endpoints require a postgres connection/i);
-    await expect(service.geocodeByPostcode('1071XX', 1)).rejects.toThrow(
-      /Location endpoints require a postgres connection/i,
-    );
-  });
-
-  it('delegates location calls when the database implements the location capability', async () => {
-    const locationDb: LocationDatabase = {
-      ...db,
-      nearestStreets: vi.fn().mockResolvedValue([
-        {
-          openbareruimte_id: '1',
-          straatnaam: 'Museumstraat',
-          woonplaats_id: '2',
-          woonplaats: 'Amsterdam',
-          latitude: 52.1,
-          longitude: 4.1,
-          distance_m: 10,
-        },
-      ]),
-      geocodeByAddress: vi.fn().mockResolvedValue([
-        {
-          straatnaam: 'Museumstraat',
-          huisnummer: 1,
-          huisletter: null,
-          huisnummertoevoeging: null,
-          postcode: '1071XX',
-          woonplaats: 'Amsterdam',
-          latitude: 52.1,
-          longitude: 4.1,
-        },
-      ]),
-      geocodeByPostcode: vi.fn().mockResolvedValue([
-        {
-          straatnaam: 'Museumstraat',
-          huisnummer: 1,
-          huisletter: null,
-          huisnummertoevoeging: null,
-          postcode: '1071XX',
-          woonplaats: 'Amsterdam',
-          latitude: 52.1,
-          longitude: 4.1,
-        },
-      ]),
-    };
-
-    service = new DataAccessService(locationDb, engine);
-
-    await expect(service.nearestStreets(52.37, 4.89)).resolves.toHaveLength(1);
-    await expect(
-      service.geocodeByAddress('Museumstraat', 1, 'Amsterdam'),
-    ).resolves.toHaveLength(1);
-    await expect(service.geocodeByPostcode('1071XX', 1)).resolves.toHaveLength(
-      1,
-    );
-
-    expect(locationDb.nearestStreets).toHaveBeenCalledWith(52.37, 4.89);
-    expect(locationDb.geocodeByAddress).toHaveBeenCalledWith(
-      'Museumstraat',
-      1,
-      'Amsterdam',
-    );
-    expect(locationDb.geocodeByPostcode).toHaveBeenCalledWith('1071XX', 1);
   });
 
   it('passes raw SQL execution through to the active database', async () => {

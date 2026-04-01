@@ -6,12 +6,6 @@ import {
   TableSchemaDescription,
 } from '../data/database-metadata';
 import {
-  GeocodedAddress,
-  isLocationDatabase,
-  LocationDatabase,
-  NearestStreet,
-} from '../data/location-database';
-import {
   ACTIVE_DATABASE_ENGINE,
   DATABASE_CONNECTION,
 } from '../data/database.providers';
@@ -126,49 +120,6 @@ export class DataAccessService {
   public async execute(text: string, args: any[]) {
     return this.db.execute(text, args);
   }
-
-  /** Returns the nearest BAG streets for a latitude/longitude pair. */
-  public async nearestStreets(
-    latitude: number,
-    longitude: number,
-  ): Promise<NearestStreet[]> {
-    return await this.getLocationDatabase().nearestStreets(latitude, longitude);
-  }
-
-  /** Geocodes a street, house number, and city. */
-  public async geocodeByAddress(
-    street: string,
-    houseNumber: number,
-    city: string,
-  ): Promise<GeocodedAddress[]> {
-    return await this.getLocationDatabase().geocodeByAddress(
-      street,
-      houseNumber,
-      city,
-    );
-  }
-
-  /** Geocodes a postcode and house number. */
-  public async geocodeByPostcode(
-    postcode: string,
-    houseNumber: number,
-  ): Promise<GeocodedAddress[]> {
-    return await this.getLocationDatabase().geocodeByPostcode(
-      postcode,
-      houseNumber,
-    );
-  }
-
-  private getLocationDatabase(): LocationDatabase {
-    if (!isLocationDatabase(this.db)) {
-      throw new Error(
-        'Location endpoints require a postgres connection with PostGIS-compatible BAG data.',
-      );
-    }
-
-    return this.db;
-  }
 }
 
 export type { ColumnDescription, TableSchemaDescription } from '../data/database-metadata';
-export type { GeocodedAddress, NearestStreet } from '../data/location-database';

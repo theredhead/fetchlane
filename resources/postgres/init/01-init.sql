@@ -1,6 +1,3 @@
--- Enable PostGIS extension
-CREATE EXTENSION IF NOT EXISTS postgis;
-
 -- Create a test table for integration tests
 CREATE TABLE IF NOT EXISTS test (
   id serial PRIMARY KEY,
