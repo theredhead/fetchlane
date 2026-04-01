@@ -125,14 +125,6 @@ Real `.env` files are gitignored so local secrets do not end up in source contro
 - `GET /api/docs`
 - `GET /api/status`
 
-### Legacy aliases
-
-Some legacy compatibility routes still exist for table-oriented reads:
-
-- `GET /api/data-access/table/:table`
-- `GET /api/data-access/table/:table/info`
-- `GET /api/data-access/table/:table/schema`
-
 Swagger UI reflects the currently exposed controller surface and is the best source for concrete request and response shapes.
 
 ## FetchRequest
@@ -144,6 +136,12 @@ Swagger UI reflects the currently exposed controller surface and is the best sou
 - sort definitions
 - pagination
 
+Predicate placeholders are database-agnostic:
+
+- Use `?` with `args` as an array for positional mode
+- Use `:name` with `args` as an object for named mode
+- Do not mix positional and named placeholders anywhere within the same request
+
 Example shape:
 
 ```json
@@ -151,7 +149,7 @@ Example shape:
   "table": "member",
   "predicates": [
     {
-      "text": "age > $1",
+      "text": "age > ?",
       "args": [18]
     }
   ],
@@ -161,6 +159,28 @@ Example shape:
       "direction": "ASC"
     }
   ],
+  "pagination": {
+    "size": 25,
+    "index": 0
+  }
+}
+```
+
+Named-parameter example:
+
+```json
+{
+  "table": "member",
+  "predicates": [
+    {
+      "text": "status = :status AND city = :city",
+      "args": {
+        "status": "open",
+        "city": "Enschede"
+      }
+    }
+  ],
+  "sort": [],
   "pagination": {
     "size": 25,
     "index": 0

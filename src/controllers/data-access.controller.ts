@@ -7,6 +7,7 @@ import {
 import { FetchRequestHandlerService } from './../service/fetch-request-handler.service';
 
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -26,7 +27,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { Record } from 'src/data/database';
+import { Record, RecordSet } from 'src/data/database';
 import { TableSchemaDescriptionDto } from 'src/swagger/models';
 
 /**
@@ -63,7 +64,7 @@ export class DataAccessController {
           type: 'array',
           example: [
             {
-              text: 'age > $1',
+              text: 'age > ?',
               args: [18],
             },
           ],
@@ -104,14 +105,8 @@ export class DataAccessController {
   })
   @Post('fetch')
   /** Executes a structured fetch request with predicates, sorting, and pagination. */
-  public async fetch(@Body() request: FetchRequest) {
-    try {
-      return await this.fetchRequestHandler.handleRequest(request);
-    } catch (error) {
-      return {
-        error,
-      };
-    }
+  public async fetch(@Body() request: FetchRequest): Promise<RecordSet> {
+    return await this.fetchRequestHandler.handleRequest(request);
   }
 
   @ApiOperation({ summary: 'List public tables in the database' })
@@ -135,7 +130,7 @@ export class DataAccessController {
   })
   @Get('table-names')
   /** Lists the tables visible to the active database connection. */
-  public async tableNames(): Promise<any> {
+  public async tableNames(): Promise<Record[]> {
     return await this.db.getTableNames();
   }
 
@@ -152,24 +147,7 @@ export class DataAccessController {
   })
   @Get(':table/info')
   /** Returns basic column metadata for a table. */
-  public async tableInfo(@Param('table') table: string): Promise<any> {
-    return await this.db.tableInfo(table);
-  }
-
-  @ApiOperation({ summary: 'Get column metadata for a table (legacy route)' })
-  @ApiParam({ name: 'table', example: 'member' })
-  @ApiOkResponse({
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: true,
-      },
-    },
-  })
-  @Get('table/:table/info')
-  /** Returns basic column metadata for a table using the legacy route. */
-  public async tableInfoLegacy(@Param('table') table: string): Promise<any> {
+  public async tableInfo(@Param('table') table: string): Promise<Record[]> {
     return await this.db.tableInfo(table);
   }
 
@@ -181,19 +159,6 @@ export class DataAccessController {
   @Get(':table/schema')
   /** Returns a normalized schema description for a table. */
   public async describeTable(
-    @Param('table') table: string,
-  ): Promise<TableSchemaDescription | null> {
-    return await this.db.describeTable(table);
-  }
-
-  @ApiOperation({
-    summary: 'Get detailed schema metadata for a table (legacy route)',
-  })
-  @ApiParam({ name: 'table', example: 'member' })
-  @ApiOkResponse({ type: TableSchemaDescriptionDto })
-  @Get('table/:table/schema')
-  /** Returns a normalized schema description for a table using the legacy route. */
-  public async describeTableLegacy(
     @Param('table') table: string,
   ): Promise<TableSchemaDescription | null> {
     return await this.db.describeTable(table);
@@ -218,31 +183,12 @@ export class DataAccessController {
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
     @Query('pageSize') pageSize = 10,
-  ): Promise<Record> {
-    return await this.db.index(table, pageIndex, pageSize);
-  }
-
-  @ApiOperation({ summary: 'List records from a table (legacy route)' })
-  @ApiParam({ name: 'table', example: 'member' })
-  @ApiQuery({ name: 'pageIndex', required: false, example: 0 })
-  @ApiQuery({ name: 'pageSize', required: false, example: 10 })
-  @ApiOkResponse({
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: true,
-      },
-    },
-  })
-  @Get('table/:table')
-  /** Returns a paginated list of rows from a table using the legacy route. */
-  public async indexLegacy(
-    @Param('table') table: string,
-    @Query('pageIndex') pageIndex = 0,
-    @Query('pageSize') pageSize = 10,
-  ): Promise<Record> {
-    return await this.db.index(table, pageIndex, pageSize);
+  ): Promise<Record[]> {
+    return await this.db.index(
+      table,
+      this.parsePageIndex(pageIndex),
+      this.parsePageSize(pageSize),
+    );
   }
 
   @ApiOperation({ summary: 'Create a record in a table' })
@@ -307,7 +253,7 @@ export class DataAccessController {
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
-  ): Promise<string> {
+  ): Promise<string | null> {
     return await this.db.getColumnFromRecordbyId(table, id, column);
   }
 
@@ -333,7 +279,7 @@ export class DataAccessController {
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
-    @Body() value: string,
+    @Body() value: unknown,
   ): Promise<Record> {
     return await this.db.updateColumnForRecordById(table, id, column, value);
   }
@@ -436,5 +382,50 @@ export class DataAccessController {
     @Body() columns: ColumnDescription[],
   ): Promise<string> {
     return await this.db.createTable(table, columns);
+  }
+
+  private parsePageIndex(value: number | string): number {
+    const parsed = this.parseIntegerQueryValue(value, 'pageIndex');
+
+    if (parsed < 0) {
+      throw new BadRequestException(
+        'Query parameter "pageIndex" must be a non-negative integer.',
+      );
+    }
+
+    return parsed;
+  }
+
+  private parsePageSize(value: number | string): number {
+    const parsed = this.parseIntegerQueryValue(value, 'pageSize');
+
+    if (parsed <= 0 || parsed > 1000) {
+      throw new BadRequestException(
+        'Query parameter "pageSize" must be an integer between 1 and 1000.',
+      );
+    }
+
+    return parsed;
+  }
+
+  private parseIntegerQueryValue(
+    value: number | string,
+    parameterName: string,
+  ): number {
+    if (Array.isArray(value)) {
+      throw new BadRequestException(
+        `Query parameter "${parameterName}" must be a single integer value.`,
+      );
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed)) {
+      throw new BadRequestException(
+        `Query parameter "${parameterName}" must be an integer.`,
+      );
+    }
+
+    return parsed;
   }
 }

@@ -1,5 +1,6 @@
 const app = {
   enableCors: vi.fn(),
+  enableShutdownHooks: vi.fn(),
   listen: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -50,6 +51,7 @@ describe('main bootstrap', () => {
     await import('./main');
 
     expect(app.enableCors).toHaveBeenCalled();
+    expect(app.enableShutdownHooks).toHaveBeenCalled();
     expect(createDocument).toHaveBeenCalledWith(app, {
       title: 'Fetchlane API',
     });

@@ -25,3 +25,49 @@ Content-Type: application/json
     "nullable": false
   }
 ]
+
+
+POST http://localhost:3000/api/data-access/fetch
+Content-Type: application/json
+
+{
+  "table": "member",
+  "predicates": [
+    {
+      "text": "name = ? AND is_active = ?",
+      "args": ["Alice", true]
+    }
+  ],
+  "sort": [
+    {
+      "column": "name",
+      "direction": "ASC"
+    }
+  ],
+  "pagination": {
+    "size": 10,
+    "index": 0
+  }
+}
+
+
+POST http://localhost:3000/api/data-access/fetch
+Content-Type: application/json
+
+{
+  "table": "member",
+  "predicates": [
+    {
+      "text": "status = :status AND city = :city",
+      "args": {
+        "status": "open",
+        "city": "Enschede"
+      }
+    }
+  ],
+  "sort": [],
+  "pagination": {
+    "size": 10,
+    "index": 0
+  }
+}

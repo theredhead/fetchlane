@@ -1,27 +1,22 @@
 import { PostgresDatabase } from './postgres-database';
 
-let connectMock: any;
-let endMock: any;
-
-vi.mock('pg', () => ({
-  Pool: vi.fn(() => ({
-    connect: connectMock,
-    end: endMock,
-  })),
-}));
-
 describe('PostgresDatabase', () => {
   let database: PostgresDatabase;
 
   beforeEach(() => {
-    endMock = vi.fn();
-    connectMock = vi.fn();
-    database = new PostgresDatabase({} as any);
+    database = new PostgresDatabase({
+      engine: 'postgres',
+      user: 'postgres',
+      password: 'password',
+      host: 'localhost',
+      port: 5432,
+      database: 'testdb',
+    });
   });
 
   it('executes select queries and releases the client', async () => {
     const release = vi.fn();
-    connectMock.mockResolvedValue({
+    const connect = vi.fn().mockResolvedValue({
       query: vi.fn().mockResolvedValue({
         command: 'SELECT',
         rowCount: 1,
@@ -30,6 +25,7 @@ describe('PostgresDatabase', () => {
       }),
       release,
     });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({ connect });
 
     const result = await database.execute('SELECT 1');
 
@@ -40,7 +36,7 @@ describe('PostgresDatabase', () => {
 
   it('maps command results into info', async () => {
     const release = vi.fn();
-    connectMock.mockResolvedValue({
+    const connect = vi.fn().mockResolvedValue({
       query: vi.fn().mockResolvedValue({
         command: 'INSERT',
         rowCount: 1,
@@ -49,6 +45,7 @@ describe('PostgresDatabase', () => {
       }),
       release,
     });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({ connect });
 
     const result = await database.execute('INSERT ...');
 
@@ -69,8 +66,15 @@ describe('PostgresDatabase', () => {
     );
   });
 
-  it('ends the pool on release', () => {
+  it('escapes identifiers and ends the pool on release', async () => {
+    const end = vi.fn().mockResolvedValue(undefined);
+    (database as any).poolPromise = Promise.resolve({ end });
+
+    expect(database.quoteIdentifier('odd"name')).toBe('"odd""name"');
+
     database.release();
-    expect(endMock).toHaveBeenCalled();
+    await Promise.resolve();
+
+    expect(end).toHaveBeenCalled();
   });
 });

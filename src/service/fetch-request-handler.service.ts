@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Record, RecordSet } from '../data/database';
-import { DatabaseEngine } from '../data/database-engine';
 import { FetchRequest } from '../data/fetch-predicate.types';
 import { FetchRequestSQLWriter } from '../data/fetch-request';
-import { ACTIVE_DATABASE_ENGINE } from '../data/database.providers';
+import { DATABASE_CONNECTION } from '../data/database.providers';
 import { DataAccessService } from './data-access.service';
+import { DatabaseAdapter } from '../data/database';
 
 /**
  * Typed response wrapper returned by the fetch request handler.
@@ -25,12 +25,13 @@ export class FetchRequestHandlerService {
    */
   public constructor(
     private readonly db: DataAccessService,
-    @Inject(ACTIVE_DATABASE_ENGINE) engine: DatabaseEngine,
+    @Inject(DATABASE_CONNECTION) adapter: DatabaseAdapter,
   ) {
     this.writer = new FetchRequestSQLWriter(
-      (name) => engine.quoteIdentifier(name),
+      (name) => adapter.quoteIdentifier(name),
+      (index) => adapter.parameter(index),
       (baseQuery, limit, offset, orderByClause) =>
-        engine.paginateQuery(baseQuery, limit, offset, orderByClause),
+        adapter.paginateQuery(baseQuery, limit, offset, orderByClause),
     );
   }
 

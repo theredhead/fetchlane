@@ -31,11 +31,59 @@ Field overview:
 - `pagination.size`: page size
 - `pagination.index`: zero-based page number
 
-## Placeholder note
+## Parameter modes
 
-Predicate `text` is passed through to the active connector, so placeholder syntax should match what your engine expects.
+Fetchlane accepts two placeholder styles and rewrites them to the active engine's native parameter syntax:
 
-Examples in this guide mostly use `?` because it is easy to read and already used in the test suite. If your connector expects numbered placeholders such as `$1`, write the predicate text accordingly.
+- Positional mode: use `?` and pass `args` as an array
+- Named mode: use `:name` and pass `args` as an object
+
+Rules:
+
+- A single `FetchRequest` must use one mode only
+- Positional and named parameters cannot be mixed anywhere in the same request
+- If a predicate has no placeholders, `args` must be empty
+
+Positional example:
+
+```json
+{
+  "table": "customers",
+  "predicates": [
+    {
+      "text": "country_code = ? AND is_active = ?",
+      "args": ["NL", true]
+    }
+  ],
+  "sort": [],
+  "pagination": {
+    "size": 25,
+    "index": 0
+  }
+}
+```
+
+Named example:
+
+```json
+{
+  "table": "customers",
+  "predicates": [
+    {
+      "text": "country_code = :country AND is_active = :active",
+      "args": {
+        "country": "NL",
+        "active": true
+      }
+    }
+  ],
+  "sort": [],
+  "pagination": {
+    "size": 25,
+    "index": 0
+  }
+}
+```
 
 ## 1. Read the first page of a table
 
@@ -349,6 +397,7 @@ This example is still row-oriented, but it shows the kind of richer filtering yo
 - Always provide a deterministic `sort` when using pagination.
 - Keep top-level predicates simple, then use grouped `OR` or `AND` blocks when the logic becomes more complex.
 - Prefer parameterized predicate text plus `args` instead of string interpolation.
+- Pick either positional or named parameters for the whole request.
 - Treat `pagination.index` as zero-based.
 - Use Swagger UI at `http://localhost:3000/api/docs` to test payloads interactively against your running instance.
 

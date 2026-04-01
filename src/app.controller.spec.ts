@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { DataAccessController } from './controllers/data-access.controller';
 
 describe('DataAccessController', () => {
@@ -10,6 +11,10 @@ describe('DataAccessController', () => {
     insert: vi.fn(),
     selectSingleById: vi.fn(),
     getColumnFromRecordbyId: vi.fn(),
+    updateColumnForRecordById: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    createTable: vi.fn(),
   };
   const fetchRequestHandler = {
     handleRequest: vi.fn(),
@@ -27,12 +32,24 @@ describe('DataAccessController', () => {
     expect(controller).toBeDefined();
   });
 
-  it('delegates index requests to the data access service', async () => {
+  it('delegates index requests to the data access service with parsed pagination', async () => {
     dataAccessService.index.mockResolvedValueOnce([]);
 
-    await controller.index('test', 2, 3);
+    await controller.index('test', '2', '3');
 
     expect(dataAccessService.index).toHaveBeenCalledWith('test', 2, 3);
+  });
+
+  it('rejects invalid pagination values', async () => {
+    await expect(controller.index('test', '-1', '3')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(controller.index('test', '0', '0')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(controller.index('test', '0', '5000')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('delegates table info requests to the data access service', async () => {
@@ -55,6 +72,18 @@ describe('DataAccessController', () => {
     await controller.fetch(request as any);
 
     expect(fetchRequestHandler.handleRequest).toHaveBeenCalledWith(request);
+  });
+
+  it('does not swallow fetch request errors', async () => {
+    fetchRequestHandler.handleRequest.mockRejectedValueOnce(new Error('boom'));
+
+    await expect(
+      controller.fetch({
+        table: 'member',
+        predicates: [],
+        sort: [],
+      } as any),
+    ).rejects.toThrow('boom');
   });
 
   it('returns table names from the data access service', async () => {
@@ -108,5 +137,30 @@ describe('DataAccessController', () => {
       7,
       'email',
     );
+  });
+
+  it('delegates column updates, record updates, deletes, and create table requests', async () => {
+    await controller.updateColumnForRecordById('member', 7, 'email', {
+      value: 'alice@example.com',
+    });
+    await controller.updateRecord('member', 7, { name: 'Alice' } as any);
+    await controller.deleteRecord('member', 7);
+    await controller.createTable('member', [
+      { name: 'name', type: 'text', nullable: false },
+    ]);
+
+    expect(dataAccessService.updateColumnForRecordById).toHaveBeenCalledWith(
+      'member',
+      7,
+      'email',
+      { value: 'alice@example.com' },
+    );
+    expect(dataAccessService.update).toHaveBeenCalledWith('member', 7, {
+      name: 'Alice',
+    });
+    expect(dataAccessService.delete).toHaveBeenCalledWith('member', 7);
+    expect(dataAccessService.createTable).toHaveBeenCalledWith('member', [
+      { name: 'name', type: 'text', nullable: false },
+    ]);
   });
 });

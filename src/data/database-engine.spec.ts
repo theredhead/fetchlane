@@ -1,41 +1,50 @@
 import {
-  createDatabaseEngineRegistry,
-  DatabaseEngine,
-} from './database-engine';
+  createDatabaseAdapterRegistry,
+  DatabaseAdapterConstructor,
+} from './database';
 
-describe('createDatabaseEngineRegistry', () => {
-  it('registers each engine under all of its aliases', () => {
-    const postgresEngine = {
-      name: 'postgres',
-      engines: ['postgres', 'postgresql'],
-    } as DatabaseEngine;
-    const mysqlEngine = {
-      name: 'mysql',
-      engines: ['mysql'],
-    } as DatabaseEngine;
+describe('createDatabaseAdapterRegistry', () => {
+  it('registers each adapter under all of its aliases', () => {
+    class PostgresAdapter {
+      public static readonly adapterName = 'postgres';
+      public static readonly engines = ['postgres', 'postgresql'];
+      public constructor(_config: unknown) {}
+    }
 
-    const registry = createDatabaseEngineRegistry([
-      postgresEngine,
-      mysqlEngine,
+    class MySqlAdapter {
+      public static readonly adapterName = 'mysql';
+      public static readonly engines = ['mysql'];
+      public constructor(_config: unknown) {}
+    }
+
+    const registry = createDatabaseAdapterRegistry([
+      PostgresAdapter as unknown as DatabaseAdapterConstructor,
+      MySqlAdapter as unknown as DatabaseAdapterConstructor,
     ]);
 
-    expect(registry.get('postgres')).toBe(postgresEngine);
-    expect(registry.get('postgresql')).toBe(postgresEngine);
-    expect(registry.get('mysql')).toBe(mysqlEngine);
+    expect(registry.get('postgres')).toBe(PostgresAdapter);
+    expect(registry.get('postgresql')).toBe(PostgresAdapter);
+    expect(registry.get('mysql')).toBe(MySqlAdapter);
   });
 
-  it('lets later engines override earlier aliases', () => {
-    const first = {
-      name: 'first',
-      engines: ['shared'],
-    } as DatabaseEngine;
-    const second = {
-      name: 'second',
-      engines: ['shared'],
-    } as DatabaseEngine;
+  it('lets later adapters override earlier aliases', () => {
+    class FirstAdapter {
+      public static readonly adapterName = 'first';
+      public static readonly engines = ['shared'];
+      public constructor(_config: unknown) {}
+    }
 
-    const registry = createDatabaseEngineRegistry([first, second]);
+    class SecondAdapter {
+      public static readonly adapterName = 'second';
+      public static readonly engines = ['shared'];
+      public constructor(_config: unknown) {}
+    }
 
-    expect(registry.get('shared')).toBe(second);
+    const registry = createDatabaseAdapterRegistry([
+      FirstAdapter as unknown as DatabaseAdapterConstructor,
+      SecondAdapter as unknown as DatabaseAdapterConstructor,
+    ]);
+
+    expect(registry.get('shared')).toBe(SecondAdapter);
   });
 });

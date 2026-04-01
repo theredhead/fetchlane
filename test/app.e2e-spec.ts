@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { DATABASE_CONNECTION, ACTIVE_DATABASE_ENGINE } from './../src/data/database.providers';
+import { DATABASE_CONNECTION } from './../src/data/database.providers';
 import { AppModule } from './../src/app.module';
 import { StatusController } from './../src/controllers/status.controller';
 
@@ -23,12 +23,6 @@ describe('AppModule (e2e)', () => {
         executeScalar: vi.fn(),
         tableExists: vi.fn(),
         release: vi.fn(),
-      })
-      .overrideProvider(ACTIVE_DATABASE_ENGINE)
-      .useValue({
-        name: 'test',
-        engines: ['test'],
-        connectDatabase: vi.fn(),
         quoteIdentifier: (name: string) => `"${name}"`,
         parameter: (index: number) => `$${index}`,
         paginateQuery: (
@@ -44,6 +38,7 @@ describe('AppModule (e2e)', () => {
         getTableInfo: vi.fn(),
         describeTable: vi.fn(),
         createTableSql: vi.fn(),
+        name: 'test',
       })
       .compile();
 
