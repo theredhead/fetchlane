@@ -13,8 +13,14 @@ import { NearestStreetDto } from '../swagger/models';
 
 @ApiTags('streets')
 @Controller('streets')
+/**
+ * HTTP endpoint for nearest-street lookups.
+ */
 export class StreetsController {
-  constructor(private readonly dataAccessService: DataAccessService) {}
+  /** Creates the nearest-streets controller. */
+  public constructor(
+    private readonly dataAccessService: DataAccessService,
+  ) {}
 
   @ApiOperation({
     summary:
@@ -24,7 +30,8 @@ export class StreetsController {
   @ApiParam({ name: 'long', example: 4.895168 })
   @ApiOkResponse({ type: NearestStreetDto, isArray: true })
   @Get(':lat/:long')
-  async nearestStreets(
+  /** Returns the nearest known streets for a latitude/longitude pair. */
+  public async nearestStreets(
     @Param('lat', ParseFloatPipe) latitude: number,
     @Param('long', ParseFloatPipe) longitude: number,
   ): Promise<NearestStreet[]> {

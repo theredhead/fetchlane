@@ -1,6 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { StreetsController } from './controllers/streets.controller';
-import { DataAccessService } from './service/data-access.service';
 
 describe('StreetsController', () => {
   let controller: StreetsController;
@@ -8,20 +6,9 @@ describe('StreetsController', () => {
     nearestStreets: vi.fn(),
   };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    const app: TestingModule = await Test.createTestingModule({
-      controllers: [StreetsController],
-      providers: [
-        {
-          provide: DataAccessService,
-          useValue: dataAccessService,
-        },
-      ],
-    }).compile();
-
-    controller = app.get<StreetsController>(StreetsController);
+    controller = new StreetsController(dataAccessService as any);
   });
 
   it('returns the nearest streets for a lat/long pair', async () => {

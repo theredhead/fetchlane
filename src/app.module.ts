@@ -8,6 +8,10 @@ import { RequestLoggerMiddleware } from './middleware/request-logger.middleware'
 import { DataAccessService } from './service/data-access.service';
 import { FetchRequestHandlerService } from './service/fetch-request-handler.service';
 import { LoggerService } from './service/logger.service';
+
+/**
+ * Root Nest module for the generic data-access application.
+ */
 @Module({
   imports: [],
   controllers: [
@@ -24,7 +28,8 @@ import { LoggerService } from './service/logger.service';
   ],
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
+  /** Applies request logging middleware to all public controllers. */
+  public configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(RequestLoggerMiddleware)
       .forRoutes(

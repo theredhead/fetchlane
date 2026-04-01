@@ -10,8 +10,11 @@ import { mySqlDatabaseEngine } from './mysql/mysql-engine';
 import { postgresDatabaseEngine } from './postgres/postgres-engine';
 import { sqlServerDatabaseEngine } from './sqlserver/sqlserver-engine';
 
+/** Injection token for the registry of supported database engines. */
 export const DATABASE_ENGINES = Symbol('DATABASE_ENGINES');
+/** Injection token for the engine selected from `DB_URL`. */
 export const ACTIVE_DATABASE_ENGINE = Symbol('ACTIVE_DATABASE_ENGINE');
+/** Injection token for the active database connection. */
 export const DATABASE_CONNECTION = Symbol('DATABASE_CONNECTION');
 
 const supportedDatabaseEngines: readonly DatabaseEngine[] = [
@@ -20,6 +23,7 @@ const supportedDatabaseEngines: readonly DatabaseEngine[] = [
   sqlServerDatabaseEngine,
 ];
 
+/** Nest providers that register and connect the active database engine. */
 export const databaseProviders: Provider[] = [
   {
     provide: DATABASE_ENGINES,

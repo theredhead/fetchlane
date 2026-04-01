@@ -6,6 +6,9 @@ import {
 } from '../database-metadata';
 import { DatabaseEngine } from '../database-engine';
 
+/**
+ * SQL Server-specific SQL and metadata behavior used by the generic data-access layer.
+ */
 export const sqlServerDatabaseEngine: DatabaseEngine = {
   name: 'sqlserver',
   engines: ['sqlserver', 'mssql'],

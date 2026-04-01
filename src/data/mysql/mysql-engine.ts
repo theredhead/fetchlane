@@ -6,6 +6,9 @@ import {
 } from '../database-metadata';
 import { DatabaseEngine } from '../database-engine';
 
+/**
+ * MySQL-specific SQL and metadata behavior used by the generic data-access layer.
+ */
 export const mySqlDatabaseEngine: DatabaseEngine = {
   name: 'mysql',
   engines: ['mysql'],

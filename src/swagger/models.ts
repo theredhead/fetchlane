@@ -1,173 +1,180 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+/** Swagger DTO for the status endpoint response. */
 export class StatusResponseDto {
   @ApiProperty({ example: 'Running' })
-  status: string;
+  public status: string;
 }
 
+/** Swagger DTO for nearest-street results. */
 export class NearestStreetDto {
   @ApiProperty({ example: '0363300000001911' })
-  openbareruimte_id: string;
+  public openbareruimte_id: string;
 
   @ApiProperty({ example: 'Damrak' })
-  straatnaam: string;
+  public straatnaam: string;
 
   @ApiPropertyOptional({ example: '1024', nullable: true })
-  woonplaats_id: string | null;
+  public woonplaats_id: string | null;
 
   @ApiPropertyOptional({ example: 'Amsterdam', nullable: true })
-  woonplaats: string | null;
+  public woonplaats: string | null;
 
   @ApiProperty({ example: 52.370216 })
-  latitude: number;
+  public latitude: number;
 
   @ApiProperty({ example: 4.895168 })
-  longitude: number;
+  public longitude: number;
 
   @ApiProperty({ example: 12.34 })
-  distance_m: number;
+  public distance_m: number;
 }
 
+/** Swagger DTO for geocoding results. */
 export class GeocodedAddressDto {
   @ApiProperty({ example: 'Museumstraat' })
-  straatnaam: string;
+  public straatnaam: string;
 
   @ApiProperty({ example: 1 })
-  huisnummer: number;
+  public huisnummer: number;
 
   @ApiPropertyOptional({ example: null, nullable: true })
-  huisletter: string | null;
+  public huisletter: string | null;
 
   @ApiPropertyOptional({ example: null, nullable: true })
-  huisnummertoevoeging: string | null;
+  public huisnummertoevoeging: string | null;
 
   @ApiPropertyOptional({ example: '1071XX', nullable: true })
-  postcode: string | null;
+  public postcode: string | null;
 
   @ApiPropertyOptional({ example: 'Amsterdam', nullable: true })
-  woonplaats: string | null;
+  public woonplaats: string | null;
 
   @ApiProperty({ example: 52.359942 })
-  latitude: number;
+  public latitude: number;
 
   @ApiProperty({ example: 4.885386 })
-  longitude: number;
+  public longitude: number;
 }
 
+/** Swagger DTO for a single schema column. */
 export class TableSchemaColumnDto {
   @ApiProperty({ example: 1 })
-  ordinal_position: number;
+  public ordinal_position: number;
 
   @ApiProperty({ example: 'id' })
-  column_name: string;
+  public column_name: string;
 
   @ApiProperty({ example: 'integer' })
-  data_type: string;
+  public data_type: string;
 
   @ApiProperty({ example: 'int4' })
-  udt_name: string;
+  public udt_name: string;
 
   @ApiProperty({ example: false })
-  is_nullable: boolean;
+  public is_nullable: boolean;
 
   @ApiPropertyOptional({
     example: 'generated always as identity',
     nullable: true,
   })
-  column_default: string | null;
+  public column_default: string | null;
 
   @ApiProperty({ example: true })
-  is_identity: boolean;
+  public is_identity: boolean;
 
   @ApiPropertyOptional({ example: 'ALWAYS', nullable: true })
-  identity_generation: string | null;
+  public identity_generation: string | null;
 
   @ApiPropertyOptional({ example: 255, nullable: true })
-  character_maximum_length: number | null;
+  public character_maximum_length: number | null;
 
   @ApiPropertyOptional({ example: 32, nullable: true })
-  numeric_precision: number | null;
+  public numeric_precision: number | null;
 
   @ApiPropertyOptional({ example: 0, nullable: true })
-  numeric_scale: number | null;
+  public numeric_scale: number | null;
 }
 
+/** Swagger DTO for a single table constraint. */
 export class TableSchemaConstraintDto {
   @ApiProperty({ example: 'member_pkey' })
-  constraint_name: string;
+  public constraint_name: string;
 
   @ApiProperty({ example: 'PRIMARY KEY' })
-  constraint_type: string;
+  public constraint_type: string;
 
   @ApiProperty({
     example: ['id'],
     type: [String],
   })
-  columns: string[];
+  public columns: string[];
 
   @ApiPropertyOptional({ example: 'public', nullable: true })
-  referenced_table_schema: string | null;
+  public referenced_table_schema: string | null;
 
   @ApiPropertyOptional({ example: 'member_group', nullable: true })
-  referenced_table: string | null;
+  public referenced_table: string | null;
 
   @ApiPropertyOptional({
     example: ['id'],
     type: [String],
   })
-  referenced_columns: string[];
+  public referenced_columns: string[];
 
   @ApiPropertyOptional({ example: 'NO ACTION', nullable: true })
-  update_rule: string | null;
+  public update_rule: string | null;
 
   @ApiPropertyOptional({ example: 'NO ACTION', nullable: true })
-  delete_rule: string | null;
+  public delete_rule: string | null;
 }
 
+/** Swagger DTO for a single table index. */
 export class TableSchemaIndexDto {
   @ApiProperty({ example: 'member_pkey' })
-  index_name: string;
+  public index_name: string;
 
   @ApiProperty({ example: true })
-  is_unique: boolean;
+  public is_unique: boolean;
 
   @ApiProperty({ example: true })
-  is_primary: boolean;
+  public is_primary: boolean;
 
   @ApiProperty({ example: 'btree' })
-  method: string;
+  public method: string;
 
   @ApiPropertyOptional({ example: null, nullable: true })
-  predicate: string | null;
+  public predicate: string | null;
 
   @ApiProperty({
     example: ['id'],
     type: [String],
   })
-  columns: string[];
+  public columns: string[];
 
   @ApiProperty({
     example: 'CREATE UNIQUE INDEX member_pkey ON public.member USING btree (id)',
   })
-  definition: string;
+  public definition: string;
 }
 
+/** Swagger DTO for a full table schema description. */
 export class TableSchemaDescriptionDto {
   @ApiProperty({ example: 'member' })
-  table_name: string;
+  public table_name: string;
 
   @ApiProperty({ example: 'public' })
-  table_schema: string;
+  public table_schema: string;
 
   @ApiProperty({ example: 'BASE TABLE' })
-  table_type: string;
+  public table_type: string;
 
   @ApiProperty({ type: [TableSchemaColumnDto] })
-  columns: TableSchemaColumnDto[];
+  public columns: TableSchemaColumnDto[];
 
   @ApiProperty({ type: [TableSchemaConstraintDto] })
-  constraints: TableSchemaConstraintDto[];
+  public constraints: TableSchemaConstraintDto[];
 
   @ApiProperty({ type: [TableSchemaIndexDto] })
-  indexes: TableSchemaIndexDto[];
+  public indexes: TableSchemaIndexDto[];
 }

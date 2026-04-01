@@ -41,9 +41,10 @@ import { TableSchemaDescriptionDto } from 'src/swagger/models';
 @ApiTags('data-access')
 @Controller('api/data-access')
 export class DataAccessController {
-  constructor(
-    private db: DataAccessService,
-    private fetchRequestHandler: FetchRequestHandlerService,
+  /** Creates the generic data-access controller. */
+  public constructor(
+    private readonly db: DataAccessService,
+    private readonly fetchRequestHandler: FetchRequestHandlerService,
   ) {}
 
   @ApiOperation({
@@ -102,7 +103,8 @@ export class DataAccessController {
     },
   })
   @Post('fetch')
-  async fetch(@Body() request: FetchRequest) {
+  /** Executes a structured fetch request with predicates, sorting, and pagination. */
+  public async fetch(@Body() request: FetchRequest) {
     try {
       return await this.fetchRequestHandler.handleRequest(request);
     } catch (error) {
@@ -132,7 +134,8 @@ export class DataAccessController {
     },
   })
   @Get('table-names')
-  async tableNames(): Promise<any> {
+  /** Lists the tables visible to the active database connection. */
+  public async tableNames(): Promise<any> {
     return await this.db.getTableNames();
   }
 
@@ -148,7 +151,8 @@ export class DataAccessController {
     },
   })
   @Get(':table/info')
-  async tableInfo(@Param('table') table: string): Promise<any> {
+  /** Returns basic column metadata for a table. */
+  public async tableInfo(@Param('table') table: string): Promise<any> {
     return await this.db.tableInfo(table);
   }
 
@@ -164,7 +168,8 @@ export class DataAccessController {
     },
   })
   @Get('table/:table/info')
-  async tableInfoLegacy(@Param('table') table: string): Promise<any> {
+  /** Returns basic column metadata for a table using the legacy route. */
+  public async tableInfoLegacy(@Param('table') table: string): Promise<any> {
     return await this.db.tableInfo(table);
   }
 
@@ -174,7 +179,8 @@ export class DataAccessController {
   @ApiParam({ name: 'table', example: 'member' })
   @ApiOkResponse({ type: TableSchemaDescriptionDto })
   @Get(':table/schema')
-  async describeTable(
+  /** Returns a normalized schema description for a table. */
+  public async describeTable(
     @Param('table') table: string,
   ): Promise<TableSchemaDescription | null> {
     return await this.db.describeTable(table);
@@ -186,7 +192,8 @@ export class DataAccessController {
   @ApiParam({ name: 'table', example: 'member' })
   @ApiOkResponse({ type: TableSchemaDescriptionDto })
   @Get('table/:table/schema')
-  async describeTableLegacy(
+  /** Returns a normalized schema description for a table using the legacy route. */
+  public async describeTableLegacy(
     @Param('table') table: string,
   ): Promise<TableSchemaDescription | null> {
     return await this.db.describeTable(table);
@@ -206,7 +213,8 @@ export class DataAccessController {
     },
   })
   @Get(':table')
-  async index(
+  /** Returns a paginated list of rows from a table. */
+  public async index(
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
     @Query('pageSize') pageSize = 10,
@@ -228,7 +236,8 @@ export class DataAccessController {
     },
   })
   @Get('table/:table')
-  async indexLegacy(
+  /** Returns a paginated list of rows from a table using the legacy route. */
+  public async indexLegacy(
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
     @Query('pageSize') pageSize = 10,
@@ -255,7 +264,8 @@ export class DataAccessController {
     },
   })
   @Post(':table')
-  async createRecord(
+  /** Creates a new record in the target table. */
+  public async createRecord(
     @Param('table') table: string,
     @Body() record: Record,
   ): Promise<Record> {
@@ -272,7 +282,8 @@ export class DataAccessController {
     },
   })
   @Get(':table/record/:id')
-  async getRecordbyId(
+  /** Returns a single record by numeric `id`. */
+  public async getRecordbyId(
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<Record> {
@@ -291,7 +302,8 @@ export class DataAccessController {
     },
   })
   @Get(':table/record/:id/column/:column')
-  async getColumnFromRecordbyId(
+  /** Returns a single column value from a record identified by numeric `id`. */
+  public async getColumnFromRecordbyId(
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
@@ -316,10 +328,11 @@ export class DataAccessController {
     },
   })
   @Patch(':table/record/:id/column/:column')
-  async updateColumnForRecordById(
+  /** Updates a single column on a record identified by numeric `id`. */
+  public async updateColumnForRecordById(
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id,
-    @Param('column') column,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('column') column: string,
     @Body() value: string,
   ): Promise<Record> {
     return await this.db.updateColumnForRecordById(table, id, column, value);
@@ -345,9 +358,10 @@ export class DataAccessController {
     },
   })
   @Put(':table/record/:id')
-  async updateRecord(
+  /** Replaces a record by numeric `id`. */
+  public async updateRecord(
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id,
+    @Param('id', ParseIntPipe) id: number,
     @Body() record: Record,
   ): Promise<Record> {
     return await this.db.update(table, id, record);
@@ -363,9 +377,10 @@ export class DataAccessController {
     },
   })
   @Delete(':table/record/:id')
-  async deleteRecord(
+  /** Deletes a record by numeric `id`. */
+  public async deleteRecord(
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id,
+    @Param('id', ParseIntPipe) id: number,
   ): Promise<Record> {
     return await this.db.delete(table, id);
   }
@@ -415,10 +430,11 @@ export class DataAccessController {
     },
   })
   @Post('tables/:table')
-  async createTable(
+  /** Generates engine-specific SQL for creating a table. */
+  public async createTable(
     @Param('table') table: string,
     @Body() columns: ColumnDescription[],
-  ) {
+  ): Promise<string> {
     return await this.db.createTable(table, columns);
   }
 }

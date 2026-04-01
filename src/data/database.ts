@@ -1,89 +1,71 @@
+/**
+ * Generic row-shaped record returned by the data-access layer.
+ */
 export type Record = { id?: number; [column: string]: any };
+
+/**
+ * Result of executing a SQL statement through a database adapter.
+ */
 export interface RecordSet {
+  /** Driver-specific metadata such as affected row counts. */
   info?: any;
+  /** Driver-specific field metadata when available. */
   fields?: any[];
+  /** Rows returned by the statement. */
   rows: Record[];
 }
+
 /**
- * Defines an object that can perform a set of common database operations
+ * Defines the common CRUD and execution operations supported by database adapters.
  */
 export interface Database {
   /**
-   * Insert a record into a table
-   *
-   * @param table
-   * @param record the record after insert
+   * Inserts a record into a table and returns the stored row.
    */
   insert(table: string, record: Record): Promise<Record>;
 
   /**
-   * update a record in a table
-   *
-   * @param table
-   * @param record the record after the update
+   * Updates a record in a table and returns the stored row.
    */
   update(table: string, record: Record): Promise<Record>;
 
   /**
-   * delete a record from a table
-   *
-   * @param table
-   * @param id
-   * @return the deleted record
+   * Deletes a record from a table and returns the deleted row.
    */
   delete(table: string, id: number): Promise<Record>;
 
   /**
-   * select records from a table
-   *
-   * @param table
-   * @param where
-   * @param args
+   * Selects rows from a table with an optional SQL suffix and bound arguments.
    */
   select(table: string, where: string, args: any[]): Promise<RecordSet>;
 
   /**
-   * select a single record from a table
-   *
-   * @param table
-   * @param where
-   * @param args
+   * Selects a single row from a table.
    */
   selectSingle(table: string, where: string, args: any[]): Promise<Record>;
 
   /**
-   * execute a statement, returning a RecordSet
-   *
-   * @param staement
-   * @param args
+   * Executes a SQL statement and returns the full result set.
    */
-  execute(staement: string, args: any[]): Promise<RecordSet>;
+  execute(statement: string, args: any[]): Promise<RecordSet>;
 
   /**
-   * Execute a statement, returning a single row data
-   *
-   * @param staement
-   * @param args
+   * Executes a SQL statement and returns the first row.
    */
   executeSingle<T>(statement: string, args: any[]): Promise<T>;
 
   /**
-   * Execute a statement, returning a single scalar piece of data (first column of first row)
-   *
-   * @param staement
-   * @param args
+   * Executes a SQL statement and returns the first column of the first row.
    */
-  executeScalar<T>(staement: string, args: any[]): Promise<T>;
+  executeScalar<T>(statement: string, args: any[]): Promise<T>;
 
   /**
-   * Determine if a table exists
-   *
-   * @param tableName
+   * Determines whether a table exists in the current database.
    */
-  tableExists(tableName): Promise<boolean>;
+  tableExists(tableName: string): Promise<boolean>;
 
   /**
-   * releases all resources
+   * Releases any pooled or open database resources.
    */
   release(): void;
 }

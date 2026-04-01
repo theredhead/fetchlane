@@ -6,16 +6,25 @@ import { FetchRequestSQLWriter } from '../data/fetch-request';
 import { ACTIVE_DATABASE_ENGINE } from '../data/database.providers';
 import { DataAccessService } from './data-access.service';
 
+/**
+ * Typed response wrapper returned by the fetch request handler.
+ */
 export interface FetchResponse<T extends Record> extends RecordSet {
   rows: T[];
 }
 
 @Injectable()
+/**
+ * Executes structured fetch requests by translating them into engine-specific SQL.
+ */
 export class FetchRequestHandlerService {
-  private writer: FetchRequestSQLWriter;
+  private readonly writer: FetchRequestSQLWriter;
 
-  constructor(
-    private db: DataAccessService,
+  /**
+   * Creates the handler that turns structured fetch requests into engine-specific SQL.
+   */
+  public constructor(
+    private readonly db: DataAccessService,
     @Inject(ACTIVE_DATABASE_ENGINE) engine: DatabaseEngine,
   ) {
     this.writer = new FetchRequestSQLWriter(
@@ -25,7 +34,8 @@ export class FetchRequestHandlerService {
     );
   }
 
-  async handleRequest<T extends Record>(
+  /** Executes a structured fetch request and returns the typed result set. */
+  public async handleRequest<T extends Record>(
     request: FetchRequest,
   ): Promise<FetchResponse<T>> {
     const cmd = this.writer.write(request);

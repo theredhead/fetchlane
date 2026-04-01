@@ -4,6 +4,27 @@ A generic NestJS API for browsing table data, describing schemas, and exposing d
 
 Swagger UI is available at `http://localhost:3000/api/docs` when the app is running.
 
+## API documentation
+
+This project exposes two kinds of docs:
+
+- Swagger UI for the HTTP API at `http://localhost:3000/api/docs`
+- TypeDoc for the TypeScript API surface in `docs/api`
+
+Generate the TypeDoc site with:
+
+```bash
+npm run docs:api
+```
+
+To rebuild docs automatically while editing:
+
+```bash
+npm run docs:api:watch
+```
+
+Generated TypeDoc output is gitignored.
+
 ## Environment setup
 
 This project now loads a local `.env` file automatically at startup.

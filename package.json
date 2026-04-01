@@ -22,7 +22,9 @@
     "test:integration": "vitest run --project integration",
     "test:integration:postgres": "vitest run --project integration integrationtests/postgres-database.spec.ts",
     "test:integration:mysql": "vitest run --project integration integrationtests/mysql-database.spec.ts",
-    "test:integration:sqlserver": "vitest run --project integration integrationtests/sqlserver-database.spec.ts"
+    "test:integration:sqlserver": "vitest run --project integration integrationtests/sqlserver-database.spec.ts",
+    "docs:api": "typedoc --options typedoc.json",
+    "docs:api:watch": "typedoc --options typedoc.json --watch"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -48,6 +50,7 @@
     "@types/supertest": "^6.0.0",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.0.0",
@@ -57,6 +60,7 @@
     "ts-loader": "^9.5.0",
     "ts-node": "^10.9.0",
     "tsconfig-paths": "^4.2.0",
+    "typedoc": "^0.28.18",
     "typescript": "^5.7.0",
     "unplugin-swc": "^1.5.0",
     "vitest": "^3.0.0"

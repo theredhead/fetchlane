@@ -3,6 +3,19 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: [
+        'integrationtests/**',
+        'test/**',
+        'vitest*.config.ts',
+        'src/data/database.ts',
+        'src/data/database-metadata.ts',
+        'src/data/fetch-predicate.types.ts',
+        'src/types/**',
+      ],
+    },
     projects: [
       {
         test: {

@@ -6,20 +6,28 @@ import {
 } from '../location-database';
 import { Pool, PoolConfig, QueryResult } from 'pg';
 
+/**
+ * PostgreSQL implementation of the generic database contract with PostGIS helpers.
+ */
 export class PostgresDatabase implements Database, LocationDatabase {
   private readonly pool: Pool;
 
-  constructor(private config: PoolConfig) {
+  /**
+   * Creates a pooled PostgreSQL connection wrapper.
+   */
+  public constructor(private readonly config: PoolConfig) {
     this.pool = new Pool(this.config);
   }
 
-  quoteObjectName = (name: string): string => ['"', name, '"'].join('');
+  /** Quotes a table or column name using PostgreSQL identifier rules. */
+  public quoteObjectName = (name: string): string => ['"', name, '"'].join('');
 
   private isCommandResult(result: QueryResult): boolean {
     return result.command !== 'SELECT' && result.rowCount != null;
   }
 
-  async insert(table: string, record: Record): Promise<Record> {
+  /** @inheritdoc */
+  public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteObjectName(table);
     const data: any = { ...record };
     delete data.id;
@@ -35,7 +43,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     return await this.selectSingle(table, 'WHERE id=$1', [insertedId]);
   }
 
-  async update(table: string, record: Record): Promise<Record> {
+  /** @inheritdoc */
+  public async update(table: string, record: Record): Promise<Record> {
     const id = record.id;
     const data: any = { ...record };
     delete data.id;
@@ -49,14 +58,16 @@ export class PostgresDatabase implements Database, LocationDatabase {
     return await this.selectSingle(table, 'WHERE id=$1', [id]);
   }
 
-  async delete(table: string, id: number): Promise<Record> {
+  /** @inheritdoc */
+  public async delete(table: string, id: number): Promise<Record> {
     const quotedTableName = this.quoteObjectName(table);
     const record = await this.selectSingle(table, 'WHERE id=$1', [id]);
     await this.execute(`DELETE FROM ${quotedTableName} WHERE id=$1`, [id]);
     return record;
   }
 
-  async select(
+  /** @inheritdoc */
+  public async select(
     table: string,
     additional = '',
     args: any[] = [],
@@ -68,7 +79,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     );
   }
 
-  async selectSingle(
+  /** @inheritdoc */
+  public async selectSingle(
     table: string,
     additional: string,
     args: any[],
@@ -81,7 +93,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     return result.rows.shift();
   }
 
-  async execute(statement: string, args: any[] = []): Promise<RecordSet> {
+  /** @inheritdoc */
+  public async execute(statement: string, args: any[] = []): Promise<RecordSet> {
     const client = await this.pool.connect();
     try {
       const pgResult = await client.query(statement, args);
@@ -110,19 +123,28 @@ export class PostgresDatabase implements Database, LocationDatabase {
     }
   }
 
-  async executeSingle<T>(statement: string, args: any[] = []): Promise<T> {
+  /** @inheritdoc */
+  public async executeSingle<T>(
+    statement: string,
+    args: any[] = [],
+  ): Promise<T> {
     const result = (await this.execute(statement, args)).rows;
     return <T>(<any[]>result).shift();
   }
 
-  async executeScalar<T>(statement: string, args: any[] = []): Promise<T> {
+  /** @inheritdoc */
+  public async executeScalar<T>(
+    statement: string,
+    args: any[] = [],
+  ): Promise<T> {
     const result = await this.executeSingle(statement, args);
     const key = Object.keys(result).shift();
     const scalar = (<any>result)[key];
     return <T>(<unknown>scalar);
   }
 
-  async tableExists(tableName: string): Promise<boolean> {
+  /** @inheritdoc */
+  public async tableExists(tableName: string): Promise<boolean> {
     const count = await this.executeScalar<string>(
       `SELECT COUNT(*)::int FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1`,
       [tableName],
@@ -130,7 +152,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     return Number(count) === 1;
   }
 
-  async nearestStreets(
+  /** @inheritdoc */
+  public async nearestStreets(
     latitude: number,
     longitude: number,
   ): Promise<NearestStreet[]> {
@@ -246,7 +269,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     }));
   }
 
-  async geocodeByAddress(
+  /** @inheritdoc */
+  public async geocodeByAddress(
     street: string,
     houseNumber: number,
     city: string,
@@ -302,7 +326,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     return data.rows.map(mapGeocodedAddress);
   }
 
-  async geocodeByPostcode(
+  /** @inheritdoc */
+  public async geocodeByPostcode(
     postcode: string,
     houseNumber: number,
   ): Promise<GeocodedAddress[]> {
@@ -357,7 +382,8 @@ export class PostgresDatabase implements Database, LocationDatabase {
     return data.rows.map(mapGeocodedAddress);
   }
 
-  release(): void {
+  /** @inheritdoc */
+  public release(): void {
     this.pool.end();
   }
 }

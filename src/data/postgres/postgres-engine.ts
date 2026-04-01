@@ -6,6 +6,9 @@ import {
 } from '../database-metadata';
 import { DatabaseEngine } from '../database-engine';
 
+/**
+ * PostgreSQL-specific SQL and metadata behavior used by the generic data-access layer.
+ */
 export const postgresDatabaseEngine: DatabaseEngine = {
   name: 'postgres',
   engines: ['postgres', 'postgresql'],

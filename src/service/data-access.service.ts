@@ -17,26 +17,38 @@ import {
 } from '../data/database.providers';
 
 @Injectable()
+/**
+ * High-level facade over the active database connection and engine behavior.
+ */
 export class DataAccessService {
-  constructor(
+  /**
+   * Creates the high-level data-access facade for the active database engine.
+   */
+  public constructor(
     @Inject(DATABASE_CONNECTION) private readonly db: Database,
     @Inject(ACTIVE_DATABASE_ENGINE)
     private readonly engine: DatabaseEngine,
   ) {}
 
-  async getTableNames(): Promise<any[]> {
+  /** Lists the tables exposed by the active engine. */
+  public async getTableNames(): Promise<any[]> {
     return await this.engine.getTableNames(this.db);
   }
 
-  async tableInfo(table: string): Promise<any> {
+  /** Returns basic column metadata for a table. */
+  public async tableInfo(table: string): Promise<any> {
     return await this.engine.getTableInfo(this.db, table);
   }
 
-  async describeTable(table: string): Promise<TableSchemaDescription | null> {
+  /** Returns normalized schema metadata for a table. */
+  public async describeTable(
+    table: string,
+  ): Promise<TableSchemaDescription | null> {
     return await this.engine.describeTable(this.db, table);
   }
 
-  async index(
+  /** Returns a paginated list of rows from a table. */
+  public async index(
     table: string,
     pageIndex = 0,
     pageSize = 1000,
@@ -52,7 +64,8 @@ export class DataAccessService {
     return data.rows;
   }
 
-  async selectSingleById(table: string, id: number): Promise<Record> {
+  /** Looks up a single row by numeric `id`. */
+  public async selectSingleById(table: string, id: number): Promise<Record> {
     return await this.db.selectSingle(
       table,
       `WHERE id=${this.engine.parameter(1)}`,
@@ -60,19 +73,27 @@ export class DataAccessService {
     );
   }
 
-  async insert(table: string, record: Record): Promise<Record> {
+  /** Inserts a row into a table. */
+  public async insert(table: string, record: Record): Promise<Record> {
     return await this.db.insert(table, record);
   }
 
-  async update(table: string, id: number, record: Record): Promise<Record> {
+  /** Replaces a row in a table by numeric `id`. */
+  public async update(
+    table: string,
+    id: number,
+    record: Record,
+  ): Promise<Record> {
     return await this.db.update(table, { ...record, id });
   }
 
-  async delete(table: string, id: number): Promise<Record> {
+  /** Deletes a row from a table by numeric `id`. */
+  public async delete(table: string, id: number): Promise<Record> {
     return await this.db.delete(table, id);
   }
 
-  async getColumnFromRecordbyId(
+  /** Returns a single column value from a row identified by numeric `id`. */
+  public async getColumnFromRecordbyId(
     table: string,
     id: number,
     column: string,
@@ -85,7 +106,8 @@ export class DataAccessService {
     return record[column] ?? null;
   }
 
-  async updateColumnForRecordById(
+  /** Updates a single column on a row identified by numeric `id`. */
+  public async updateColumnForRecordById(
     table: string,
     id: number,
     column: string,
@@ -95,22 +117,26 @@ export class DataAccessService {
     return await this.db.update(table, { ...record, id });
   }
 
-  async createTable(table: string, columns: ColumnDescription[]) {
+  /** Generates engine-specific `CREATE TABLE` SQL for a proposed schema. */
+  public async createTable(table: string, columns: ColumnDescription[]) {
     return this.engine.createTableSql(table, columns);
   }
 
-  async execute(text: string, args: any[]) {
+  /** Executes raw SQL against the active connection. */
+  public async execute(text: string, args: any[]) {
     return this.db.execute(text, args);
   }
 
-  async nearestStreets(
+  /** Returns the nearest BAG streets for a latitude/longitude pair. */
+  public async nearestStreets(
     latitude: number,
     longitude: number,
   ): Promise<NearestStreet[]> {
     return await this.getLocationDatabase().nearestStreets(latitude, longitude);
   }
 
-  async geocodeByAddress(
+  /** Geocodes a street, house number, and city. */
+  public async geocodeByAddress(
     street: string,
     houseNumber: number,
     city: string,
@@ -122,7 +148,8 @@ export class DataAccessService {
     );
   }
 
-  async geocodeByPostcode(
+  /** Geocodes a postcode and house number. */
+  public async geocodeByPostcode(
     postcode: string,
     houseNumber: number,
   ): Promise<GeocodedAddress[]> {

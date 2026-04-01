@@ -4,16 +4,26 @@ import {
   Sort,
 } from './fetch-predicate.types';
 
+/**
+ * Creates a fluent builder for a fetch request targeting the given table.
+ */
 export function from(table: string): FetchRequestBuilder {
   return new FetchRequestBuilder(table);
 }
 
-interface WhereClause {
+/**
+ * Raw predicate fragment that can be appended to a fetch request.
+ */
+export interface WhereClause {
   text: string;
   args: any;
 }
 
+/**
+ * Fluent builder for constructing `FetchRequest` payloads.
+ */
 export class FetchRequestBuilder {
+  /** Mutable request object assembled by the builder. */
   public readonly request: FetchRequest = {
     table: '',
     predicates: [],
@@ -24,13 +34,18 @@ export class FetchRequestBuilder {
     },
   };
 
-  constructor(table: string) {
+  /**
+   * Creates a new builder for the supplied table.
+   */
+  public constructor(table: string) {
     this.request.table = table;
   }
   //#region where
-  where(where: WhereClause[]): FetchRequestBuilder;
-  where(text: string, ...args: any[]): FetchRequestBuilder;
-  where(...args: any[]): FetchRequestBuilder {
+  /** Adds a simple SQL predicate or a batch of prebuilt where clauses. */
+  public where(where: WhereClause[]): FetchRequestBuilder;
+  /** Adds a simple SQL predicate or a batch of prebuilt where clauses. */
+  public where(text: string, ...args: any[]): FetchRequestBuilder;
+  public where(...args: any[]): FetchRequestBuilder {
     if (args.length === 1) {
       return this._whereByAddingWhereClauseArray(args[0]);
     }
@@ -51,19 +66,26 @@ export class FetchRequestBuilder {
   }
   //#endregion where
   //#region whereAnd/Or
-  whereAnd(predicates: FetchSimplePredicteClause[]) {
+  /** Groups predicates with `AND`. */
+  public whereAnd(predicates: FetchSimplePredicteClause[]) {
     this.request.predicates.push({ type: 'AND', predicates });
     return this;
   }
-  whereOr(predicates: FetchSimplePredicteClause[]) {
+  /** Groups predicates with `OR`. */
+  public whereOr(predicates: FetchSimplePredicteClause[]) {
     this.request.predicates.push({ type: 'OR', predicates });
     return this;
   }
   //#endregion whereAnd/Or
   //#region orderBy
-  orderBy(clauses: Sort): FetchRequestBuilder;
-  orderBy(column: string, direction: 'ASC' | 'DESC'): FetchRequestBuilder;
-  orderBy(...args: any[]): FetchRequestBuilder {
+  /** Replaces or appends sort definitions for the fetch request. */
+  public orderBy(clauses: Sort): FetchRequestBuilder;
+  /** Replaces or appends sort definitions for the fetch request. */
+  public orderBy(
+    column: string,
+    direction: 'ASC' | 'DESC',
+  ): FetchRequestBuilder;
+  public orderBy(...args: any[]): FetchRequestBuilder {
     if (args.length === 1 && Array.isArray(args[0])) {
       return this._orderBySortClausesArray(args[0]);
     }
@@ -82,7 +104,11 @@ export class FetchRequestBuilder {
   }
   //#endregion orderBy
   //#region paginate
-  paginate(pageSize: number, pageIndex: number = 0): FetchRequestBuilder {
+  /** Applies zero-based pagination to the request. */
+  public paginate(
+    pageSize: number,
+    pageIndex: number = 0,
+  ): FetchRequestBuilder {
     this.request.pagination.size = pageSize;
     this.request.pagination.index = pageIndex;
     return this;

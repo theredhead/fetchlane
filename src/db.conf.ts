@@ -1,12 +1,24 @@
+/**
+ * Parsed connection details extracted from the `DB_URL` environment variable.
+ */
 export interface ParsedDatabaseUrl {
+  /** Database engine or protocol name, such as `postgres` or `mysql`. */
   engine: string;
+  /** Username used to authenticate with the database server. */
   user: string;
+  /** Password used to authenticate with the database server. */
   password: string;
+  /** Hostname or IP address of the database server. */
   host: string;
+  /** Optional TCP port for the database server. */
   port?: number;
+  /** Database or catalog name selected by the connection URL. */
   database: string;
 }
 
+/**
+ * Parses a database connection URL into a structured configuration object.
+ */
 export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   let url: URL;
   try {
@@ -55,6 +67,9 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   };
 }
 
+/**
+ * Reads and parses the database connection URL from `DB_URL`.
+ */
 export function readDatabaseUrlFromEnvironment(): ParsedDatabaseUrl {
   const rawDatabaseUrl = process.env.DB_URL;
   if (!rawDatabaseUrl) {

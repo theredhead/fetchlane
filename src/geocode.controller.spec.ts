@@ -1,6 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { GeocodeController } from './controllers/geocode.controller';
-import { DataAccessService } from './service/data-access.service';
 
 describe('GeocodeController', () => {
   let controller: GeocodeController;
@@ -9,20 +7,9 @@ describe('GeocodeController', () => {
     geocodeByPostcode: vi.fn(),
   };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    const app: TestingModule = await Test.createTestingModule({
-      controllers: [GeocodeController],
-      providers: [
-        {
-          provide: DataAccessService,
-          useValue: dataAccessService,
-        },
-      ],
-    }).compile();
-
-    controller = app.get<GeocodeController>(GeocodeController);
+    controller = new GeocodeController(dataAccessService as any);
   });
 
   it('returns coordinates for a street, house number, and city', async () => {

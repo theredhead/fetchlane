@@ -1,14 +1,22 @@
 import { createRequire } from 'node:module';
 import { Database, Record, RecordSet } from '../database';
 
+/**
+ * SQL Server implementation of the generic database contract.
+ */
 export class SqlServerDatabase implements Database {
   private poolPromise: Promise<any> | null = null;
 
-  constructor(private readonly config: any) {}
+  /**
+   * Creates a pooled SQL Server connection wrapper.
+   */
+  public constructor(private readonly config: any) {}
 
-  quoteObjectName = (name: string): string => ['[', name, ']'].join('');
+  /** Quotes a table or column name using SQL Server identifier rules. */
+  public quoteObjectName = (name: string): string => ['[', name, ']'].join('');
 
-  async insert(table: string, record: Record): Promise<Record> {
+  /** @inheritdoc */
+  public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteObjectName(table);
     const data: any = { ...record };
     delete data.id;
@@ -28,7 +36,8 @@ export class SqlServerDatabase implements Database {
     return await this.selectSingle(table, 'WHERE id=@p1', [insertedId]);
   }
 
-  async update(table: string, record: Record): Promise<Record> {
+  /** @inheritdoc */
+  public async update(table: string, record: Record): Promise<Record> {
     const id = record.id;
     const data: any = { ...record };
     delete data.id;
@@ -43,14 +52,16 @@ export class SqlServerDatabase implements Database {
     return await this.selectSingle(table, 'WHERE id=@p1', [id]);
   }
 
-  async delete(table: string, id: number): Promise<Record> {
+  /** @inheritdoc */
+  public async delete(table: string, id: number): Promise<Record> {
     const quotedTableName = this.quoteObjectName(table);
     const record = await this.selectSingle(table, 'WHERE id=@p1', [id]);
     await this.execute(`DELETE FROM ${quotedTableName} WHERE id=@p1`, [id]);
     return record;
   }
 
-  async select(
+  /** @inheritdoc */
+  public async select(
     table: string,
     additional = '',
     args: any[] = [],
@@ -62,7 +73,8 @@ export class SqlServerDatabase implements Database {
     );
   }
 
-  async selectSingle(
+  /** @inheritdoc */
+  public async selectSingle(
     table: string,
     additional: string,
     args: any[],
@@ -75,7 +87,8 @@ export class SqlServerDatabase implements Database {
     return result.rows.shift();
   }
 
-  async execute(statement: string, args: any[] = []): Promise<RecordSet> {
+  /** @inheritdoc */
+  public async execute(statement: string, args: any[] = []): Promise<RecordSet> {
     const pool = await this.getPool();
     const request = pool.request();
 
@@ -101,18 +114,27 @@ export class SqlServerDatabase implements Database {
     };
   }
 
-  async executeSingle<T>(statement: string, args: any[] = []): Promise<T> {
+  /** @inheritdoc */
+  public async executeSingle<T>(
+    statement: string,
+    args: any[] = [],
+  ): Promise<T> {
     const result = (await this.execute(statement, args)).rows;
     return result.shift() as T;
   }
 
-  async executeScalar<T>(statement: string, args: any[] = []): Promise<T> {
+  /** @inheritdoc */
+  public async executeScalar<T>(
+    statement: string,
+    args: any[] = [],
+  ): Promise<T> {
     const result = await this.executeSingle<Record>(statement, args);
     const key = Object.keys(result).shift();
     return result[key as keyof Record] as T;
   }
 
-  async tableExists(tableName: string): Promise<boolean> {
+  /** @inheritdoc */
+  public async tableExists(tableName: string): Promise<boolean> {
     const count = await this.executeScalar<number>(
       `
       SELECT COUNT(*) AS count
@@ -126,7 +148,8 @@ export class SqlServerDatabase implements Database {
     return Number(count) === 1;
   }
 
-  release(): void {
+  /** @inheritdoc */
+  public release(): void {
     if (!this.poolPromise) {
       return;
     }
@@ -164,6 +187,9 @@ export class SqlServerDatabase implements Database {
   }
 }
 
+/**
+ * Loads the optional SQL Server driver module and normalizes its export shape.
+ */
 async function loadSqlServerModule(): Promise<any> {
   try {
     const moduleNamespace = await loadOptionalModule('mssql');
@@ -192,11 +218,17 @@ async function loadSqlServerModule(): Promise<any> {
   }
 }
 
+/**
+ * Loads an optional dependency using Node's CommonJS resolver.
+ */
 async function loadOptionalModule(moduleName: string): Promise<any> {
   const require = createRequire(__filename);
   return require(moduleName);
 }
 
+/**
+ * Detects whether a driver load failure was caused by a missing module.
+ */
 function isMissingModuleError(error: unknown, moduleName: string): boolean {
   if (!(error instanceof Error)) {
     return false;

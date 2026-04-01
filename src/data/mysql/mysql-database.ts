@@ -3,10 +3,16 @@ import { Database, Record, RecordSet } from './../database';
 
 /** @format */
 
+/**
+ * MySQL implementation of the generic database contract.
+ */
 export class MySqlDatabase implements Database {
   private readonly pool: mysql2.Pool;
 
-  constructor(private config: any) {
+  /**
+   * Creates a pooled MySQL connection wrapper.
+   */
+  public constructor(private readonly config: any) {
     this.pool = mysql2.createPool({
       ...this.config,
       multipleStatements: true,
@@ -33,9 +39,11 @@ export class MySqlDatabase implements Database {
     return matches > 2;
   }
 
-  quoteObjectName = (name: string): string => ['`', name, '`'].join('');
+  /** Quotes a table or column name using MySQL identifier rules. */
+  public quoteObjectName = (name: string): string => ['`', name, '`'].join('');
 
-  async insert(table: string, record: Record): Promise<Record> {
+  /** @inheritdoc */
+  public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteObjectName(table);
     const data: any = { ...record };
     delete data.id;
@@ -53,7 +61,8 @@ export class MySqlDatabase implements Database {
     return await this.selectSingle(table, 'WHERE id=?', [result.info.insertId]);
   }
 
-  async update(table: string, record: Record): Promise<Record> {
+  /** @inheritdoc */
+  public async update(table: string, record: Record): Promise<Record> {
     const id = record.id;
     const data: any = { ...record };
     delete data.id;
@@ -66,14 +75,16 @@ export class MySqlDatabase implements Database {
     return await this.selectSingle(table, 'WHERE id=?', [id]);
   }
 
-  async delete(table: string, id: number): Promise<Record> {
+  /** @inheritdoc */
+  public async delete(table: string, id: number): Promise<Record> {
     const quotedTableName = this.quoteObjectName(table);
     const record = await this.selectSingle(table, 'WHERE id=?', [id]);
     await this.execute(`DELETE FROM ${quotedTableName} WHERE id=?`, [id]);
     return record;
   }
 
-  async select(
+  /** @inheritdoc */
+  public async select(
     table: string,
     additional = '',
     args: any[] = [],
@@ -86,7 +97,8 @@ export class MySqlDatabase implements Database {
     return result;
   }
 
-  async selectSingle(
+  /** @inheritdoc */
+  public async selectSingle(
     table: string,
     additional: string,
     args: any[],
@@ -99,7 +111,8 @@ export class MySqlDatabase implements Database {
     return result.rows.shift();
   }
 
-  async execute(statement: string, args: any[] = []): Promise<RecordSet> {
+  /** @inheritdoc */
+  public async execute(statement: string, args: any[] = []): Promise<RecordSet> {
     return new Promise((resolve, reject) => {
       this.pool.getConnection((cnErr, cn) => {
         if (cnErr || !cn) {
@@ -154,19 +167,25 @@ export class MySqlDatabase implements Database {
     });
   }
 
-  async executeSingle<T>(statement: string, args: any[] = []): Promise<T> {
+  /** @inheritdoc */
+  public async executeSingle<T>(statement: string, args: any[] = []): Promise<T> {
     const result = await (await this.execute(statement, args)).rows;
     return <T>(<any[]>result).shift();
   }
 
-  async executeScalar<T>(statement: string, args: any[] = []): Promise<T> {
+  /** @inheritdoc */
+  public async executeScalar<T>(
+    statement: string,
+    args: any[] = [],
+  ): Promise<T> {
     const result = await this.executeSingle(statement, args);
     const key = Object.keys(result).shift();
     const scalar = (<any>result)[key]; //[0];
     return <T>(<unknown>scalar);
   }
 
-  async tableExists(tableName): Promise<boolean> {
+  /** @inheritdoc */
+  public async tableExists(tableName: string): Promise<boolean> {
     const count = await this.executeScalar<number>(
       'SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?',
       [tableName],
@@ -174,7 +193,8 @@ export class MySqlDatabase implements Database {
     return count === 1;
   }
 
-  release(): void {
+  /** @inheritdoc */
+  public release(): void {
     void this.pool.end();
   }
 }
