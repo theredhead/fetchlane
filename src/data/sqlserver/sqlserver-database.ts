@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { ParsedDatabaseUrl } from '../../db.conf';
+import { formatDeveloperError } from '../../errors/api-error';
 import {
   DatabaseAdapter,
   Record,
@@ -524,7 +525,10 @@ async function loadSqlServerModule(): Promise<any> {
 
     if (!sqlServerModule?.ConnectionPool) {
       throw new Error(
-        'The "mssql" package loaded successfully, but it did not expose ConnectionPool as expected.',
+        formatDeveloperError(
+          'The SQL Server driver "mssql" did not expose ConnectionPool as expected.',
+          'Reinstall the "mssql" package and make sure the installed version matches the supported API surface.',
+        ),
       );
     }
 
@@ -532,7 +536,10 @@ async function loadSqlServerModule(): Promise<any> {
   } catch (error) {
     if (isMissingModuleError(error, 'mssql')) {
       throw new Error(
-        'SQL Server support requires the optional dependency "mssql". Install it with `npm install mssql`.',
+        formatDeveloperError(
+          'SQL Server support requires the optional dependency "mssql".',
+          'Install it with `npm install mssql` and restart the service.',
+        ),
       );
     }
 
@@ -541,7 +548,13 @@ async function loadSqlServerModule(): Promise<any> {
         ? error.message
         : 'Unknown SQL Server driver load failure.';
 
-    throw new Error(`Failed to load the SQL Server driver "mssql": ${message}`);
+    throw new Error(
+      formatDeveloperError(
+        'Failed to load the SQL Server driver "mssql".',
+        'Check that the "mssql" package is installed correctly and that Node can resolve it from this project.',
+        message,
+      ),
+    );
   }
 }
 

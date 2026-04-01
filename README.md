@@ -190,6 +190,23 @@ Named-parameter example:
 
 For practical examples that go from basic table browsing to grouped business filters, see [docs/fetchrequest-examples.md](docs/fetchrequest-examples.md).
 
+## Error Responses
+
+Fetchlane returns structured API errors with a developer hint:
+
+```json
+{
+  "statusCode": 400,
+  "error": "Bad Request",
+  "message": "Query parameter \"pageSize\" must be an integer between 1 and 1000.",
+  "hint": "Choose a page size from 1 to 1000 so the API can paginate safely.",
+  "path": "/api/data-access/member?pageSize=5000",
+  "timestamp": "2026-04-02T00:00:00.000Z"
+}
+```
+
+The goal is that validation errors, not-found cases, unsupported engine capabilities, and translated database failures all tell you both what went wrong and how to fix it.
+
 ## Documentation
 
 Fetchlane ships with two documentation surfaces:

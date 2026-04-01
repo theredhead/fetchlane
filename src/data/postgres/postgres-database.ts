@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { ParsedDatabaseUrl } from '../../db.conf';
+import { formatDeveloperError } from '../../errors/api-error';
 import {
   DatabaseAdapter,
   Record,
@@ -499,7 +500,10 @@ async function loadPostgresModule(): Promise<any> {
 
     if (!pgModule?.Pool) {
       throw new Error(
-        'The "pg" package loaded successfully, but it did not expose Pool as expected.',
+        formatDeveloperError(
+          'The PostgreSQL driver "pg" did not expose Pool as expected.',
+          'Reinstall the "pg" package and make sure the installed version matches the supported API surface.',
+        ),
       );
     }
 
@@ -507,7 +511,10 @@ async function loadPostgresModule(): Promise<any> {
   } catch (error) {
     if (isMissingModuleError(error, 'pg')) {
       throw new Error(
-        'PostgreSQL support requires the optional dependency "pg". Install it with `npm install pg`.',
+        formatDeveloperError(
+          'PostgreSQL support requires the optional dependency "pg".',
+          'Install it with `npm install pg` and restart the service.',
+        ),
       );
     }
 
@@ -516,7 +523,13 @@ async function loadPostgresModule(): Promise<any> {
         ? error.message
         : 'Unknown PostgreSQL driver load failure.';
 
-    throw new Error(`Failed to load the PostgreSQL driver "pg": ${message}`);
+    throw new Error(
+      formatDeveloperError(
+        'Failed to load the PostgreSQL driver "pg".',
+        'Check that the "pg" package is installed correctly and that Node can resolve it from this project.',
+        message,
+      ),
+    );
   }
 }
 

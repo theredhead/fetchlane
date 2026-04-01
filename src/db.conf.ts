@@ -1,3 +1,5 @@
+import { formatDeveloperError } from './errors/api-error';
+
 /**
  * Parsed connection details extracted from the `DB_URL` environment variable.
  */
@@ -25,36 +27,60 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
     url = new URL(value);
   } catch {
     throw new Error(
-      `Invalid database URL "${value}". Expected format: <engine>://<user>:<password>@<host>:<port?>/<database>`,
+      formatDeveloperError(
+        'Invalid DB_URL format.',
+        'Use the format <engine>://<user>:<password>@<host>:<port?>/<database>.',
+      ),
     );
   }
 
   const engine = normalizeEngine(url.protocol);
   if (!engine) {
     throw new Error(
-      `Invalid database URL "${value}". Missing database engine in protocol.`,
+      formatDeveloperError(
+        'Invalid DB_URL: missing database engine in the protocol.',
+        'Start DB_URL with a supported scheme such as postgres://, mysql://, or sqlserver://.',
+      ),
     );
   }
 
   const database = url.pathname.replace(/^\/+/, '');
   if (!database) {
     throw new Error(
-      `Invalid database URL "${value}". Missing database name in path.`,
+      formatDeveloperError(
+        'Invalid DB_URL: missing database name in the path.',
+        'Append the target database name after the host and optional port, for example /northwind.',
+      ),
     );
   }
 
   const user = url.username ? decodeURIComponent(url.username) : '';
   if (!user) {
-    throw new Error(`Invalid database URL "${value}". Missing username.`);
+    throw new Error(
+      formatDeveloperError(
+        'Invalid DB_URL: missing username.',
+        'Provide credentials in the URL, for example postgres://user:password@host:5432/database.',
+      ),
+    );
   }
 
   const password = url.password ? decodeURIComponent(url.password) : '';
   if (!password) {
-    throw new Error(`Invalid database URL "${value}". Missing password.`);
+    throw new Error(
+      formatDeveloperError(
+        'Invalid DB_URL: missing password.',
+        'Provide credentials in the URL, for example postgres://user:password@host:5432/database.',
+      ),
+    );
   }
 
   if (!url.hostname) {
-    throw new Error(`Invalid database URL "${value}". Missing host.`);
+    throw new Error(
+      formatDeveloperError(
+        'Invalid DB_URL: missing host.',
+        'Add a hostname or IP address after the credentials, for example @127.0.0.1:5432/database.',
+      ),
+    );
   }
 
   return {
@@ -74,7 +100,10 @@ export function readDatabaseUrlFromEnvironment(): ParsedDatabaseUrl {
   const rawDatabaseUrl = process.env.DB_URL;
   if (!rawDatabaseUrl) {
     throw new Error(
-      'Missing DB_URL. Expected format: <engine>://<user>:<password>@<host>:<port?>/<database>',
+      formatDeveloperError(
+        'Missing DB_URL.',
+        'Create a .env file with DB_URL in the format <engine>://<user>:<password>@<host>:<port?>/<database>.',
+      ),
     );
   }
 

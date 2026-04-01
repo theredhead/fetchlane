@@ -114,6 +114,18 @@ describe('DataAccessController', () => {
     expect(dataAccessService.insert).toHaveBeenCalledWith('member', record);
   });
 
+  it('rejects invalid identifiers and malformed record bodies', async () => {
+    await expect(controller.tableInfo('member;drop')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(controller.createRecord('member', [] as any)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(controller.updateRecord('member', 7, null as any)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
   it('delegates id-based record lookup to the data access service', async () => {
     dataAccessService.selectSingleById.mockResolvedValueOnce({ id: 7 });
 
@@ -162,5 +174,16 @@ describe('DataAccessController', () => {
     expect(dataAccessService.createTable).toHaveBeenCalledWith('member', [
       { name: 'name', type: 'text', nullable: false },
     ]);
+  });
+
+  it('rejects malformed create table input', async () => {
+    await expect(controller.createTable('member', [] as any)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    await expect(
+      controller.createTable('member', [
+        { name: 'name', type: '', nullable: false },
+      ] as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });

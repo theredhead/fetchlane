@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import { ParsedDatabaseUrl } from '../../db.conf';
+import { formatDeveloperError } from '../../errors/api-error';
 import {
   DatabaseAdapter,
   Record,
@@ -544,7 +545,10 @@ async function loadMySqlModule(): Promise<any> {
 
     if (!mysqlModule?.createPool) {
       throw new Error(
-        'The "mysql2" package loaded successfully, but it did not expose createPool as expected.',
+        formatDeveloperError(
+          'The MySQL driver "mysql2" did not expose createPool as expected.',
+          'Reinstall the "mysql2" package and make sure the installed version matches the supported API surface.',
+        ),
       );
     }
 
@@ -552,14 +556,23 @@ async function loadMySqlModule(): Promise<any> {
   } catch (error) {
     if (isMissingModuleError(error, 'mysql2')) {
       throw new Error(
-        'MySQL support requires the optional dependency "mysql2". Install it with `npm install mysql2`.',
+        formatDeveloperError(
+          'MySQL support requires the optional dependency "mysql2".',
+          'Install it with `npm install mysql2` and restart the service.',
+        ),
       );
     }
 
     const message =
       error instanceof Error ? error.message : 'Unknown MySQL driver load failure.';
 
-    throw new Error(`Failed to load the MySQL driver "mysql2": ${message}`);
+    throw new Error(
+      formatDeveloperError(
+        'Failed to load the MySQL driver "mysql2".',
+        'Check that the "mysql2" package is installed correctly and that Node can resolve it from this project.',
+        message,
+      ),
+    );
   }
 }
 

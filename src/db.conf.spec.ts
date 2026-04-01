@@ -83,4 +83,15 @@ describe('db.conf', () => {
 
     expect(() => readDatabaseUrlFromEnvironment()).toThrow(/Missing DB_URL/);
   });
+
+  it('does not leak credentials when DB_URL is invalid', async () => {
+    const { parseDatabaseUrl } = await import('./db.conf');
+
+    expect(() =>
+      parseDatabaseUrl('postgres://secret-user:secret-pass@:5432'),
+    ).toThrow(/Hint:/);
+    expect(() =>
+      parseDatabaseUrl('postgres://secret-user:secret-pass@:5432'),
+    ).not.toThrow(/secret-pass/);
+  });
 });

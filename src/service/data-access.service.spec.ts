@@ -1,4 +1,4 @@
-import { NotImplementedException } from '@nestjs/common';
+import { BadRequestException, NotFoundException, NotImplementedException } from '@nestjs/common';
 import { DataAccessService } from './data-access.service';
 import {
   DatabaseAdapter,
@@ -53,6 +53,7 @@ describe('DataAccessService', () => {
 
   beforeEach(() => {
     adapter = createAdapterMock();
+    vi.mocked(adapter.tableExists).mockResolvedValue(true);
     service = new DataAccessService(adapter);
   });
 
@@ -169,6 +170,27 @@ describe('DataAccessService', () => {
     expect(adapter.execute).toHaveBeenCalledWith('SELECT 1', []);
   });
 
+  it('rejects non-array SQL args with a bad request error', async () => {
+    await expect(service.execute('SELECT 1', { id: 1 } as any)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('returns not found errors for missing tables and records', async () => {
+    vi.mocked(adapter.tableExists).mockResolvedValueOnce(false);
+
+    await expect(service.index('missing_table', 0, 10)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    vi.mocked(adapter.tableExists).mockResolvedValueOnce(true);
+    vi.mocked(adapter.selectSingle).mockResolvedValueOnce(undefined as any);
+
+    await expect(
+      service.selectSingleById('member', 7),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it('throws when an optional capability is not supported', async () => {
     const limitedAdapter: DatabaseAdapter = {
       name: 'limited',
@@ -183,7 +205,7 @@ describe('DataAccessService', () => {
       execute: vi.fn(),
       executeSingle: vi.fn(),
       executeScalar: vi.fn(),
-      tableExists: vi.fn(),
+      tableExists: vi.fn().mockResolvedValue(true),
       release: vi.fn(),
     };
 
