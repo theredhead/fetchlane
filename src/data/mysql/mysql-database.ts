@@ -102,17 +102,28 @@ export class MySqlDatabase implements Database {
   async execute(statement: string, args: any[] = []): Promise<RecordSet> {
     return new Promise((resolve, reject) => {
       this.pool.getConnection((cnErr, cn) => {
-        if (cnErr) reject(cnErr);
+        if (cnErr || !cn) {
+          reject(cnErr ?? new Error('Failed to acquire a MySQL connection.'));
+          return;
+        }
+
         cn.query(statement, args, (err, rows, fields) => {
           try {
             if (err) {
               reject(err);
               return;
             }
+
+            const normalizedFields = Array.isArray(fields)
+              ? fields.flatMap((field) =>
+                  Array.isArray(field) ? field : field ? [field] : [],
+                )
+              : [];
+
             const result = {
               info: {},
               rows: [],
-              fields: fields.map((field) => ({
+              fields: normalizedFields.map((field) => ({
                 name: field.name,
                 flags: field.flags,
                 type: field.type ?? (<any>field).columnType,
@@ -164,6 +175,6 @@ export class MySqlDatabase implements Database {
   }
 
   release(): void {
-    (<any>this.pool) = null;
+    void this.pool.end();
   }
 }

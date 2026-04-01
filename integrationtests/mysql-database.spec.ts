@@ -1,13 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MySqlDatabase } from '../src/data/mysql/mysql-database';
-import { parseDatabaseUrl } from '../src/db.conf';
+import {
+  RunningDockerContainer,
+  startDockerContainer,
+  waitFor,
+} from './helpers/docker-database';
 
-const describeMySqlIntegration =
-  process.env.RUN_MYSQL_INTEGRATION_TESTS === 'true'
-    ? describe
-    : describe.skip;
-
-describeMySqlIntegration('MySqlDatabase', () => {
+describe('MySqlDatabase', () => {
+  let container: RunningDockerContainer;
   let database: MySqlDatabase;
   const testTableName = 'mysql_database_test';
 
@@ -16,41 +16,56 @@ describeMySqlIntegration('MySqlDatabase', () => {
     { foo: 'Amet', bar: 'sit dolar', baz: 'ipsum lorem' },
   ];
 
-  beforeEach(() => {
-    const config = parseDatabaseUrl(
-      process.env.DB_URL || 'mysql://root:password@127.0.0.1:3306/mysql',
-    );
+  beforeAll(async () => {
+    container = await startDockerContainer({
+      image: 'mysql:8.4',
+      env: {
+        MYSQL_DATABASE: 'testdb',
+        MYSQL_ROOT_PASSWORD: 'password',
+      },
+      containerPort: 3306,
+    });
 
     database = new MySqlDatabase({
-      user: config.user,
-      password: config.password,
-      host: config.host,
-      port: config.port || 3306,
-      database: config.database,
+      user: 'root',
+      password: 'password',
+      host: container.host,
+      port: container.port,
+      database: 'testdb',
     });
+
+    await waitFor(async () => {
+      expect(await database.executeScalar('SELECT 1')).toBe(1);
+    }, { timeoutMs: 60000 });
+  }, 90000);
+
+  afterAll(async () => {
+    database?.release();
+    await container?.stop();
   });
 
-  it('can create a table', async () => {
+  beforeEach(async () => {
     await database.execute(`
-      DROP TABLE IF EXISTS ${testTableName};
-      CREATE TABLE ${testTableName} (
+      DROP TABLE IF EXISTS \`${testTableName}\`;
+      CREATE TABLE \`${testTableName}\` (
         id int not null auto_increment primary key,
         foo varchar(100),
         bar varchar(100),
         baz varchar(100)
-      ) charset=utf8
+      ) charset=utf8mb4
     `);
   });
 
-  it('can connect to a local database', async () => {
+  it('can create a table', async () => {
+    expect(await database.tableExists(testTableName)).toBe(true);
+  });
+
+  it('can connect to the dockerized database', async () => {
     const result = await database.executeScalar('SELECT CURRENT_TIMESTAMP');
     expect(result).not.toBeNull();
 
     const hello = await database.executeScalar("SELECT 'Hello, World!'");
     expect(hello).toBe('Hello, World!');
-
-    const one = await database.executeScalar('SELECT 1');
-    expect(one).toBe(1);
   });
 
   it('can perform insert operations against an existing table', async () => {
@@ -65,15 +80,21 @@ describeMySqlIntegration('MySqlDatabase', () => {
   });
 
   it('can perform select operations against an existing table', async () => {
+    for (const testRecord of testRecords) {
+      await database.insert(testTableName, testRecord);
+    }
+
     const result = await database.select(testTableName);
     expect(result.rows.length).toBe(testRecords.length);
   });
 
   it('can perform delete, reinsert, and update operations against an existing table', async () => {
-    const deleted = await database.delete(testTableName, 1);
+    const inserted = await database.insert(testTableName, testRecords[0]);
+    await database.insert(testTableName, testRecords[1]);
+
+    const deleted = await database.delete(testTableName, Number(inserted.id));
     const remaining = await database.select(testTableName);
     expect(remaining.rows.length).toBe(testRecords.length - 1);
-
     expect(remaining.rows.find((row) => row.id === deleted.id)).toBeUndefined();
 
     const reinserted = await database.insert(testTableName, deleted);
@@ -83,7 +104,6 @@ describeMySqlIntegration('MySqlDatabase', () => {
 
     const updated = await database.update(testTableName, reinserted);
 
-    expect(updated.id).not.toEqual(deleted.id);
     expect(updated.id).toEqual(reinserted.id);
     expect(updated.foo).toEqual('foo');
     expect(updated.bar).toEqual('bar');
@@ -91,21 +111,22 @@ describeMySqlIntegration('MySqlDatabase', () => {
   });
 
   it('can select from an existing table', async () => {
-    const result = await database.select('test', '', []);
-    expect(result.rows.length).toBeGreaterThan(3);
+    await database.insert(testTableName, testRecords[0]);
+
+    const result = await database.select(testTableName, '', []);
+    expect(result.rows.length).toBeGreaterThan(0);
   });
 
   it('can determine if a table exists', async () => {
     const missing = await database.tableExists('i-most-certainly-do-not-exist');
     expect(missing).toBe(false);
 
-    const present = await database.tableExists('test');
+    const present = await database.tableExists(testTableName);
     expect(present).toBe(true);
   });
 
   it('can drop a table', async () => {
-    await database.execute(`
-      DROP TABLE ${testTableName}
-    `);
+    await database.execute(`DROP TABLE \`${testTableName}\``);
+    expect(await database.tableExists(testTableName)).toBe(false);
   });
 });

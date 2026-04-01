@@ -6,9 +6,15 @@ export interface DatabaseEngine {
   readonly name: string;
   readonly engines: readonly string[];
 
-  createDatabase(config: ParsedDatabaseUrl): Promise<Database>;
+  connectDatabase(config: ParsedDatabaseUrl): Promise<Database>;
   quoteIdentifier(name: string): string;
   parameter(index: number): string;
+  paginateQuery(
+    baseQuery: string,
+    limit: number,
+    offset: number,
+    orderByClause: string | null,
+  ): string;
   getTableNames(db: Database): Promise<Record[]>;
   getTableInfo(db: Database, table: string): Promise<Record[]>;
   describeTable(

@@ -14,11 +14,15 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:cov": "vitest run --coverage",
-    "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.e2e.config.ts"
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:cov": "vitest run --project unit --coverage",
+    "test:debug": "vitest --project unit --inspect-brk --no-file-parallelism",
+    "test:e2e": "vitest run --config ./vitest.e2e.config.ts",
+    "test:integration": "vitest run --project integration",
+    "test:integration:postgres": "vitest run --project integration integrationtests/postgres-database.spec.ts",
+    "test:integration:mysql": "vitest run --project integration integrationtests/mysql-database.spec.ts",
+    "test:integration:sqlserver": "vitest run --project integration integrationtests/sqlserver-database.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -31,6 +35,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "optionalDependencies": {
+    "mssql": "^11.0.1",
     "mysql2": "^3.0.0",
     "pg": "^8.13.0"
   },

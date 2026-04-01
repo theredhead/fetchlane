@@ -28,9 +28,18 @@ describe('AppModule (e2e)', () => {
       .useValue({
         name: 'test',
         engines: ['test'],
-        createDatabase: vi.fn(),
+        connectDatabase: vi.fn(),
         quoteIdentifier: (name: string) => `"${name}"`,
         parameter: (index: number) => `$${index}`,
+        paginateQuery: (
+          baseQuery: string,
+          limit: number,
+          offset: number,
+          orderByClause: string | null,
+        ) =>
+          [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
+            .filter(Boolean)
+            .join('\n'),
         getTableNames: vi.fn(),
         getTableInfo: vi.fn(),
         describeTable: vi.fn(),

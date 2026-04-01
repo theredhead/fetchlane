@@ -44,9 +44,9 @@ export class DataAccessService {
     const parsedPageIndex = Number(pageIndex);
     const parsedPageSize = Number(pageSize);
     const offset = parsedPageIndex * parsedPageSize;
-    const data = await this.db.select(
-      table,
-      `LIMIT ${parsedPageSize} OFFSET ${offset}`,
+    const baseQuery = `SELECT * FROM ${this.engine.quoteIdentifier(table)}`;
+    const data = await this.db.execute(
+      this.engine.paginateQuery(baseQuery, parsedPageSize, offset, null),
       [],
     );
     return data.rows;

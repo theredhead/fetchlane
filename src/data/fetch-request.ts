@@ -14,6 +14,15 @@ export class FetchRequestSQLWriter {
     private readonly quoteObjectName: (objectName: string) => string = (
       objectName,
     ) => ['"', objectName, '"'].join(''),
+    private readonly paginateQuery: (
+      baseQuery: string,
+      limit: number,
+      offset: number,
+      orderByClause: string | null,
+    ) => string = (baseQuery, limit, offset, orderByClause) =>
+      [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
+        .filter(Boolean)
+        .join('\n'),
   ) {}
 
   quote(objectName: string): string {
@@ -22,7 +31,9 @@ export class FetchRequestSQLWriter {
 
   write(request: FetchRequest) {
     const args = [];
-    const text = [
+    const orderByClause =
+      request.sort.length > 0 ? this.expandSort(request.sort) : null;
+    const baseQuery = [
       'SELECT * ',
       'FROM ' + this.quote(request.table),
       request.predicates.length > 0 ? 'WHERE' : null,
@@ -31,11 +42,12 @@ export class FetchRequestSQLWriter {
             .map((p) => this.expandPredicate(p, args))
             .join(' AND ')
         : null,
-      request.sort.length > 0 ? this.expandSort(request.sort) : null,
-      request.pagination ? this.expandPagination(request.pagination) : null,
     ]
       .filter((segment) => segment !== null)
       .join('\n');
+    const text = request.pagination
+      ? this.expandPagination(baseQuery, request.pagination, orderByClause)
+      : [baseQuery, orderByClause].filter(Boolean).join('\n');
 
     this.logger.verbose(text);
     return { text, args };
@@ -83,9 +95,13 @@ export class FetchRequestSQLWriter {
     ].join('');
   }
 
-  protected expandPagination(pagination: { index: number; size: number }) {
+  protected expandPagination(
+    baseQuery: string,
+    pagination: { index: number; size: number },
+    orderByClause: string | null,
+  ) {
     const limit = Number(pagination.size);
     const offset = Number(pagination.index) * limit;
-    return `LIMIT ${limit} OFFSET ${offset}`;
+    return this.paginateQuery(baseQuery, limit, offset, orderByClause);
   }
 }

@@ -63,6 +63,21 @@ describe('db.conf', () => {
     expect(conf.database).toBe('appdb');
   });
 
+  it('parses a sqlserver url with credentials and port', async () => {
+    const { parseDatabaseUrl } = await import('./db.conf');
+
+    expect(
+      parseDatabaseUrl('sqlserver://sa:StrongPassword!@sql.local:1433/master'),
+    ).toEqual({
+      engine: 'sqlserver',
+      user: 'sa',
+      password: 'StrongPassword!',
+      host: 'sql.local',
+      port: 1433,
+      database: 'master',
+    });
+  });
+
   it('requires DB_URL to be present', async () => {
     const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
 

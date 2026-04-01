@@ -10,7 +10,7 @@ export const mySqlDatabaseEngine: DatabaseEngine = {
   name: 'mysql',
   engines: ['mysql'],
 
-  async createDatabase(config: ParsedDatabaseUrl): Promise<Database> {
+  async connectDatabase(config: ParsedDatabaseUrl): Promise<Database> {
     const { MySqlDatabase } = await import('./mysql-database');
 
     return new MySqlDatabase({
@@ -28,6 +28,17 @@ export const mySqlDatabaseEngine: DatabaseEngine = {
 
   parameter(): string {
     return '?';
+  },
+
+  paginateQuery(
+    baseQuery: string,
+    limit: number,
+    offset: number,
+    orderByClause: string | null,
+  ): string {
+    return [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
+      .filter(Boolean)
+      .join('\n');
   },
 
   async getTableNames(db: Database): Promise<Record[]> {

@@ -18,8 +18,10 @@ export class FetchRequestHandlerService {
     private db: DataAccessService,
     @Inject(ACTIVE_DATABASE_ENGINE) engine: DatabaseEngine,
   ) {
-    this.writer = new FetchRequestSQLWriter((name) =>
-      engine.quoteIdentifier(name),
+    this.writer = new FetchRequestSQLWriter(
+      (name) => engine.quoteIdentifier(name),
+      (baseQuery, limit, offset, orderByClause) =>
+        engine.paginateQuery(baseQuery, limit, offset, orderByClause),
     );
   }
 

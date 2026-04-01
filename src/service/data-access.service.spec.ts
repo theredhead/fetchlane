@@ -22,9 +22,20 @@ function createEngineMock(): DatabaseEngine {
   return {
     name: 'test',
     engines: ['test'],
-    createDatabase: vi.fn(),
+    connectDatabase: vi.fn(),
     quoteIdentifier: vi.fn((name: string) => `"${name}"`),
     parameter: vi.fn((index: number) => `$${index}`),
+    paginateQuery: vi.fn(
+      (
+        baseQuery: string,
+        limit: number,
+        offset: number,
+        orderByClause: string | null,
+      ) =>
+        [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
+          .filter(Boolean)
+          .join('\n'),
+    ),
     getTableNames: vi.fn(),
     getTableInfo: vi.fn(),
     describeTable: vi.fn(),
@@ -131,6 +142,25 @@ describe('DataAccessService', () => {
         nullable: false,
       },
     ]);
+  });
+
+  it('uses the engine pagination syntax for index queries', async () => {
+    vi.mocked(db.execute).mockResolvedValueOnce({
+      rows: [{ id: 1 }],
+    });
+
+    await expect(service.index('member', 2, 5)).resolves.toEqual([{ id: 1 }]);
+
+    expect(engine.paginateQuery).toHaveBeenCalledWith(
+      'SELECT * FROM "member"',
+      5,
+      10,
+      null,
+    );
+    expect(db.execute).toHaveBeenCalledWith(
+      'SELECT * FROM "member"\nLIMIT 5 OFFSET 10',
+      [],
+    );
   });
 
   it('gracefully rejects location calls when the active database lacks that capability', async () => {

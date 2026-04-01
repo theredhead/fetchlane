@@ -10,7 +10,7 @@ export const postgresDatabaseEngine: DatabaseEngine = {
   name: 'postgres',
   engines: ['postgres', 'postgresql'],
 
-  async createDatabase(config: ParsedDatabaseUrl): Promise<Database> {
+  async connectDatabase(config: ParsedDatabaseUrl): Promise<Database> {
     const { PostgresDatabase } = await import('./postgres-database');
 
     return new PostgresDatabase({
@@ -28,6 +28,17 @@ export const postgresDatabaseEngine: DatabaseEngine = {
 
   parameter(index: number): string {
     return `$${index}`;
+  },
+
+  paginateQuery(
+    baseQuery: string,
+    limit: number,
+    offset: number,
+    orderByClause: string | null,
+  ): string {
+    return [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
+      .filter(Boolean)
+      .join('\n');
   },
 
   async getTableNames(db: Database): Promise<Record[]> {

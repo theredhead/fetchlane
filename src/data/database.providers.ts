@@ -8,6 +8,7 @@ import {
 import { Database } from './database';
 import { mySqlDatabaseEngine } from './mysql/mysql-engine';
 import { postgresDatabaseEngine } from './postgres/postgres-engine';
+import { sqlServerDatabaseEngine } from './sqlserver/sqlserver-engine';
 
 export const DATABASE_ENGINES = Symbol('DATABASE_ENGINES');
 export const ACTIVE_DATABASE_ENGINE = Symbol('ACTIVE_DATABASE_ENGINE');
@@ -16,6 +17,7 @@ export const DATABASE_CONNECTION = Symbol('DATABASE_CONNECTION');
 const supportedDatabaseEngines: readonly DatabaseEngine[] = [
   postgresDatabaseEngine,
   mySqlDatabaseEngine,
+  sqlServerDatabaseEngine,
 ];
 
 export const databaseProviders: Provider[] = [
@@ -45,6 +47,6 @@ export const databaseProviders: Provider[] = [
     provide: DATABASE_CONNECTION,
     inject: [ACTIVE_DATABASE_ENGINE],
     useFactory: async (engine: DatabaseEngine): Promise<Database> =>
-      await engine.createDatabase(readDatabaseUrlFromEnvironment()),
+      await engine.connectDatabase(readDatabaseUrlFromEnvironment()),
   },
 ];
