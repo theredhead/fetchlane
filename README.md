@@ -1,6 +1,6 @@
-# data-access API
+# Fetchlane
 
-A generic NestJS API for browsing table data, describing schemas, and exposing database content over HTTP.
+Fetchlane is a NestJS API for browsing table data, describing schemas, and exposing database content over HTTP across multiple database engines.
 
 Swagger UI is available at `http://localhost:3000/api/docs` when the app is running.
 
@@ -37,7 +37,7 @@ Real `.env` files are gitignored so local credentials do not get committed. Only
 
 ## Database connector factory
 
-The generic data-access layer selects its connector from `DB_URL`.
+Fetchlane selects its connector from `DB_URL`.
 
 Supported URL format:
 
@@ -73,7 +73,7 @@ DB_URL=mysql://root:password@127.0.0.1:3306/northwind
 
 ## Important note
 
-The generic data-access routes and schema-description endpoint are connector-aware and support both Postgres and MySQL.
+Fetchlane's generic data-access routes and schema-description endpoint are connector-aware and support both Postgres and MySQL.
 
 The location endpoints are not fully database-agnostic:
 

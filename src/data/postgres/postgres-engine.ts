@@ -7,7 +7,7 @@ import {
 import { DatabaseEngine } from '../database-engine';
 
 /**
- * PostgreSQL-specific SQL and metadata behavior used by the generic data-access layer.
+ * PostgreSQL-specific SQL and metadata behavior used by Fetchlane.
  */
 export const postgresDatabaseEngine: DatabaseEngine = {
   name: 'postgres',

@@ -11,8 +11,10 @@ async function bootstrap() {
   app.enableCors();
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Generic Data Access API')
-    .setDescription('REST API for generic table access, geocoding, and street lookup')
+    .setTitle('Fetchlane API')
+    .setDescription(
+      'Multi-engine REST API for table access, FetchRequest querying, geocoding, and street lookup',
+    )
     .setVersion('1.0')
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);

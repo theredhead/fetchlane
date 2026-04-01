@@ -1,7 +1,7 @@
 {
-  "name": "nestjs-test",
+  "name": "fetchlane",
   "version": "0.0.1",
-  "description": "",
+  "description": "Fetchlane is a multi-engine REST API for table access, schema discovery, and FetchRequest-based querying.",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

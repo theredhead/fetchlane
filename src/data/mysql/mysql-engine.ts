@@ -7,7 +7,7 @@ import {
 import { DatabaseEngine } from '../database-engine';
 
 /**
- * MySQL-specific SQL and metadata behavior used by the generic data-access layer.
+ * MySQL-specific SQL and metadata behavior used by Fetchlane.
  */
 export const mySqlDatabaseEngine: DatabaseEngine = {
   name: 'mysql',

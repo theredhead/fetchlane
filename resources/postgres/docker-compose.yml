@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: generic-data-access-postgres-postgis:16
+    image: fetchlane-postgres-postgis:16
     restart: always
     environment:
       POSTGRES_USER: 'postgres'

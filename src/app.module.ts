@@ -10,7 +10,7 @@ import { FetchRequestHandlerService } from './service/fetch-request-handler.serv
 import { LoggerService } from './service/logger.service';
 
 /**
- * Root Nest module for the generic data-access application.
+ * Root Nest module for the Fetchlane application.
  */
 @Module({
   imports: [],

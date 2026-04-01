@@ -5,7 +5,7 @@ const app = {
 
 const createDocument = vi.fn().mockReturnValue({ openapi: '3.0.0' });
 const setup = vi.fn();
-const build = vi.fn().mockReturnValue({ title: 'Generic Data Access API' });
+const build = vi.fn().mockReturnValue({ title: 'Fetchlane API' });
 
 vi.mock('@nestjs/core', () => ({
   NestFactory: {
@@ -51,7 +51,7 @@ describe('main bootstrap', () => {
 
     expect(app.enableCors).toHaveBeenCalled();
     expect(createDocument).toHaveBeenCalledWith(app, {
-      title: 'Generic Data Access API',
+      title: 'Fetchlane API',
     });
     expect(setup).toHaveBeenCalledWith(
       'api/docs',

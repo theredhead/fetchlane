@@ -41,7 +41,7 @@ import { TableSchemaDescriptionDto } from 'src/swagger/models';
 @ApiTags('data-access')
 @Controller('api/data-access')
 export class DataAccessController {
-  /** Creates the generic data-access controller. */
+  /** Creates the Fetchlane data-access controller. */
   public constructor(
     private readonly db: DataAccessService,
     private readonly fetchRequestHandler: FetchRequestHandlerService,

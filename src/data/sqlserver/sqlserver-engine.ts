@@ -7,7 +7,7 @@ import {
 import { DatabaseEngine } from '../database-engine';
 
 /**
- * SQL Server-specific SQL and metadata behavior used by the generic data-access layer.
+ * SQL Server-specific SQL and metadata behavior used by Fetchlane.
  */
 export const sqlServerDatabaseEngine: DatabaseEngine = {
   name: 'sqlserver',
