@@ -7,6 +7,7 @@ import { DataAccessService } from './service/data-access.service';
 import { DatabaseLifecycleService } from './service/database-lifecycle.service';
 import { FetchRequestHandlerService } from './service/fetch-request-handler.service';
 import { LoggerService } from './service/logger.service';
+import { StatusService } from './service/status.service';
 
 /**
  * Root Nest module for the Fetchlane application.
@@ -20,6 +21,7 @@ import { LoggerService } from './service/logger.service';
     DatabaseLifecycleService,
     DataAccessService,
     FetchRequestHandlerService,
+    StatusService,
   ],
 })
 export class AppModule implements NestModule {

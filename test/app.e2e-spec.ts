@@ -6,8 +6,12 @@ import { StatusController } from './../src/controllers/status.controller';
 
 describe('AppModule (e2e)', () => {
   let app: INestApplication;
+  const originalDbUrl = process.env.DB_URL;
 
   beforeEach(async () => {
+    process.env.DB_URL =
+      process.env.DB_URL || 'postgres://postgres:password@127.0.0.1:5432/northwind';
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -50,13 +54,28 @@ describe('AppModule (e2e)', () => {
     if (app) {
       await app.close();
     }
+
+    if (originalDbUrl == null) {
+      delete process.env.DB_URL;
+    } else {
+      process.env.DB_URL = originalDbUrl;
+    }
   });
 
   it('boots the application and resolves the status controller', () => {
     const controller = app.get(StatusController);
 
-    expect(controller.index()).toEqual({
-      status: 'Running',
-    });
+    return expect(controller.index()).resolves.toEqual(
+      expect.objectContaining({
+        status: expect.stringMatching(/ok|degraded/),
+        service: expect.objectContaining({
+          name: 'fetchlane',
+        }),
+        links: {
+          self: '/api/status',
+          docs: '/api/docs',
+        },
+      }),
+    );
   });
 });

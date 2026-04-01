@@ -55,6 +55,7 @@ npm run start:dev
 
 - Swagger UI: `http://localhost:3000/api/docs`
 - Status endpoint: `http://localhost:3000/api/status`
+  This returns a structured service snapshot with runtime metadata, database connectivity, and capability flags.
 
 ## Connection URL
 
