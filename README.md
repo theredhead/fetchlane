@@ -95,6 +95,7 @@ npm run start:dev
 - Swagger UI: `http://localhost:3000/api/docs`
 - Status endpoint: `http://localhost:3000/api/status`
   This returns a structured service snapshot with runtime metadata, safe config details, database connectivity, and capability flags.
+  If auth is enabled, authorize in Swagger UI with a bearer token before calling `/api/docs` or `/api/data-access/**`.
 
 ## Runtime Config
 
@@ -144,6 +145,8 @@ When `auth.enabled` is `true`:
 
 Auth validation checks token signature, issuer, audience, and expiry. Claim mapping is driven by `auth.claim_mappings`, so provider-specific claim layouts can still map into a consistent Fetchlane request principal.
 
+Swagger UI follows the same protection model as the data routes. When auth is enabled, the docs UI itself also requires a valid bearer token.
+
 ## Operational Limits
 
 Fetchlane can now enforce a small set of production-safe limits entirely from runtime config:
@@ -158,6 +161,8 @@ Fetchlane can now enforce a small set of production-safe limits entirely from ru
 HTTP rate limiting is applied in memory. Anonymous callers are limited by client IP. Authenticated callers are limited by their mapped subject claim when available, and fall back to IP otherwise.
 
 The status endpoint exposes the active limit values so container operators can verify what is actually running without exposing secrets.
+
+These limits are runtime-config driven. The examples in this README assume the default values from `config/fetchlane.example.json`.
 
 ## Deployment
 
@@ -217,7 +222,7 @@ Real `.env` files are gitignored so local secrets do not end up in source contro
 - `GET /api/docs`
 - `GET /api/status`
 
-Swagger UI reflects the currently exposed controller surface and is the best source for concrete request and response shapes.
+Swagger UI reflects the currently exposed controller surface and is the best source for concrete request and response shapes. The status endpoint is the best machine-readable snapshot for active config, database connectivity, and capability support.
 
 ## FetchRequest
 
@@ -228,11 +233,19 @@ Swagger UI reflects the currently exposed controller surface and is the best sou
 - sort definitions
 - pagination
 
+The response shape is an object with `rows`, plus optional `info` and `fields` metadata when the active driver exposes them.
+
 Predicate placeholders are database-agnostic:
 
 - Use `?` with `args` as an array for positional mode
 - Use `:name` with `args` as an object for named mode
 - Do not mix positional and named placeholders anywhere within the same request
+
+Runtime guardrails also apply:
+
+- `pagination.size` must not exceed `limits.fetch_max_page_size`
+- total predicate clauses must not exceed `limits.fetch_max_predicates`
+- sort fields must not exceed `limits.fetch_max_sort_fields`
 
 Example shape:
 
@@ -309,6 +322,7 @@ Fetchlane ships with two documentation surfaces:
 | TypeDoc | Browse the TypeScript API surface | `docs/api` |
 | FetchRequest examples | Real request payloads from simple to advanced | `docs/fetchrequest-examples.md` |
 | Deployment guide | Config, Docker, Kubernetes, and OIDC examples | `docs/deployment.md` |
+| REST client examples | Runnable HTTP requests for IDE REST clients | `rest/data-access.rest` |
 
 Generate TypeDoc:
 

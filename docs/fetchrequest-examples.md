@@ -9,6 +9,12 @@ POST /api/data-access/fetch
 Content-Type: application/json
 ```
 
+If auth is enabled, this route also requires:
+
+```http
+Authorization: Bearer <JWT>
+```
+
 ## Request shape
 
 ```json
@@ -31,6 +37,18 @@ Field overview:
 - `pagination.size`: page size
 - `pagination.index`: zero-based page number
 
+Response overview:
+
+- `rows`: result rows
+- `info`: optional driver metadata
+- `fields`: optional driver field metadata
+
+Limit notes:
+
+- `pagination.size` is capped by `limits.fetch_max_page_size`
+- total predicate clauses are capped by `limits.fetch_max_predicates`
+- sort fields are capped by `limits.fetch_max_sort_fields`
+
 ## Parameter modes
 
 Fetchlane accepts two placeholder styles and rewrites them to the active engine's native parameter syntax:
@@ -43,6 +61,7 @@ Rules:
 - A single `FetchRequest` must use one mode only
 - Positional and named parameters cannot be mixed anywhere in the same request
 - If a predicate has no placeholders, `args` must be empty
+- Placeholder rewriting is automatic; always send `?` or `:name`, never engine-native tokens like `$1` or `@p1`
 
 Positional example:
 
@@ -399,6 +418,7 @@ This example is still row-oriented, but it shows the kind of richer filtering yo
 - Prefer parameterized predicate text plus `args` instead of string interpolation.
 - Pick either positional or named parameters for the whole request.
 - Treat `pagination.index` as zero-based.
+- Expect hint-rich `400` responses when a request exceeds configured limits or violates placeholder rules.
 - Use Swagger UI at `http://localhost:3000/api/docs` to test payloads interactively against your running instance.
 
 ## Related docs

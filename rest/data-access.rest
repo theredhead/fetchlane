@@ -1,17 +1,40 @@
-GET http://localhost:3000/api/data-access/test?pageIndex=2&pageSize=3
+@baseUrl = http://localhost:3000
+@authToken =
 
+###
+# Public status snapshot
+GET {{baseUrl}}/api/status
 
-GET http://localhost:3000/api/data-access/member/info
+###
+# Swagger UI
+# If auth is enabled in runtime config, open this in a browser after authenticating.
+GET {{baseUrl}}/api/docs
 
+###
+# Table names
+GET {{baseUrl}}/api/data-access/table-names
+Authorization: Bearer {{authToken}}
 
-GET http://localhost:3000/api/data-access/member/schema
+###
+# Paginated table browse
+GET {{baseUrl}}/api/data-access/member?pageIndex=2&pageSize=3
+Authorization: Bearer {{authToken}}
 
+###
+# Table info
+GET {{baseUrl}}/api/data-access/member/info
+Authorization: Bearer {{authToken}}
 
-GET http://localhost:3000/api/status
+###
+# Table schema
+GET {{baseUrl}}/api/data-access/member/schema
+Authorization: Bearer {{authToken}}
 
-
-POST http://localhost:3000/api/data-access/tables/customer_notes
+###
+# Create-table SQL
+POST {{baseUrl}}/api/data-access/tables/customer_notes
 Content-Type: application/json
+Authorization: Bearer {{authToken}}
 
 [
   {
@@ -26,9 +49,11 @@ Content-Type: application/json
   }
 ]
 
-
-POST http://localhost:3000/api/data-access/fetch
+###
+# FetchRequest with positional parameters
+POST {{baseUrl}}/api/data-access/fetch
 Content-Type: application/json
+Authorization: Bearer {{authToken}}
 
 {
   "table": "member",
@@ -50,9 +75,11 @@ Content-Type: application/json
   }
 }
 
-
-POST http://localhost:3000/api/data-access/fetch
+###
+# FetchRequest with named parameters
+POST {{baseUrl}}/api/data-access/fetch
 Content-Type: application/json
+Authorization: Bearer {{authToken}}
 
 {
   "table": "member",
@@ -68,6 +95,22 @@ Content-Type: application/json
   "sort": [],
   "pagination": {
     "size": 10,
+    "index": 0
+  }
+}
+
+###
+# Validation example: should fail if fetch_max_page_size is below 5000
+POST {{baseUrl}}/api/data-access/fetch
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "table": "member",
+  "predicates": [],
+  "sort": [],
+  "pagination": {
+    "size": 5000,
     "index": 0
   }
 }

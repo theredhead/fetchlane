@@ -22,6 +22,12 @@ That file is JSON and may reference secrets through full-string environment plac
 
 The tracked baseline config lives at `config/fetchlane.example.json`.
 
+Recommended secret handling for `v1.0`:
+
+- keep non-secret operational settings in the mounted JSON file
+- inject secrets such as `FETCHLANE_DATABASE_URL` through environment variables or secret stores
+- reference those secrets from JSON with full-string placeholders like `${FETCHLANE_DATABASE_URL}`
+
 ## Route Exposure
 
 When `auth.enabled` is `false`:
@@ -35,6 +41,8 @@ When `auth.enabled` is `true`:
 - `/api/status` stays public
 - `/api/docs` requires bearer auth
 - `/api/data-access/**` requires bearer auth
+
+That means health and readiness probes can still hit `/api/status` without identity-provider dependencies, while interactive docs and data access remain protected.
 
 ## Keycloak Example
 
@@ -179,3 +187,9 @@ spec:
 | `limits.fetch_max_sort_fields` | Maximum sort fields in a `FetchRequest` |
 | `limits.rate_limit_window_ms` | Duration of the in-memory rate-limit window |
 | `limits.rate_limit_max` | Maximum requests allowed per key inside one window |
+
+## Operational Notes
+
+- Rate limiting is currently in-memory and therefore scoped per process.
+- Multi-replica deployments will need a shared store later if they require globally coordinated throttling.
+- `/api/status` exposes only safe effective config and limit values; secrets are intentionally excluded.
