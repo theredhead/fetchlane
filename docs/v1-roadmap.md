@@ -20,7 +20,7 @@ Status values:
 
 | Track | Branch | Status | Scope |
 | --- | --- | --- | --- |
-| Runtime config | `feature/runtime-config` | `planned` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
+| Runtime config | `feature/runtime-config` | `in_progress` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
 | Auth | `feature/optional-auth` | `planned` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
 | Operational limits | `feature/operational-limits` | `planned` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
 | Deployment readiness | `feature/deployment-readiness` | `planned` | Container config examples, README updates, example config files, operator docs, release readiness pass |
@@ -34,13 +34,13 @@ This becomes the foundation for auth, limits, and deployment settings.
 
 Checklist:
 
-- [ ] Introduce a mounted config file as the primary runtime configuration source
-- [ ] Add a typed config model and validation at startup
-- [ ] Add a config service for use across the application
-- [ ] Move database connection URL into config
-- [ ] Move `host`, `port`, and CORS settings into config
-- [ ] Fail fast with developer-friendly startup errors and hints
-- [ ] Update tests and docs
+- [x] Introduce a mounted config file as the primary runtime configuration source
+- [x] Add a typed config model and validation at startup
+- [x] Add a config service for use across the application
+- [x] Move database connection URL into config
+- [x] Move `host`, `port`, and CORS settings into config
+- [x] Fail fast with developer-friendly startup errors and hints
+- [x] Update tests and docs
 
 ### 2. Optional auth
 
@@ -98,3 +98,8 @@ Checklist:
 
 - Created the v1.0 roadmap and branch plan
 - Reserved separate feature branches off `develop` for each major workstream
+- Merged `main` back into `develop` so the v1.0 tracks start from the current Fetchlane codebase
+- Started `feature/runtime-config`
+- Added a typed JSON runtime config loader with `FETCHLANE_CONFIG` bootstrap support and `${ENV_NAME}` interpolation
+- Switched bootstrap, database adapter selection, and status reporting to the validated config service
+- Updated runtime-config tests, e2e smoke coverage, and the README quick start to reflect config-first startup

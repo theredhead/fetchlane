@@ -113,7 +113,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
         error: HttpStatus[HttpStatus.SERVICE_UNAVAILABLE],
         ...createApiErrorBody(
           'The configured database driver is not available.',
-          'Install the optional driver that matches DB_URL, then restart the service.',
+          'Install the optional driver that matches the configured database URL engine, then restart the service.',
           details,
         ),
       };
@@ -125,7 +125,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
         error: HttpStatus[HttpStatus.SERVICE_UNAVAILABLE],
         ...createApiErrorBody(
           'The service could not connect to the configured database.',
-          'Verify DB_URL credentials, host, port, and that the database server is running.',
+          'Verify the configured database URL, credentials, host, port, and that the database server is running.',
           details,
         ),
       };

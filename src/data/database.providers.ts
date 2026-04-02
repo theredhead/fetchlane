@@ -1,5 +1,5 @@
 import { Provider } from '@nestjs/common';
-import { readDatabaseUrlFromEnvironment } from '../db.conf';
+import { RuntimeConfigService } from '../config/runtime-config';
 import {
   createDatabaseAdapterRegistry,
   DatabaseAdapter,
@@ -12,7 +12,7 @@ import { SqlServerDatabase } from './sqlserver/sqlserver-database';
 
 /** Injection token for the registry of supported database adapters. */
 export const DATABASE_ADAPTERS = Symbol('DATABASE_ADAPTERS');
-/** Injection token for the adapter constructor selected from `DB_URL`. */
+/** Injection token for the adapter constructor selected from runtime config. */
 export const ACTIVE_DATABASE_ADAPTER = Symbol('ACTIVE_DATABASE_ADAPTER');
 /** Injection token for the active database connection. */
 export const DATABASE_CONNECTION = Symbol('DATABASE_CONNECTION');
@@ -32,11 +32,12 @@ export const databaseProviders: Provider[] = [
   },
   {
     provide: ACTIVE_DATABASE_ADAPTER,
-    inject: [DATABASE_ADAPTERS],
+    inject: [DATABASE_ADAPTERS, RuntimeConfigService],
     useFactory: (
       registry: DatabaseAdapterRegistry,
+      runtimeConfig: RuntimeConfigService,
     ): DatabaseAdapterConstructor => {
-      const config = readDatabaseUrlFromEnvironment();
+      const config = runtimeConfig.getParsedDatabaseUrl();
       const adapter = registry.get(config.engine);
 
       if (adapter) {
@@ -51,9 +52,11 @@ export const databaseProviders: Provider[] = [
   },
   {
     provide: DATABASE_CONNECTION,
-    inject: [ACTIVE_DATABASE_ADAPTER],
+    inject: [ACTIVE_DATABASE_ADAPTER, RuntimeConfigService],
     useFactory: async (
       Adapter: DatabaseAdapterConstructor,
-    ): Promise<DatabaseAdapter> => new Adapter(readDatabaseUrlFromEnvironment()),
+      runtimeConfig: RuntimeConfigService,
+    ): Promise<DatabaseAdapter> =>
+      new Adapter(runtimeConfig.getParsedDatabaseUrl()),
   },
 ];

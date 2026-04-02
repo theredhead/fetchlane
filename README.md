@@ -19,7 +19,7 @@ Fetchlane is a NestJS service that exposes a consistent HTTP interface across mu
 ## Why Fetchlane
 
 - One REST shape across multiple database engines
-- Connector selection based on a single `DB_URL`
+- Mounted JSON runtime config via `FETCHLANE_CONFIG`
 - Structured `FetchRequest` querying with predicates, sorting, and pagination
 - Swagger UI for the HTTP API
 - TypeDoc output for the TypeScript API surface
@@ -39,27 +39,73 @@ npm install
 cp .env.example .env
 ```
 
-3. Set `DB_URL` in `.env`:
+3. Create a local runtime config file, for example `fetchlane.local.json`:
 
-```env
-DB_URL=postgres://postgres:password@127.0.0.1:5432/northwind
+```json
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  },
+  "database": {
+    "url": "${FETCHLANE_DATABASE_URL}"
+  },
+  "limits": {
+    "request_body_bytes": 1048576,
+    "fetch_max_page_size": 1000,
+    "fetch_max_predicates": 25,
+    "fetch_max_sort_fields": 8,
+    "rate_limit_window_ms": 60000,
+    "rate_limit_max": 120
+  },
+  "auth": {
+    "enabled": false,
+    "mode": "oidc-jwt",
+    "issuer_url": "",
+    "audience": "",
+    "jwks_url": "",
+    "claim_mappings": {
+      "subject": "sub",
+      "roles": "realm_access.roles"
+    }
+  }
+}
 ```
 
-4. Start the app:
+4. Set the bootstrap env var and database URL in `.env`:
+
+```env
+FETCHLANE_CONFIG=./fetchlane.local.json
+FETCHLANE_DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/northwind
+```
+
+5. Start the app:
 
 ```bash
 npm run start:dev
 ```
 
-5. Open the docs:
+6. Open the docs:
 
 - Swagger UI: `http://localhost:3000/api/docs`
 - Status endpoint: `http://localhost:3000/api/status`
-  This returns a structured service snapshot with runtime metadata, database connectivity, and capability flags.
+  This returns a structured service snapshot with runtime metadata, safe config details, database connectivity, and capability flags.
 
-## Connection URL
+## Runtime Config
 
-Fetchlane reads its connector configuration from `DB_URL`.
+Fetchlane boots from a single environment variable:
+
+```text
+FETCHLANE_CONFIG=/path/to/fetchlane.json
+```
+
+That JSON file becomes the primary runtime interface for server settings, database connectivity, limits, and auth. String values may use full-string environment placeholders such as `${FETCHLANE_DATABASE_URL}`.
+
+The database connection URL still uses this format:
 
 Expected format:
 
@@ -75,7 +121,7 @@ mysql://root:password@127.0.0.1:3306/northwind
 sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:1433/master
 ```
 
-`DB_URL` is required.
+Startup fails fast with hint-rich errors when the config path is missing, the file cannot be read, the JSON is invalid, required fields are missing, or placeholder environment variables are unresolved.
 
 ## Supported Engines
 
@@ -92,14 +138,15 @@ Engine drivers are listed as optional dependencies. Install the driver for the e
 ## Example `.env`
 
 ```env
-DB_URL=postgres://postgres:password@127.0.0.1:5432/northwind
+FETCHLANE_CONFIG=./fetchlane.local.json
+FETCHLANE_DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/northwind
 ```
 
 Alternative examples:
 
 ```env
-DB_URL=mysql://root:password@127.0.0.1:3306/northwind
-DB_URL=sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:1433/master
+FETCHLANE_DATABASE_URL=mysql://root:password@127.0.0.1:3306/northwind
+FETCHLANE_DATABASE_URL=sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:1433/master
 ```
 
 Real `.env` files are gitignored so local secrets do not end up in source control. Only `.env.example` is tracked.

@@ -4,6 +4,7 @@ import {
   DATABASE_CONNECTION,
   databaseProviders,
 } from './database.providers';
+import { RuntimeConfigService } from '../config/runtime-config';
 import { DatabaseAdapterConstructor } from './database';
 
 describe('databaseProviders', () => {
@@ -16,17 +17,39 @@ describe('databaseProviders', () => {
   const connectionProvider = databaseProviders.find(
     (provider: any) => provider.provide === DATABASE_CONNECTION,
   ) as any;
-
-  const originalDbUrl = process.env.DB_URL;
-
-  afterEach(() => {
-    if (originalDbUrl == null) {
-      delete process.env.DB_URL;
-      return;
-    }
-
-    process.env.DB_URL = originalDbUrl;
-  });
+  const createRuntimeConfigService = (databaseUrl: string): RuntimeConfigService =>
+    new RuntimeConfigService({
+      server: {
+        host: '0.0.0.0',
+        port: 3000,
+        cors: {
+          enabled: true,
+          origins: ['*'],
+        },
+      },
+      database: {
+        url: databaseUrl,
+      },
+      limits: {
+        request_body_bytes: 1048576,
+        fetch_max_page_size: 1000,
+        fetch_max_predicates: 25,
+        fetch_max_sort_fields: 8,
+        rate_limit_window_ms: 60000,
+        rate_limit_max: 120,
+      },
+      auth: {
+        enabled: false,
+        mode: 'oidc-jwt',
+        issuer_url: '',
+        audience: '',
+        jwks_url: '',
+        claim_mappings: {
+          subject: 'sub',
+          roles: 'realm_access.roles',
+        },
+      },
+    });
 
   it('builds a registry with the supported database adapters', () => {
     const registry = adaptersProvider.useFactory();
@@ -38,17 +61,18 @@ describe('databaseProviders', () => {
     expect(registry.get('mssql')?.adapterName).toBe('sqlserver');
   });
 
-  it('selects the active adapter from DB_URL', () => {
-    process.env.DB_URL = 'postgres://user:password@localhost:5432/example';
+  it('selects the active adapter from runtime config', () => {
     const registry = adaptersProvider.useFactory();
+    const runtimeConfig = createRuntimeConfigService(
+      'postgres://user:password@localhost:5432/example',
+    );
 
-    const Adapter = activeAdapterProvider.useFactory(registry);
+    const Adapter = activeAdapterProvider.useFactory(registry, runtimeConfig);
 
     expect(Adapter.adapterName).toBe('postgres');
   });
 
   it('throws a helpful error for unsupported engines', () => {
-    process.env.DB_URL = 'sqlite://user:password@localhost/example';
     const registry = new Map<string, DatabaseAdapterConstructor>([
       [
         'postgres',
@@ -65,15 +89,16 @@ describe('databaseProviders', () => {
         } as DatabaseAdapterConstructor,
       ],
     ]);
+    const runtimeConfig = createRuntimeConfigService(
+      'sqlite://user:password@localhost/example',
+    );
 
-    expect(() => activeAdapterProvider.useFactory(registry)).toThrow(
+    expect(() => activeAdapterProvider.useFactory(registry, runtimeConfig)).toThrow(
       'Unsupported database engine "sqlite". Supported engines: mysql, postgres',
     );
   });
 
-  it('creates the active database adapter from DB_URL', async () => {
-    process.env.DB_URL = 'mysql://user:password@db.internal:3307/example';
-
+  it('creates the active database adapter from runtime config', async () => {
     class FakeAdapter {
       public static readonly adapterName = 'mysql';
       public static readonly engines = ['mysql'];
@@ -84,9 +109,13 @@ describe('databaseProviders', () => {
         this.config = config;
       }
     }
+    const runtimeConfig = createRuntimeConfigService(
+      'mysql://user:password@db.internal:3307/example',
+    );
 
     const result = await connectionProvider.useFactory(
       FakeAdapter as unknown as DatabaseAdapterConstructor,
+      runtimeConfig,
     );
 
     expect(result).toBeInstanceOf(FakeAdapter);
