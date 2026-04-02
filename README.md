@@ -123,6 +123,24 @@ sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:1433/master
 
 Startup fails fast with hint-rich errors when the config path is missing, the file cannot be read, the JSON is invalid, required fields are missing, or placeholder environment variables are unresolved.
 
+## Optional Auth
+
+Fetchlane can run fully open for local development, or it can require bearer JWTs from OIDC-compatible providers such as Keycloak, Auth0, or Entra ID.
+
+When `auth.enabled` is `false`:
+
+- `/api/status` is public
+- `/api/docs` is public
+- `/api/data-access/**` is public
+
+When `auth.enabled` is `true`:
+
+- `/api/status` stays public
+- `/api/docs` requires a bearer token
+- `/api/data-access/**` requires a bearer token
+
+Auth validation checks token signature, issuer, audience, and expiry. Claim mapping is driven by `auth.claim_mappings`, so provider-specific claim layouts can still map into a consistent Fetchlane request principal.
+
 ## Supported Engines
 
 Fetchlane is designed around injectable engine support rather than hardcoded controller behavior. The API stays generic while connector implementations handle engine-specific differences internally.

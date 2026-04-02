@@ -20,8 +20,8 @@ Status values:
 
 | Track | Branch | Status | Scope |
 | --- | --- | --- | --- |
-| Runtime config | `feature/runtime-config` | `in_progress` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
-| Auth | `feature/optional-auth` | `planned` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
+| Runtime config | `feature/runtime-config` | `done` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
+| Auth | `feature/optional-auth` | `in_progress` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
 | Operational limits | `feature/operational-limits` | `planned` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
 | Deployment readiness | `feature/deployment-readiness` | `planned` | Container config examples, README updates, example config files, operator docs, release readiness pass |
 
@@ -103,3 +103,6 @@ Checklist:
 - Added a typed JSON runtime config loader with `FETCHLANE_CONFIG` bootstrap support and `${ENV_NAME}` interpolation
 - Switched bootstrap, database adapter selection, and status reporting to the validated config service
 - Updated runtime-config tests, e2e smoke coverage, and the README quick start to reflect config-first startup
+- Merged `feature/runtime-config` back into `develop`
+- Started `feature/optional-auth`
+- Added config-driven OIDC bearer JWT validation, request principal mapping, and protected-route middleware for `/api/docs` and `/api/data-access/**`

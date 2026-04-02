@@ -19,6 +19,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  ApiBearerAuth,
   ApiBody,
   ApiOkResponse,
   ApiOperation,
@@ -42,6 +43,7 @@ const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
  * DELETE: remove data (usually a single resource) from your API
  */
 @ApiTags('data-access')
+@ApiBearerAuth('bearer')
 @Controller('api/data-access')
 export class DataAccessController {
   /** Creates the Fetchlane data-access controller. */

@@ -7,6 +7,9 @@ const app = {
   enableShutdownHooks: vi.fn(),
   useGlobalFilters: vi.fn(),
   use: vi.fn(),
+  get: vi.fn().mockReturnValue({
+    use: vi.fn(),
+  }),
   listen: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -33,6 +36,9 @@ vi.mock('@nestjs/swagger', async (importOriginal) => {
         return this;
       }
       setVersion() {
+        return this;
+      }
+      addBearerAuth() {
         return this;
       }
       build() {
@@ -116,7 +122,8 @@ describe('main bootstrap', () => {
     expect(app.enableCors).toHaveBeenCalledWith({ origin: true });
     expect(app.enableShutdownHooks).toHaveBeenCalled();
     expect(app.useGlobalFilters).toHaveBeenCalledTimes(1);
-    expect(app.use).toHaveBeenCalledTimes(1);
+    expect(app.get).toHaveBeenCalled();
+    expect(app.use).toHaveBeenCalledTimes(2);
     expect(createDocument).toHaveBeenCalledWith(app, {
       title: 'Fetchlane API',
     });
