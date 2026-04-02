@@ -21,8 +21,8 @@ Status values:
 | Track | Branch | Status | Scope |
 | --- | --- | --- | --- |
 | Runtime config | `feature/runtime-config` | `done` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
-| Auth | `feature/optional-auth` | `in_progress` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
-| Operational limits | `feature/operational-limits` | `planned` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
+| Auth | `feature/optional-auth` | `done` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
+| Operational limits | `feature/operational-limits` | `in_progress` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
 | Deployment readiness | `feature/deployment-readiness` | `planned` | Container config examples, README updates, example config files, operator docs, release readiness pass |
 
 ## Delivery Order
@@ -106,3 +106,6 @@ Checklist:
 - Merged `feature/runtime-config` back into `develop`
 - Started `feature/optional-auth`
 - Added config-driven OIDC bearer JWT validation, request principal mapping, and protected-route middleware for `/api/docs` and `/api/data-access/**`
+- Merged `feature/optional-auth` back into `develop`
+- Started `feature/operational-limits`
+- Added config-driven rate limiting, request body size enforcement, and FetchRequest page-size / predicate / sort guardrails

@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { AuthMiddleware } from './auth/auth.middleware';
 import { getRuntimeConfig } from './config/runtime-config';
 import { ApiExceptionFilter } from './filters/api-exception.filter';
+import { RateLimitMiddleware } from './limits/rate-limit.middleware';
 
 /**
  * Applies Fetchlane runtime configuration to an already created Nest application.
@@ -22,10 +23,33 @@ export function configureApplication(app: INestApplication): void {
   }
   app.enableShutdownHooks();
   app.useGlobalFilters(new ApiExceptionFilter());
-  app.use(json());
+  app.use(
+    json({
+      limit: runtimeConfig.limits.request_body_bytes,
+    }),
+  );
+  app.use((error, request, response, next) => {
+    if (error?.type !== 'entity.too.large') {
+      next(error);
+      return;
+    }
+
+    response.status(413).json({
+      statusCode: 413,
+      error: 'Payload Too Large',
+      message: 'The request body exceeds the configured size limit.',
+      hint: `Reduce the request body size or increase limits.request_body_bytes in the runtime config. Current limit: ${runtimeConfig.limits.request_body_bytes} bytes.`,
+      path: request.originalUrl || request.url,
+      timestamp: new Date().toISOString(),
+    });
+  });
   const authMiddleware = app.get(AuthMiddleware);
+  const rateLimitMiddleware = app.get(RateLimitMiddleware);
   app.use((request, response, next) =>
     void authMiddleware.use(request, response, next),
+  );
+  app.use((request, response, next) =>
+    void rateLimitMiddleware.use(request, response, next),
   );
 
   const swaggerConfig = new DocumentBuilder()
