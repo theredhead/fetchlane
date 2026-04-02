@@ -9,7 +9,7 @@ describe('FetchRequestBuilder', () => {
 
     expect(request).toEqual({
       table: 'member',
-      predicates: [{ text: 'name = ?', args: [['Alice']] }],
+      predicates: [{ text: 'name = ?', args: ['Alice'] }],
       sort: [{ column: 'name', direction: 'ASC' }],
       pagination: { size: 25, index: 2 },
     });

@@ -1,9 +1,120 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /** Swagger DTO for the status endpoint response. */
+export class StatusServiceInfoDto {
+  @ApiProperty({ example: 'fetchlane' })
+  public name: string;
+
+  @ApiProperty({ example: '0.0.1' })
+  public version: string;
+
+  @ApiProperty({ example: 'development' })
+  public environment: string;
+}
+
+/** Swagger DTO for status runtime metadata. */
+export class StatusRuntimeDto {
+  @ApiProperty({ example: '2026-04-02T00:00:00.000Z' })
+  public started_at: string;
+
+  @ApiProperty({ example: '2026-04-02T00:05:00.000Z' })
+  public checked_at: string;
+
+  @ApiProperty({ example: 300000 })
+  public uptime_ms: number;
+
+  @ApiProperty({ example: 'v22.14.0' })
+  public node_version: string;
+
+  @ApiProperty({ example: 'darwin/arm64' })
+  public platform: string;
+
+  @ApiProperty({ example: 12996 })
+  public pid: number;
+}
+
+/** Swagger DTO for database capability flags in the status response. */
+export class StatusDatabaseCapabilitiesDto {
+  @ApiProperty({ example: true })
+  public table_listing: boolean;
+
+  @ApiProperty({ example: true })
+  public table_info: boolean;
+
+  @ApiProperty({ example: true })
+  public schema_description: boolean;
+
+  @ApiProperty({ example: true })
+  public create_table_sql: boolean;
+}
+
+/** Swagger DTO for database error details in the status response. */
+export class StatusDatabaseErrorDto {
+  @ApiProperty({ example: 'The database connectivity check failed.' })
+  public message: string;
+
+  @ApiProperty({
+    example:
+      'Verify DB_URL credentials, host, port, driver installation, and that the target database server is reachable.',
+  })
+  public hint: string;
+}
+
+/** Swagger DTO for database status details. */
+export class StatusDatabaseDto {
+  @ApiProperty({ example: 'postgres' })
+  public engine: string;
+
+  @ApiProperty({ example: '127.0.0.1' })
+  public host: string;
+
+  @ApiPropertyOptional({ example: 5432, nullable: true })
+  public port: number | null;
+
+  @ApiProperty({ example: 'northwind' })
+  public database: string;
+
+  @ApiProperty({ example: true })
+  public connected: boolean;
+
+  @ApiPropertyOptional({ example: 4, nullable: true })
+  public round_trip_ms: number | null;
+
+  @ApiProperty({ type: StatusDatabaseCapabilitiesDto })
+  public capabilities: StatusDatabaseCapabilitiesDto;
+
+  @ApiPropertyOptional({
+    type: StatusDatabaseErrorDto,
+    nullable: true,
+  })
+  public error: StatusDatabaseErrorDto | null;
+}
+
+/** Swagger DTO for useful status links. */
+export class StatusLinksDto {
+  @ApiProperty({ example: '/api/status' })
+  public self: string;
+
+  @ApiProperty({ example: '/api/docs' })
+  public docs: string;
+}
+
+/** Swagger DTO for the status endpoint response. */
 export class StatusResponseDto {
-  @ApiProperty({ example: 'Running' })
+  @ApiProperty({ example: 'ok' })
   public status: string;
+
+  @ApiProperty({ type: StatusServiceInfoDto })
+  public service: StatusServiceInfoDto;
+
+  @ApiProperty({ type: StatusRuntimeDto })
+  public runtime: StatusRuntimeDto;
+
+  @ApiProperty({ type: StatusDatabaseDto })
+  public database: StatusDatabaseDto;
+
+  @ApiProperty({ type: StatusLinksDto })
+  public links: StatusLinksDto;
 }
 
 /** Swagger DTO for a single schema column. */

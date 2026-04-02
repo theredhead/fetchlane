@@ -1,4 +1,12 @@
 /**
+ * Supported parameter payloads for a fetch predicate.
+ *
+ * Use either positional parameters (`?`) with an array, or named parameters
+ * (`:name`) with an object. A single `FetchRequest` must use only one mode.
+ */
+export type FetchPredicateArgs = unknown[] | Record<string, unknown>;
+
+/**
  * Structured request body for the `/fetch` endpoint.
  */
 export interface FetchRequest {
@@ -24,8 +32,10 @@ export interface FetchRequestPagination {
  * Simple text predicate with bound argument values.
  */
 export interface FetchSimplePredicteClause {
+  /** SQL predicate fragment that may use `?` or `:name` placeholders. */
   text: string;
-  args: any[];
+  /** Bound values for the placeholders declared in `text`. */
+  args: FetchPredicateArgs;
 }
 
 /**

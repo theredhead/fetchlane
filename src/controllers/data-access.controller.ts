@@ -26,8 +26,11 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
-import { Record } from 'src/data/database';
+import { Record, RecordSet } from 'src/data/database';
+import { badRequest } from 'src/errors/api-error';
 import { TableSchemaDescriptionDto } from 'src/swagger/models';
+
+const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
 
 /**
  * As is good practice, this controller follows REST principles:
@@ -63,7 +66,7 @@ export class DataAccessController {
           type: 'array',
           example: [
             {
-              text: 'age > $1',
+              text: 'age > ?',
               args: [18],
             },
           ],
@@ -95,23 +98,34 @@ export class DataAccessController {
   })
   @ApiOkResponse({
     schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: true,
+      type: 'object',
+      properties: {
+        rows: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: true,
+          },
+        },
+        info: {
+          type: 'object',
+          additionalProperties: true,
+        },
+        fields: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: true,
+          },
+        },
       },
     },
   })
   @Post('fetch')
   /** Executes a structured fetch request with predicates, sorting, and pagination. */
-  public async fetch(@Body() request: FetchRequest) {
-    try {
-      return await this.fetchRequestHandler.handleRequest(request);
-    } catch (error) {
-      return {
-        error,
-      };
-    }
+  public async fetch(@Body() request: FetchRequest): Promise<RecordSet> {
+    this.validateFetchRequestEnvelope(request);
+    return await this.fetchRequestHandler.handleRequest(request);
   }
 
   @ApiOperation({ summary: 'List public tables in the database' })
@@ -135,7 +149,7 @@ export class DataAccessController {
   })
   @Get('table-names')
   /** Lists the tables visible to the active database connection. */
-  public async tableNames(): Promise<any> {
+  public async tableNames(): Promise<Record[]> {
     return await this.db.getTableNames();
   }
 
@@ -152,25 +166,8 @@ export class DataAccessController {
   })
   @Get(':table/info')
   /** Returns basic column metadata for a table. */
-  public async tableInfo(@Param('table') table: string): Promise<any> {
-    return await this.db.tableInfo(table);
-  }
-
-  @ApiOperation({ summary: 'Get column metadata for a table (legacy route)' })
-  @ApiParam({ name: 'table', example: 'member' })
-  @ApiOkResponse({
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: true,
-      },
-    },
-  })
-  @Get('table/:table/info')
-  /** Returns basic column metadata for a table using the legacy route. */
-  public async tableInfoLegacy(@Param('table') table: string): Promise<any> {
-    return await this.db.tableInfo(table);
+  public async tableInfo(@Param('table') table: string): Promise<Record[]> {
+    return await this.db.tableInfo(this.validateIdentifier(table, 'table'));
   }
 
   @ApiOperation({
@@ -183,20 +180,7 @@ export class DataAccessController {
   public async describeTable(
     @Param('table') table: string,
   ): Promise<TableSchemaDescription | null> {
-    return await this.db.describeTable(table);
-  }
-
-  @ApiOperation({
-    summary: 'Get detailed schema metadata for a table (legacy route)',
-  })
-  @ApiParam({ name: 'table', example: 'member' })
-  @ApiOkResponse({ type: TableSchemaDescriptionDto })
-  @Get('table/:table/schema')
-  /** Returns a normalized schema description for a table using the legacy route. */
-  public async describeTableLegacy(
-    @Param('table') table: string,
-  ): Promise<TableSchemaDescription | null> {
-    return await this.db.describeTable(table);
+    return await this.db.describeTable(this.validateIdentifier(table, 'table'));
   }
 
   @ApiOperation({ summary: 'List records from a table' })
@@ -218,31 +202,12 @@ export class DataAccessController {
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
     @Query('pageSize') pageSize = 10,
-  ): Promise<Record> {
-    return await this.db.index(table, pageIndex, pageSize);
-  }
-
-  @ApiOperation({ summary: 'List records from a table (legacy route)' })
-  @ApiParam({ name: 'table', example: 'member' })
-  @ApiQuery({ name: 'pageIndex', required: false, example: 0 })
-  @ApiQuery({ name: 'pageSize', required: false, example: 10 })
-  @ApiOkResponse({
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: true,
-      },
-    },
-  })
-  @Get('table/:table')
-  /** Returns a paginated list of rows from a table using the legacy route. */
-  public async indexLegacy(
-    @Param('table') table: string,
-    @Query('pageIndex') pageIndex = 0,
-    @Query('pageSize') pageSize = 10,
-  ): Promise<Record> {
-    return await this.db.index(table, pageIndex, pageSize);
+  ): Promise<Record[]> {
+    return await this.db.index(
+      this.validateIdentifier(table, 'table'),
+      this.parsePageIndex(pageIndex),
+      this.parsePageSize(pageSize),
+    );
   }
 
   @ApiOperation({ summary: 'Create a record in a table' })
@@ -269,7 +234,10 @@ export class DataAccessController {
     @Param('table') table: string,
     @Body() record: Record,
   ): Promise<Record> {
-    return await this.db.insert(table, record);
+    return await this.db.insert(
+      this.validateIdentifier(table, 'table'),
+      this.validateRecordBody(record, 'create'),
+    );
   }
 
   @ApiOperation({ summary: 'Get a single record by id' })
@@ -287,7 +255,10 @@ export class DataAccessController {
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<Record> {
-    return await this.db.selectSingleById(table, id);
+    return await this.db.selectSingleById(
+      this.validateIdentifier(table, 'table'),
+      id,
+    );
   }
 
   @ApiOperation({ summary: 'Get a single column value from a record by id' })
@@ -307,8 +278,12 @@ export class DataAccessController {
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
-  ): Promise<string> {
-    return await this.db.getColumnFromRecordbyId(table, id, column);
+  ): Promise<string | null> {
+    return await this.db.getColumnFromRecordbyId(
+      this.validateIdentifier(table, 'table'),
+      id,
+      this.validateIdentifier(column, 'column'),
+    );
   }
 
   @ApiOperation({ summary: 'Update a single column value for a record by id' })
@@ -333,9 +308,14 @@ export class DataAccessController {
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
-    @Body() value: string,
+    @Body() value: unknown,
   ): Promise<Record> {
-    return await this.db.updateColumnForRecordById(table, id, column, value);
+    return await this.db.updateColumnForRecordById(
+      this.validateIdentifier(table, 'table'),
+      id,
+      this.validateIdentifier(column, 'column'),
+      value,
+    );
   }
 
   @ApiOperation({ summary: 'Replace a record by id' })
@@ -364,7 +344,11 @@ export class DataAccessController {
     @Param('id', ParseIntPipe) id: number,
     @Body() record: Record,
   ): Promise<Record> {
-    return await this.db.update(table, id, record);
+    return await this.db.update(
+      this.validateIdentifier(table, 'table'),
+      id,
+      this.validateRecordBody(record, 'update'),
+    );
   }
 
   @ApiOperation({ summary: 'Delete a record by id' })
@@ -382,7 +366,7 @@ export class DataAccessController {
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<Record> {
-    return await this.db.delete(table, id);
+    return await this.db.delete(this.validateIdentifier(table, 'table'), id);
   }
 
   @ApiOperation({ summary: 'Generate a CREATE TABLE script for a new table' })
@@ -435,6 +419,172 @@ export class DataAccessController {
     @Param('table') table: string,
     @Body() columns: ColumnDescription[],
   ): Promise<string> {
-    return await this.db.createTable(table, columns);
+    return await this.db.createTable(
+      this.validateIdentifier(table, 'table'),
+      this.validateCreateTableColumns(columns),
+    );
+  }
+
+  private parsePageIndex(value: number | string): number {
+    const parsed = this.parseIntegerQueryValue(value, 'pageIndex');
+
+    if (parsed < 0) {
+      throw badRequest(
+        'Query parameter "pageIndex" must be a non-negative integer.',
+        'Use zero for the first page, then increment by whole numbers for subsequent pages.',
+      );
+    }
+
+    return parsed;
+  }
+
+  private parsePageSize(value: number | string): number {
+    const parsed = this.parseIntegerQueryValue(value, 'pageSize');
+
+    if (parsed <= 0 || parsed > 1000) {
+      throw badRequest(
+        'Query parameter "pageSize" must be an integer between 1 and 1000.',
+        'Choose a page size from 1 to 1000 so the API can paginate safely.',
+      );
+    }
+
+    return parsed;
+  }
+
+  private parseIntegerQueryValue(
+    value: number | string,
+    parameterName: string,
+  ): number {
+    if (Array.isArray(value)) {
+      throw badRequest(
+        `Query parameter "${parameterName}" must be a single integer value.`,
+        `Pass "${parameterName}" once in the query string, for example ?${parameterName}=10.`,
+      );
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isInteger(parsed)) {
+      throw badRequest(
+        `Query parameter "${parameterName}" must be an integer.`,
+        `Provide "${parameterName}" as a whole number, without decimals or text.`,
+      );
+    }
+
+    return parsed;
+  }
+
+  private validateIdentifier(value: string, label: 'table' | 'column'): string {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+
+    if (!normalized) {
+      throw badRequest(
+        `Route parameter "${label}" must be a non-empty identifier.`,
+        `Provide a valid ${label} name such as "member" or "public.member".`,
+      );
+    }
+
+    if (!IDENTIFIER_PATTERN.test(normalized)) {
+      throw badRequest(
+        `Route parameter "${label}" contains unsupported characters.`,
+        `Use only letters, numbers, underscores, dots, and dollar signs in ${label} names, starting with a letter or underscore.`,
+      );
+    }
+
+    return normalized;
+  }
+
+  private validateRecordBody(record: unknown, action: 'create' | 'update'): Record {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      throw badRequest(
+        `Request body for ${action} must be a JSON object.`,
+        `Send an object with column names as properties when you ${action} a record.`,
+      );
+    }
+
+    if (Object.keys(record).length === 0) {
+      throw badRequest(
+        `Request body for ${action} must contain at least one property.`,
+        `Provide one or more column values when you ${action} a record.`,
+      );
+    }
+
+    return record as Record;
+  }
+
+  private validateCreateTableColumns(
+    columns: unknown,
+  ): ColumnDescription[] {
+    if (!Array.isArray(columns) || columns.length === 0) {
+      throw badRequest(
+        'CREATE TABLE input must be a non-empty array of column definitions.',
+        'Send at least one column definition with name, type, and nullable fields.',
+      );
+    }
+
+    const names = new Set<string>();
+
+    for (const [index, column] of columns.entries()) {
+      if (!column || typeof column !== 'object' || Array.isArray(column)) {
+        throw badRequest(
+          `Column definition at index ${index} must be an object.`,
+          'Each column entry should be a JSON object with name, type, and nullable fields.',
+        );
+      }
+
+      const candidate = column as Partial<ColumnDescription>;
+      const name =
+        typeof candidate.name === 'string' ? candidate.name.trim() : '';
+      const type =
+        typeof candidate.type === 'string' ? candidate.type.trim() : '';
+
+      if (!name) {
+        throw badRequest(
+          `Column definition at index ${index} is missing a valid "name".`,
+          'Provide a non-empty column name for every proposed table column.',
+        );
+      }
+
+      if (!IDENTIFIER_PATTERN.test(name)) {
+        throw badRequest(
+          `Column definition "${name}" contains unsupported characters.`,
+          'Use only letters, numbers, underscores, dots, and dollar signs in column names, starting with a letter or underscore.',
+        );
+      }
+
+      if (!type) {
+        throw badRequest(
+          `Column definition "${name}" is missing a valid "type".`,
+          'Provide a non-empty database type such as text, integer, or timestamp.',
+        );
+      }
+
+      if (typeof candidate.nullable !== 'boolean') {
+        throw badRequest(
+          `Column definition "${name}" must define "nullable" as a boolean.`,
+          'Set nullable to either true or false for every column definition.',
+        );
+      }
+
+      if (names.has(name)) {
+        throw badRequest(
+          `Column definition "${name}" is duplicated.`,
+          'Use unique column names within a single CREATE TABLE request.',
+        );
+      }
+
+      names.add(name);
+    }
+
+    return columns as ColumnDescription[];
+  }
+
+  private validateFetchRequestEnvelope(request: unknown): void {
+    if (!request || typeof request !== 'object' || Array.isArray(request)) {
+      throw badRequest(
+        'FetchRequest body must be a JSON object.',
+        'Send an object with table, predicates, sort, and optional pagination fields.',
+      );
+    }
   }
 }

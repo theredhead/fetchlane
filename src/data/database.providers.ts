@@ -1,44 +1,46 @@
 import { Provider } from '@nestjs/common';
 import { readDatabaseUrlFromEnvironment } from '../db.conf';
 import {
-  createDatabaseEngineRegistry,
-  DatabaseEngine,
-  DatabaseEngineRegistry,
-} from './database-engine';
-import { Database } from './database';
-import { mySqlDatabaseEngine } from './mysql/mysql-engine';
-import { postgresDatabaseEngine } from './postgres/postgres-engine';
-import { sqlServerDatabaseEngine } from './sqlserver/sqlserver-engine';
+  createDatabaseAdapterRegistry,
+  DatabaseAdapter,
+  DatabaseAdapterConstructor,
+  DatabaseAdapterRegistry,
+} from './database';
+import { MySqlDatabase } from './mysql/mysql-database';
+import { PostgresDatabase } from './postgres/postgres-database';
+import { SqlServerDatabase } from './sqlserver/sqlserver-database';
 
-/** Injection token for the registry of supported database engines. */
-export const DATABASE_ENGINES = Symbol('DATABASE_ENGINES');
-/** Injection token for the engine selected from `DB_URL`. */
-export const ACTIVE_DATABASE_ENGINE = Symbol('ACTIVE_DATABASE_ENGINE');
+/** Injection token for the registry of supported database adapters. */
+export const DATABASE_ADAPTERS = Symbol('DATABASE_ADAPTERS');
+/** Injection token for the adapter constructor selected from `DB_URL`. */
+export const ACTIVE_DATABASE_ADAPTER = Symbol('ACTIVE_DATABASE_ADAPTER');
 /** Injection token for the active database connection. */
 export const DATABASE_CONNECTION = Symbol('DATABASE_CONNECTION');
 
-const supportedDatabaseEngines: readonly DatabaseEngine[] = [
-  postgresDatabaseEngine,
-  mySqlDatabaseEngine,
-  sqlServerDatabaseEngine,
+const supportedDatabaseAdapters: readonly DatabaseAdapterConstructor[] = [
+  PostgresDatabase,
+  MySqlDatabase,
+  SqlServerDatabase,
 ];
 
-/** Nest providers that register and connect the active database engine. */
+/** Nest providers that register and connect the active database adapter. */
 export const databaseProviders: Provider[] = [
   {
-    provide: DATABASE_ENGINES,
-    useFactory: (): DatabaseEngineRegistry =>
-      createDatabaseEngineRegistry(supportedDatabaseEngines),
+    provide: DATABASE_ADAPTERS,
+    useFactory: (): DatabaseAdapterRegistry =>
+      createDatabaseAdapterRegistry(supportedDatabaseAdapters),
   },
   {
-    provide: ACTIVE_DATABASE_ENGINE,
-    inject: [DATABASE_ENGINES],
-    useFactory: (registry: DatabaseEngineRegistry): DatabaseEngine => {
+    provide: ACTIVE_DATABASE_ADAPTER,
+    inject: [DATABASE_ADAPTERS],
+    useFactory: (
+      registry: DatabaseAdapterRegistry,
+    ): DatabaseAdapterConstructor => {
       const config = readDatabaseUrlFromEnvironment();
-      const engine = registry.get(config.engine);
+      const adapter = registry.get(config.engine);
 
-      if (engine) {
-        return engine;
+      if (adapter) {
+        return adapter;
       }
 
       const supportedEngines = [...registry.keys()].sort().join(', ');
@@ -49,8 +51,9 @@ export const databaseProviders: Provider[] = [
   },
   {
     provide: DATABASE_CONNECTION,
-    inject: [ACTIVE_DATABASE_ENGINE],
-    useFactory: async (engine: DatabaseEngine): Promise<Database> =>
-      await engine.connectDatabase(readDatabaseUrlFromEnvironment()),
+    inject: [ACTIVE_DATABASE_ADAPTER],
+    useFactory: async (
+      Adapter: DatabaseAdapterConstructor,
+    ): Promise<DatabaseAdapter> => new Adapter(readDatabaseUrlFromEnvironment()),
   },
 ];

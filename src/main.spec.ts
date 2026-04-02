@@ -1,5 +1,7 @@
 const app = {
   enableCors: vi.fn(),
+  enableShutdownHooks: vi.fn(),
+  useGlobalFilters: vi.fn(),
   listen: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -46,10 +48,12 @@ describe('main bootstrap', () => {
     vi.resetModules();
   });
 
-  it('boots Nest, enables CORS, and configures Swagger', async () => {
+  it('boots Nest, enables CORS, configures global error handling, and configures Swagger', async () => {
     await import('./main');
 
     expect(app.enableCors).toHaveBeenCalled();
+    expect(app.enableShutdownHooks).toHaveBeenCalled();
+    expect(app.useGlobalFilters).toHaveBeenCalledTimes(1);
     expect(createDocument).toHaveBeenCalledWith(app, {
       title: 'Fetchlane API',
     });

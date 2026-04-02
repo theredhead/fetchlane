@@ -1,27 +1,22 @@
 import { MySqlDatabase } from './mysql-database';
 
-let getConnectionMock: any;
-let endMock: any;
-
-vi.mock('mysql2', () => ({
-  createPool: vi.fn(() => ({
-    getConnection: getConnectionMock,
-    end: endMock,
-  })),
-}));
-
 describe('MySqlDatabase', () => {
   let database: MySqlDatabase;
 
   beforeEach(() => {
-    endMock = vi.fn();
-    getConnectionMock = vi.fn();
-    database = new MySqlDatabase({});
+    database = new MySqlDatabase({
+      engine: 'mysql',
+      user: 'root',
+      password: 'password',
+      host: 'localhost',
+      port: 3306,
+      database: 'testdb',
+    });
   });
 
   it('executes select queries and maps fields', async () => {
     const release = vi.fn();
-    getConnectionMock.mockImplementation((callback: any) => {
+    const getConnection = vi.fn((callback: any) => {
       callback(null, {
         query: (_statement: string, _args: any[], queryCallback: any) =>
           queryCallback(
@@ -32,6 +27,7 @@ describe('MySqlDatabase', () => {
         release,
       });
     });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({ getConnection });
 
     const result = await database.execute('SELECT * FROM `member`');
 
@@ -44,7 +40,7 @@ describe('MySqlDatabase', () => {
 
   it('maps command result headers into info', async () => {
     const release = vi.fn();
-    getConnectionMock.mockImplementation((callback: any) => {
+    const getConnection = vi.fn((callback: any) => {
       callback(null, {
         query: (_statement: string, _args: any[], queryCallback: any) =>
           queryCallback(
@@ -62,10 +58,12 @@ describe('MySqlDatabase', () => {
         release,
       });
     });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({ getConnection });
 
-    const result = await database.execute('INSERT INTO `member` (`name`) VALUES (?)', [
-      'Alice',
-    ]);
+    const result = await database.execute(
+      'INSERT INTO `member` (`name`) VALUES (?)',
+      ['Alice'],
+    );
 
     expect(result.info).toMatchObject({ affectedRows: 1, insertId: 7 });
     expect(result.rows).toEqual([]);
@@ -73,14 +71,18 @@ describe('MySqlDatabase', () => {
   });
 
   it('rejects when no connection can be acquired', async () => {
-    getConnectionMock.mockImplementation((callback: any) => {
+    const getConnection = vi.fn((callback: any) => {
       callback(new Error('no connection'));
     });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({ getConnection });
 
     await expect(database.execute('SELECT 1')).rejects.toThrow('no connection');
   });
 
-  it('supports selectSingle, executeScalar, tableExists, and release', async () => {
+  it('supports selectSingle, executeScalar, tableExists, escaping, and release', async () => {
+    const end = vi.fn().mockResolvedValue(undefined);
+    (database as any).poolPromise = Promise.resolve({ end });
+
     vi.spyOn(database, 'execute')
       .mockResolvedValueOnce({
         info: {},
@@ -97,8 +99,11 @@ describe('MySqlDatabase', () => {
       database.selectSingle('member', 'WHERE id=?', [2]),
     ).resolves.toEqual({ id: 2, name: 'Bob' });
     await expect(database.tableExists('member')).resolves.toBe(true);
+    expect(database.quoteIdentifier('odd`name')).toBe('`odd``name`');
 
     database.release();
-    expect(endMock).toHaveBeenCalled();
+    await Promise.resolve();
+
+    expect(end).toHaveBeenCalled();
   });
 });

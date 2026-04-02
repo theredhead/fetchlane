@@ -1,0 +1,53 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .fetchlane-wordmark {
+      fill: currentColor;
+    }
+
+    .fetchlane-tagline {
+      fill: currentColor;
+      opacity: 0.72;
+    }
+  </style>
+  <defs>
+    <linearGradient id="fetchlane-lane-gradient" x1="32" y1="24" x2="224" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF6B57"/>
+      <stop offset="1" stop-color="#D7263D"/>
+    </linearGradient>
+    <linearGradient id="fetchlane-accent-gradient" x1="84" y1="80" x2="220" y2="212" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFB36B"/>
+      <stop offset="1" stop-color="#FF6B57"/>
+    </linearGradient>
+    <filter id="fetchlane-glow" x="0" y="0" width="280" height="280" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+      <feGaussianBlur stdDeviation="10" result="effect1_foregroundBlur"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(24 24)">
+    <rect x="8" y="8" width="240" height="240" rx="56" fill="#FFF7F5"/>
+    <rect x="8" y="8" width="240" height="240" rx="56" stroke="#F1D5CF" stroke-width="4"/>
+
+    <g filter="url(#fetchlane-glow)" opacity="0.18">
+      <path d="M72 58C72 48.059 80.059 40 90 40H112C121.941 40 130 48.059 130 58V194C130 203.941 121.941 212 112 212H90C80.059 212 72 203.941 72 194V58Z" fill="url(#fetchlane-lane-gradient)"/>
+      <path d="M96 58H176.735C183.097 58 189.198 60.5286 193.698 65.0294L213.971 85.3015C225.309 96.6398 217.278 116 201.243 116H96V58Z" fill="url(#fetchlane-lane-gradient)"/>
+      <path d="M96 112H163.716C169.863 112 175.758 114.444 180.105 118.791L201.209 139.895C212.547 151.233 204.516 170.594 188.48 170.594H96V112Z" fill="url(#fetchlane-lane-gradient)"/>
+      <path d="M96 166H147.412C153.62 166 159.573 168.509 163.934 172.957L181.066 190.434C192.148 201.74 184.138 220.594 168.308 220.594H96V166Z" fill="url(#fetchlane-accent-gradient)"/>
+    </g>
+
+    <path d="M72 58C72 48.059 80.059 40 90 40H112C121.941 40 130 48.059 130 58V194C130 203.941 121.941 212 112 212H90C80.059 212 72 203.941 72 194V58Z" fill="#3A0F16"/>
+    <path d="M96 58H176.735C183.097 58 189.198 60.5286 193.698 65.0294L213.971 85.3015C225.309 96.6398 217.278 116 201.243 116H96V58Z" fill="url(#fetchlane-lane-gradient)"/>
+    <path d="M96 112H163.716C169.863 112 175.758 114.444 180.105 118.791L201.209 139.895C212.547 151.233 204.516 170.594 188.48 170.594H96V112Z" fill="url(#fetchlane-lane-gradient)"/>
+    <path d="M96 166H147.412C153.62 166 159.573 168.509 163.934 172.957L181.066 190.434C192.148 201.74 184.138 220.594 168.308 220.594H96V166Z" fill="url(#fetchlane-accent-gradient)"/>
+
+    <circle cx="197" cy="83" r="8" fill="#FFF7F5"/>
+    <circle cx="182" cy="137" r="7" fill="#FFF7F5" fill-opacity="0.95"/>
+    <circle cx="165" cy="191" r="6" fill="#FFF7F5" fill-opacity="0.9"/>
+  </g>
+
+  <g transform="translate(310 96)">
+    <text class="fetchlane-wordmark" x="0" y="78" font-family="Avenir Next, Montserrat, Poppins, sans-serif" font-size="96" font-weight="700" letter-spacing="-3">Fetchlane</text>
+    <text class="fetchlane-tagline" x="4" y="126" font-family="Avenir Next, Montserrat, Poppins, sans-serif" font-size="28" font-weight="500" letter-spacing="4">MULTI-ENGINE DATA ACCESS</text>
+  </g>
+</svg>

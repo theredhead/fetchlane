@@ -8,13 +8,10 @@ import { LoggerService } from '../service/logger.service';
  */
 export class RequestLoggerMiddleware implements NestMiddleware {
   /**
-   * Logs the incoming request line and, for POST requests, the request body.
+   * Logs the incoming request line.
    */
   public use(req: Request, res: Response, next: NextFunction): void {
     this.logger.log(`[${req.ip}] ${req.method} ${req.url}`);
-    if (req.method.toUpperCase() == 'POST') {
-      this.logger.log(req.body);
-    }
     next();
   }
 

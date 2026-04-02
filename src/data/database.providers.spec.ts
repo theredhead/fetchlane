@@ -1,17 +1,17 @@
 import {
-  ACTIVE_DATABASE_ENGINE,
+  ACTIVE_DATABASE_ADAPTER,
+  DATABASE_ADAPTERS,
   DATABASE_CONNECTION,
-  DATABASE_ENGINES,
   databaseProviders,
 } from './database.providers';
-import { DatabaseEngine } from './database-engine';
+import { DatabaseAdapterConstructor } from './database';
 
 describe('databaseProviders', () => {
-  const enginesProvider = databaseProviders.find(
-    (provider: any) => provider.provide === DATABASE_ENGINES,
+  const adaptersProvider = databaseProviders.find(
+    (provider: any) => provider.provide === DATABASE_ADAPTERS,
   ) as any;
-  const activeEngineProvider = databaseProviders.find(
-    (provider: any) => provider.provide === ACTIVE_DATABASE_ENGINE,
+  const activeAdapterProvider = databaseProviders.find(
+    (provider: any) => provider.provide === ACTIVE_DATABASE_ADAPTER,
   ) as any;
   const connectionProvider = databaseProviders.find(
     (provider: any) => provider.provide === DATABASE_CONNECTION,
@@ -28,47 +28,69 @@ describe('databaseProviders', () => {
     process.env.DB_URL = originalDbUrl;
   });
 
-  it('builds a registry with the supported database engines', () => {
-    const registry = enginesProvider.useFactory();
+  it('builds a registry with the supported database adapters', () => {
+    const registry = adaptersProvider.useFactory();
 
-    expect(registry.get('postgres')?.name).toBe('postgres');
-    expect(registry.get('postgresql')?.name).toBe('postgres');
-    expect(registry.get('mysql')?.name).toBe('mysql');
-    expect(registry.get('sqlserver')?.name).toBe('sqlserver');
-    expect(registry.get('mssql')?.name).toBe('sqlserver');
+    expect(registry.get('postgres')?.adapterName).toBe('postgres');
+    expect(registry.get('postgresql')?.adapterName).toBe('postgres');
+    expect(registry.get('mysql')?.adapterName).toBe('mysql');
+    expect(registry.get('sqlserver')?.adapterName).toBe('sqlserver');
+    expect(registry.get('mssql')?.adapterName).toBe('sqlserver');
   });
 
-  it('selects the active engine from DB_URL', () => {
+  it('selects the active adapter from DB_URL', () => {
     process.env.DB_URL = 'postgres://user:password@localhost:5432/example';
-    const registry = enginesProvider.useFactory();
+    const registry = adaptersProvider.useFactory();
 
-    const engine = activeEngineProvider.useFactory(registry);
+    const Adapter = activeAdapterProvider.useFactory(registry);
 
-    expect(engine.name).toBe('postgres');
+    expect(Adapter.adapterName).toBe('postgres');
   });
 
   it('throws a helpful error for unsupported engines', () => {
     process.env.DB_URL = 'sqlite://user:password@localhost/example';
-    const registry = new Map<string, DatabaseEngine>([
-      ['postgres', { name: 'postgres', engines: ['postgres'] } as DatabaseEngine],
-      ['mysql', { name: 'mysql', engines: ['mysql'] } as DatabaseEngine],
+    const registry = new Map<string, DatabaseAdapterConstructor>([
+      [
+        'postgres',
+        {
+          adapterName: 'postgres',
+          engines: ['postgres'],
+        } as DatabaseAdapterConstructor,
+      ],
+      [
+        'mysql',
+        {
+          adapterName: 'mysql',
+          engines: ['mysql'],
+        } as DatabaseAdapterConstructor,
+      ],
     ]);
 
-    expect(() => activeEngineProvider.useFactory(registry)).toThrow(
+    expect(() => activeAdapterProvider.useFactory(registry)).toThrow(
       'Unsupported database engine "sqlite". Supported engines: mysql, postgres',
     );
   });
 
-  it('creates the active database connection from DB_URL', async () => {
+  it('creates the active database adapter from DB_URL', async () => {
     process.env.DB_URL = 'mysql://user:password@db.internal:3307/example';
-    const connection = { kind: 'connection' };
-    const engine = {
-      connectDatabase: vi.fn().mockResolvedValue(connection),
-    };
 
-    const result = await connectionProvider.useFactory(engine);
+    class FakeAdapter {
+      public static readonly adapterName = 'mysql';
+      public static readonly engines = ['mysql'];
 
-    expect(engine.connectDatabase).toHaveBeenCalledWith({
+      public readonly config: unknown;
+
+      public constructor(config: unknown) {
+        this.config = config;
+      }
+    }
+
+    const result = await connectionProvider.useFactory(
+      FakeAdapter as unknown as DatabaseAdapterConstructor,
+    );
+
+    expect(result).toBeInstanceOf(FakeAdapter);
+    expect((result as FakeAdapter).config).toEqual({
       engine: 'mysql',
       user: 'user',
       password: 'password',
@@ -76,6 +98,5 @@ describe('databaseProviders', () => {
       port: 3307,
       database: 'example',
     });
-    expect(result).toBe(connection);
   });
 });

@@ -23,7 +23,7 @@ describe('RequestLoggerMiddleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('logs the request body for POST requests', () => {
+  it('does not log the request body for POST requests', () => {
     const logger = { log: vi.fn() };
     const middleware = new RequestLoggerMiddleware(logger as any);
 
@@ -38,9 +38,9 @@ describe('RequestLoggerMiddleware', () => {
       vi.fn(),
     );
 
-    expect(logger.log).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ name: 'Alice' }),
+    expect(logger.log).toHaveBeenCalledTimes(1);
+    expect(logger.log).toHaveBeenCalledWith(
+      '[127.0.0.1] POST /api/data-access/member',
     );
   });
 });

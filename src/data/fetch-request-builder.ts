@@ -1,4 +1,5 @@
 import {
+  FetchPredicateArgs,
   FetchRequest,
   FetchSimplePredicteClause,
   Sort,
@@ -16,7 +17,7 @@ export function from(table: string): FetchRequestBuilder {
  */
 export interface WhereClause {
   text: string;
-  args: any;
+  args: FetchPredicateArgs;
 }
 
 /**
@@ -56,7 +57,7 @@ export class FetchRequestBuilder {
     text: string,
     ...args: any[]
   ) {
-    this.request.predicates.push({ text, args });
+    this.request.predicates.push({ text, args: args[0] ?? [] });
     return this;
   }
 
