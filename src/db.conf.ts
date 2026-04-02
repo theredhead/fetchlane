@@ -1,7 +1,7 @@
 import { formatDeveloperError } from './errors/api-error';
 
 /**
- * Parsed connection details extracted from the `DB_URL` environment variable.
+ * Parsed connection details extracted from a database connection URL.
  */
 export interface ParsedDatabaseUrl {
   /** Database engine or protocol name, such as `postgres` or `mysql`. */
@@ -28,7 +28,7 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   } catch {
     throw new Error(
       formatDeveloperError(
-        'Invalid DB_URL format.',
+        'Invalid database URL format.',
         'Use the format <engine>://<user>:<password>@<host>:<port?>/<database>.',
       ),
     );
@@ -38,8 +38,8 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   if (!engine) {
     throw new Error(
       formatDeveloperError(
-        'Invalid DB_URL: missing database engine in the protocol.',
-        'Start DB_URL with a supported scheme such as postgres://, mysql://, or sqlserver://.',
+        'Invalid database URL: missing database engine in the protocol.',
+        'Start the URL with a supported scheme such as postgres://, mysql://, or sqlserver://.',
       ),
     );
   }
@@ -48,7 +48,7 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   if (!database) {
     throw new Error(
       formatDeveloperError(
-        'Invalid DB_URL: missing database name in the path.',
+        'Invalid database URL: missing database name in the path.',
         'Append the target database name after the host and optional port, for example /northwind.',
       ),
     );
@@ -58,7 +58,7 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   if (!user) {
     throw new Error(
       formatDeveloperError(
-        'Invalid DB_URL: missing username.',
+        'Invalid database URL: missing username.',
         'Provide credentials in the URL, for example postgres://user:password@host:5432/database.',
       ),
     );
@@ -68,7 +68,7 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   if (!password) {
     throw new Error(
       formatDeveloperError(
-        'Invalid DB_URL: missing password.',
+        'Invalid database URL: missing password.',
         'Provide credentials in the URL, for example postgres://user:password@host:5432/database.',
       ),
     );
@@ -77,7 +77,7 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
   if (!url.hostname) {
     throw new Error(
       formatDeveloperError(
-        'Invalid DB_URL: missing host.',
+        'Invalid database URL: missing host.',
         'Add a hostname or IP address after the credentials, for example @127.0.0.1:5432/database.',
       ),
     );
@@ -91,23 +91,6 @@ export function parseDatabaseUrl(value: string): ParsedDatabaseUrl {
     port: url.port ? Number(url.port) : undefined,
     database,
   };
-}
-
-/**
- * Reads and parses the database connection URL from `DB_URL`.
- */
-export function readDatabaseUrlFromEnvironment(): ParsedDatabaseUrl {
-  const rawDatabaseUrl = process.env.DB_URL;
-  if (!rawDatabaseUrl) {
-    throw new Error(
-      formatDeveloperError(
-        'Missing DB_URL.',
-        'Create a .env file with DB_URL in the format <engine>://<user>:<password>@<host>:<port?>/<database>.',
-      ),
-    );
-  }
-
-  return parseDatabaseUrl(rawDatabaseUrl);
 }
 
 function normalizeEngine(value?: string | null): string | null {

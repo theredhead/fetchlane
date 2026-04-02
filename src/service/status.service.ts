@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { readDatabaseUrlFromEnvironment } from '../db.conf';
+import { RuntimeConfigService } from '../config/runtime-config';
 import { DATABASE_CONNECTION } from '../data/database.providers';
 import {
   DatabaseAdapter,
@@ -31,6 +31,24 @@ export interface StatusSnapshot {
     node_version: string;
     platform: string;
     pid: number;
+  };
+  config: {
+    server: {
+      host: string;
+      port: number;
+      cors_enabled: boolean;
+    };
+    auth: {
+      enabled: boolean;
+    };
+    limits: {
+      request_body_bytes: number;
+      fetch_max_page_size: number;
+      fetch_max_predicates: number;
+      fetch_max_sort_fields: number;
+      rate_limit_window_ms: number;
+      rate_limit_max: number;
+    };
   };
   database: {
     engine: string;
@@ -66,6 +84,7 @@ export class StatusService {
    */
   public constructor(
     @Inject(DATABASE_CONNECTION) private readonly adapter: DatabaseAdapter,
+    private readonly runtimeConfig: RuntimeConfigService,
   ) {}
 
   /**
@@ -73,7 +92,7 @@ export class StatusService {
    */
   public async getStatus(): Promise<StatusSnapshot> {
     const checkedAt = new Date();
-    const databaseConfig = readDatabaseUrlFromEnvironment();
+    const databaseConfig = this.runtimeConfig.getParsedDatabaseUrl();
     const database = await this.checkDatabase();
 
     return {
@@ -91,6 +110,7 @@ export class StatusService {
         platform: `${process.platform}/${process.arch}`,
         pid: process.pid,
       },
+      config: this.runtimeConfig.getStatusSnapshot(),
       database: {
         engine: this.adapter.name,
         host: databaseConfig.host,
@@ -135,7 +155,7 @@ export class StatusService {
         error: {
           message: 'The database connectivity check failed.',
           hint:
-            'Verify DB_URL credentials, host, port, driver installation, and that the target database server is reachable.',
+            'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
         },
       };
     }
@@ -143,8 +163,14 @@ export class StatusService {
 }
 
 function loadPackageMetadata(): { name: string; version: string } {
+  const packageJsonPath = [
+    resolve(__dirname, '../../package.json'),
+    resolve(__dirname, '../../../package.json'),
+    resolve(process.cwd(), 'package.json'),
+  ].find((candidate) => existsSync(candidate));
+
   const packageJson = JSON.parse(
-    readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'),
+    readFileSync(packageJsonPath ?? resolve(process.cwd(), 'package.json'), 'utf8'),
   ) as Partial<{
     name: string;
     version: string;

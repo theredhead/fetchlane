@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { DataAccessController } from './controllers/data-access.controller';
+import { runtimeConfigProviders } from './config/runtime-config';
 import { StatusController } from './controllers/status.controller';
 import { databaseProviders } from './data/database.providers';
 import { RequestLoggerMiddleware } from './middleware/request-logger.middleware';
@@ -17,6 +18,7 @@ import { StatusService } from './service/status.service';
   controllers: [DataAccessController, StatusController],
   providers: [
     LoggerService,
+    ...runtimeConfigProviders,
     ...databaseProviders,
     DatabaseLifecycleService,
     DataAccessService,

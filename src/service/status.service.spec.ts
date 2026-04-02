@@ -1,4 +1,5 @@
 import { StatusService } from './status.service';
+import { RuntimeConfigService } from '../config/runtime-config';
 import { DatabaseAdapter } from '../data/database';
 
 function createAdapterMock(): DatabaseAdapter {
@@ -25,26 +26,70 @@ function createAdapterMock(): DatabaseAdapter {
 }
 
 describe('StatusService', () => {
-  const originalDbUrl = process.env.DB_URL;
-
-  afterEach(() => {
-    if (originalDbUrl == null) {
-      delete process.env.DB_URL;
-    } else {
-      process.env.DB_URL = originalDbUrl;
-    }
-  });
+  const createRuntimeConfigService = (databaseUrl: string): RuntimeConfigService =>
+    new RuntimeConfigService({
+      server: {
+        host: '0.0.0.0',
+        port: 3000,
+        cors: {
+          enabled: true,
+          origins: ['*'],
+        },
+      },
+      database: {
+        url: databaseUrl,
+      },
+      limits: {
+        request_body_bytes: 1048576,
+        fetch_max_page_size: 1000,
+        fetch_max_predicates: 25,
+        fetch_max_sort_fields: 8,
+        rate_limit_window_ms: 60000,
+        rate_limit_max: 120,
+      },
+      auth: {
+        enabled: false,
+        mode: 'oidc-jwt',
+        issuer_url: '',
+        audience: '',
+        jwks_url: '',
+        claim_mappings: {
+          subject: 'sub',
+          roles: 'realm_access.roles',
+        },
+      },
+    });
 
   it('returns an ok status when the database health check succeeds', async () => {
-    process.env.DB_URL = 'postgres://postgres:password@127.0.0.1:5432/northwind';
     const adapter = createAdapterMock();
+    const runtimeConfig = createRuntimeConfigService(
+      'postgres://postgres:password@127.0.0.1:5432/northwind',
+    );
     vi.mocked(adapter.execute).mockResolvedValueOnce({ rows: [{ fetchlane_status_check: 1 }] });
-    const service = new StatusService(adapter);
+    const service = new StatusService(adapter, runtimeConfig);
 
     const result = await service.getStatus();
 
     expect(result.status).toBe('ok');
     expect(result.service.name).toBe('fetchlane');
+    expect(result.config).toEqual({
+      server: {
+        host: '0.0.0.0',
+        port: 3000,
+        cors_enabled: true,
+      },
+      auth: {
+        enabled: false,
+      },
+      limits: {
+        request_body_bytes: 1048576,
+        fetch_max_page_size: 1000,
+        fetch_max_predicates: 25,
+        fetch_max_sort_fields: 8,
+        rate_limit_window_ms: 60000,
+        rate_limit_max: 120,
+      },
+    });
     expect(result.database.engine).toBe('postgres');
     expect(result.database.connected).toBe(true);
     expect(result.database.capabilities).toEqual({
@@ -60,11 +105,13 @@ describe('StatusService', () => {
   });
 
   it('returns a degraded status when the database health check fails', async () => {
-    process.env.DB_URL = 'mysql://root:password@127.0.0.1:3306/northwind';
     const adapter = createAdapterMock();
+    const runtimeConfig = createRuntimeConfigService(
+      'mysql://root:password@127.0.0.1:3306/northwind',
+    );
     adapter.name = 'mysql';
     vi.mocked(adapter.execute).mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
-    const service = new StatusService(adapter);
+    const service = new StatusService(adapter, runtimeConfig);
 
     const result = await service.getStatus();
 
@@ -73,7 +120,7 @@ describe('StatusService', () => {
     expect(result.database.error).toEqual({
       message: 'The database connectivity check failed.',
       hint:
-        'Verify DB_URL credentials, host, port, driver installation, and that the target database server is reachable.',
+        'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
     });
   });
 });

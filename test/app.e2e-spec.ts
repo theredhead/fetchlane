@@ -1,16 +1,59 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DATABASE_CONNECTION } from './../src/data/database.providers';
 import { AppModule } from './../src/app.module';
 import { StatusController } from './../src/controllers/status.controller';
+import { resetRuntimeConfigForTests } from './../src/config/runtime-config';
 
 describe('AppModule (e2e)', () => {
   let app: INestApplication;
-  const originalDbUrl = process.env.DB_URL;
+  const originalFetchlaneConfig = process.env.FETCHLANE_CONFIG;
+  let tempDir: string | null = null;
 
   beforeEach(async () => {
-    process.env.DB_URL =
-      process.env.DB_URL || 'postgres://postgres:password@127.0.0.1:5432/northwind';
+    tempDir = mkdtempSync(join(tmpdir(), 'fetchlane-e2e-'));
+    const configPath = join(tempDir, 'fetchlane.json');
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          request_body_bytes: 1048576,
+          fetch_max_page_size: 1000,
+          fetch_max_predicates: 25,
+          fetch_max_sort_fields: 8,
+          rate_limit_window_ms: 60000,
+          rate_limit_max: 120,
+        },
+        auth: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuer_url: '',
+          audience: '',
+          jwks_url: '',
+          claim_mappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+        },
+      }),
+      'utf8',
+    );
+    process.env.FETCHLANE_CONFIG = configPath;
+    resetRuntimeConfigForTests();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -55,10 +98,17 @@ describe('AppModule (e2e)', () => {
       await app.close();
     }
 
-    if (originalDbUrl == null) {
-      delete process.env.DB_URL;
+    resetRuntimeConfigForTests();
+
+    if (tempDir) {
+      rmSync(tempDir, { recursive: true, force: true });
+      tempDir = null;
+    }
+
+    if (originalFetchlaneConfig == null) {
+      delete process.env.FETCHLANE_CONFIG;
     } else {
-      process.env.DB_URL = originalDbUrl;
+      process.env.FETCHLANE_CONFIG = originalFetchlaneConfig;
     }
   });
 
@@ -70,6 +120,15 @@ describe('AppModule (e2e)', () => {
         status: expect.stringMatching(/ok|degraded/),
         service: expect.objectContaining({
           name: 'fetchlane',
+        }),
+        config: expect.objectContaining({
+          server: expect.objectContaining({
+            host: '0.0.0.0',
+            port: 3000,
+          }),
+          auth: {
+            enabled: false,
+          },
         }),
         links: {
           self: '/api/status',

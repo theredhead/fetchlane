@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => {
   vi.resetModules();
-  delete process.env.DB_URL;
 });
 
 describe('db.conf', () => {
@@ -22,10 +21,11 @@ describe('db.conf', () => {
   });
 
   it('parses a mysql url without a port', async () => {
-    process.env.DB_URL = 'mysql://bootstrap:bootstrap@localhost/bootstrap';
     const { parseDatabaseUrl } = await import('./db.conf');
 
-    expect(parseDatabaseUrl('mysql://root:password@mysql.local/northwind')).toEqual({
+    expect(
+      parseDatabaseUrl('mysql://root:password@mysql.local/northwind'),
+    ).toEqual({
       engine: 'mysql',
       user: 'root',
       password: 'password',
@@ -33,34 +33,6 @@ describe('db.conf', () => {
       port: undefined,
       database: 'northwind',
     });
-  });
-
-  it('reads postgres config from DB_URL', async () => {
-    process.env.DB_URL = 'postgres://shared-user:shared-pass@pg.local:5544/locationdb';
-
-    const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
-    const conf = readDatabaseUrlFromEnvironment();
-
-    expect(conf.engine).toBe('postgres');
-    expect(conf.host).toBe('pg.local');
-    expect(conf.port).toBe(5544);
-    expect(conf.database).toBe('locationdb');
-    expect(conf.user).toBe('shared-user');
-    expect(conf.password).toBe('shared-pass');
-  });
-
-  it('reads mysql config from DB_URL', async () => {
-    process.env.DB_URL = 'mysql://root:password@mysql.local:3307/appdb';
-
-    const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
-    const conf = readDatabaseUrlFromEnvironment();
-
-    expect(conf.engine).toBe('mysql');
-    expect(conf.user).toBe('root');
-    expect(conf.password).toBe('password');
-    expect(conf.host).toBe('mysql.local');
-    expect(conf.port).toBe(3307);
-    expect(conf.database).toBe('appdb');
   });
 
   it('parses a sqlserver url with credentials and port', async () => {
@@ -78,13 +50,7 @@ describe('db.conf', () => {
     });
   });
 
-  it('requires DB_URL to be present', async () => {
-    const { readDatabaseUrlFromEnvironment } = await import('./db.conf');
-
-    expect(() => readDatabaseUrlFromEnvironment()).toThrow(/Missing DB_URL/);
-  });
-
-  it('does not leak credentials when DB_URL is invalid', async () => {
+  it('does not leak credentials when the database URL is invalid', async () => {
     const { parseDatabaseUrl } = await import('./db.conf');
 
     expect(() =>

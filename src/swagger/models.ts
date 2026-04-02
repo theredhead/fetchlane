@@ -33,6 +33,57 @@ export class StatusRuntimeDto {
   public pid: number;
 }
 
+/** Swagger DTO for safe server config in the status response. */
+export class StatusConfigServerDto {
+  @ApiProperty({ example: '0.0.0.0' })
+  public host: string;
+
+  @ApiProperty({ example: 3000 })
+  public port: number;
+
+  @ApiProperty({ example: true })
+  public cors_enabled: boolean;
+}
+
+/** Swagger DTO for safe auth config in the status response. */
+export class StatusConfigAuthDto {
+  @ApiProperty({ example: false })
+  public enabled: boolean;
+}
+
+/** Swagger DTO for effective operational limits in the status response. */
+export class StatusConfigLimitsDto {
+  @ApiProperty({ example: 1048576 })
+  public request_body_bytes: number;
+
+  @ApiProperty({ example: 1000 })
+  public fetch_max_page_size: number;
+
+  @ApiProperty({ example: 25 })
+  public fetch_max_predicates: number;
+
+  @ApiProperty({ example: 8 })
+  public fetch_max_sort_fields: number;
+
+  @ApiProperty({ example: 60000 })
+  public rate_limit_window_ms: number;
+
+  @ApiProperty({ example: 120 })
+  public rate_limit_max: number;
+}
+
+/** Swagger DTO for the safe runtime config summary in the status response. */
+export class StatusConfigDto {
+  @ApiProperty({ type: StatusConfigServerDto })
+  public server: StatusConfigServerDto;
+
+  @ApiProperty({ type: StatusConfigAuthDto })
+  public auth: StatusConfigAuthDto;
+
+  @ApiProperty({ type: StatusConfigLimitsDto })
+  public limits: StatusConfigLimitsDto;
+}
+
 /** Swagger DTO for database capability flags in the status response. */
 export class StatusDatabaseCapabilitiesDto {
   @ApiProperty({ example: true })
@@ -55,7 +106,7 @@ export class StatusDatabaseErrorDto {
 
   @ApiProperty({
     example:
-      'Verify DB_URL credentials, host, port, driver installation, and that the target database server is reachable.',
+      'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
   })
   public hint: string;
 }
@@ -109,6 +160,9 @@ export class StatusResponseDto {
 
   @ApiProperty({ type: StatusRuntimeDto })
   public runtime: StatusRuntimeDto;
+
+  @ApiProperty({ type: StatusConfigDto })
+  public config: StatusConfigDto;
 
   @ApiProperty({ type: StatusDatabaseDto })
   public database: StatusDatabaseDto;
