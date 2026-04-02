@@ -40,6 +40,7 @@ function buildConfig(databaseUrl: string): string {
       issuer_url: '',
       audience: '',
       jwks_url: '',
+      allowed_roles: [],
       claim_mappings: {
         subject: 'sub',
         roles: 'realm_access.roles',
@@ -169,6 +170,7 @@ describe('runtime-config', () => {
           issuer_url: '',
           audience: '',
           jwks_url: '',
+          allowed_roles: [],
           claim_mappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
@@ -181,5 +183,48 @@ describe('runtime-config', () => {
 
     expect(() => getRuntimeConfig()).toThrow(/config.server.port/);
     expect(() => getRuntimeConfig()).toThrow(/positive integer/);
+  });
+
+  it('fails when auth is enabled without allowed roles', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          request_body_bytes: 1048576,
+          fetch_max_page_size: 1000,
+          fetch_max_predicates: 25,
+          fetch_max_sort_fields: 8,
+          rate_limit_window_ms: 60000,
+          rate_limit_max: 120,
+        },
+        auth: {
+          enabled: true,
+          mode: 'oidc-jwt',
+          issuer_url: 'https://issuer.example.com',
+          audience: 'fetchlane-api',
+          jwks_url: '',
+          allowed_roles: [],
+          claim_mappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(/config.auth.allowed_roles/);
+    expect(() => getRuntimeConfig()).toThrow(/at least one role/);
   });
 });

@@ -57,10 +57,10 @@ async function createOidcServer() {
   return {
     issuer,
     server,
-    async signToken(): Promise<string> {
+    async signToken(options: { roles?: string[] } = {}): Promise<string> {
       return await new SignJWT({
         realm_access: {
-          roles: ['reader'],
+          roles: options.roles || ['reader'],
         },
       })
         .setProtectedHeader({ alg: 'RS256', kid: 'fetchlane-test' })
@@ -74,7 +74,14 @@ async function createOidcServer() {
   };
 }
 
-function writeConfig(tempDir: string, options: { authEnabled: boolean; issuer?: string }) {
+function writeConfig(
+  tempDir: string,
+  options: {
+    authEnabled: boolean;
+    issuer?: string;
+    allowedRoles?: string[];
+  },
+) {
   const configPath = join(tempDir, 'fetchlane.json');
   writeFileSync(
     configPath,
@@ -104,6 +111,7 @@ function writeConfig(tempDir: string, options: { authEnabled: boolean; issuer?: 
         issuer_url: options.issuer || '',
         audience: options.authEnabled ? 'fetchlane-api' : '',
         jwks_url: '',
+        allowed_roles: options.allowedRoles || [],
         claim_mappings: {
           subject: 'sub',
           roles: 'realm_access.roles',
@@ -121,7 +129,10 @@ describe('Optional auth (e2e)', () => {
   let oidcServer: Awaited<ReturnType<typeof createOidcServer>> | null = null;
   const originalFetchlaneConfig = process.env.FETCHLANE_CONFIG;
 
-  async function bootApp(authEnabled: boolean): Promise<void> {
+  async function bootApp(
+    authEnabled: boolean,
+    allowedRoles: string[] = [],
+  ): Promise<void> {
     tempDir = mkdtempSync(join(tmpdir(), 'fetchlane-auth-e2e-'));
     if (authEnabled) {
       oidcServer = await createOidcServer();
@@ -130,6 +141,7 @@ describe('Optional auth (e2e)', () => {
     process.env.FETCHLANE_CONFIG = writeConfig(tempDir, {
       authEnabled,
       issuer: oidcServer?.issuer,
+      allowedRoles,
     });
     resetRuntimeConfigForTests();
 
@@ -210,13 +222,13 @@ describe('Optional auth (e2e)', () => {
   });
 
   it('keeps /api/status public when auth is enabled', async () => {
-    await bootApp(true);
+    await bootApp(true, ['reader']);
 
     await request(app.getHttpServer()).get('/api/status').expect(200);
   });
 
   it('protects /api/data-access and /api/docs when auth is enabled', async () => {
-    await bootApp(true);
+    await bootApp(true, ['reader']);
 
     const token = await oidcServer!.signToken();
 
@@ -239,5 +251,24 @@ describe('Optional auth (e2e)', () => {
       .get('/api/docs')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
+  });
+
+  it('rejects authenticated callers that do not have a configured full-access role', async () => {
+    await bootApp(true, ['admin']);
+
+    const token = await oidcServer!.signToken({
+      roles: ['reader'],
+    });
+
+    await request(app.getHttpServer())
+      .get('/api/data-access/table-names')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403)
+      .expect((response) => {
+        expect(response.body.message).toBe(
+          'The authenticated principal does not have a role that is allowed to access Fetchlane.',
+        );
+        expect(response.body.hint).toMatch(/allowed_roles/);
+      });
   });
 });

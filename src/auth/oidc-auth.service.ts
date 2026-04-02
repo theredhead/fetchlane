@@ -81,6 +81,26 @@ export class OidcAuthService {
     }
   }
 
+  /**
+   * Ensures that the authenticated principal has one of the configured full-access roles.
+   */
+  public authorizePrincipal(principal: AuthenticatedPrincipal): void {
+    const allowedRoles = this.runtimeConfig.getAuth().allowed_roles;
+    if (allowedRoles.length === 0) {
+      return;
+    }
+
+    if (principal.roles.some((role) => allowedRoles.includes(role))) {
+      return;
+    }
+
+    throw new AuthError(
+      HttpStatus.FORBIDDEN,
+      'The authenticated principal does not have a role that is allowed to access Fetchlane.',
+      `Grant one of the configured roles (${allowedRoles.join(', ')}) to the caller, or update config.auth.allowed_roles if access should be broader.`,
+    );
+  }
+
   private readBearerToken(authorizationHeader: string | undefined): string {
     if (!authorizationHeader) {
       throw new AuthError(

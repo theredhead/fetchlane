@@ -53,6 +53,7 @@ describe('StatusService', () => {
         issuer_url: '',
         audience: '',
         jwks_url: '',
+        allowed_roles: [],
         claim_mappings: {
           subject: 'sub',
           roles: 'realm_access.roles',
@@ -80,6 +81,7 @@ describe('StatusService', () => {
       },
       auth: {
         enabled: false,
+        allowed_roles: [],
       },
       limits: {
         request_body_bytes: 1048576,

@@ -104,6 +104,7 @@ function createRuntimeConfigService(
       issuer_url: '',
       audience: 'fetchlane-api',
       jwks_url: '',
+      allowed_roles: ['reader'],
       claim_mappings: {
         subject: 'sub',
         roles: 'realm_access.roles',
@@ -246,6 +247,49 @@ describe('OidcAuthService', () => {
       message: 'The access token could not be verified.',
       hint:
         'Use a valid JWT signed by the configured OIDC provider, and verify that the issuer and JWKS settings match.',
+    });
+  });
+
+  it('authorizes principals with a configured full-access role', () => {
+    const service = new OidcAuthService(
+      createRuntimeConfigService({
+        allowed_roles: ['writer', 'admin'],
+      }),
+    );
+
+    expect(() =>
+      service.authorizePrincipal({
+        subject: 'user-123',
+        roles: ['reader', 'writer'],
+        claims: {},
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects principals that do not have a configured full-access role', () => {
+    const service = new OidcAuthService(
+      createRuntimeConfigService({
+        allowed_roles: ['admin'],
+      }),
+    );
+
+    let thrownError: unknown;
+    try {
+      service.authorizePrincipal({
+        subject: 'user-123',
+        roles: ['reader', 'writer'],
+        claims: {},
+      });
+    } catch (error) {
+      thrownError = error;
+    }
+
+    expect(thrownError).toMatchObject({
+      statusCode: 403,
+      message:
+        'The authenticated principal does not have a role that is allowed to access Fetchlane.',
+      hint:
+        'Grant one of the configured roles (admin) to the caller, or update config.auth.allowed_roles if access should be broader.',
     });
   });
 });

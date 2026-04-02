@@ -44,6 +44,7 @@ describe('AppModule (e2e)', () => {
           issuer_url: '',
           audience: '',
           jwks_url: '',
+          allowed_roles: [],
           claim_mappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
@@ -128,6 +129,7 @@ describe('AppModule (e2e)', () => {
           }),
           auth: {
             enabled: false,
+            allowed_roles: [],
           },
         }),
         links: {

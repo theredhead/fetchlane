@@ -40,6 +40,7 @@ export interface StatusSnapshot {
     };
     auth: {
       enabled: boolean;
+      allowed_roles: string[];
     };
     limits: {
       request_body_bytes: number;

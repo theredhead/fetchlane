@@ -73,6 +73,7 @@ That means health and readiness probes can still hit `/api/status` without ident
     "issuer_url": "https://keycloak.example.com/realms/fetchlane",
     "audience": "fetchlane-api",
     "jwks_url": "",
+    "allowed_roles": ["fetchlane-admin"],
     "claim_mappings": {
       "subject": "sub",
       "roles": "realm_access.roles"
@@ -127,6 +128,7 @@ data:
         "issuer_url": "https://keycloak.example.com/realms/fetchlane",
         "audience": "fetchlane-api",
         "jwks_url": "",
+        "allowed_roles": ["fetchlane-admin"],
         "claim_mappings": {
           "subject": "sub",
           "roles": "realm_access.roles"

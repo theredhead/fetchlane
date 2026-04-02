@@ -33,6 +33,7 @@ describe('FetchRequestHandlerService', () => {
         issuer_url: '',
         audience: '',
         jwks_url: '',
+        allowed_roles: [],
         claim_mappings: {
           subject: 'sub',
           roles: 'realm_access.roles',

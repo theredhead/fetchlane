@@ -63,6 +63,8 @@ export interface RuntimeAuthConfig {
   audience: string;
   /** Optional JWKS URL override. */
   jwks_url: string;
+  /** Roles that grant full authenticated access to protected routes. */
+  allowed_roles: string[];
   /** Claim mappings used when auth is enabled. */
   claim_mappings: RuntimeAuthClaimMappingsConfig;
 }
@@ -90,6 +92,7 @@ export interface StatusRuntimeConfigSnapshot {
   /** Safe auth summary. */
   auth: {
     enabled: boolean;
+    allowed_roles: string[];
   };
   /** Effective operational limits. */
   limits: RuntimeLimitsConfig;
@@ -187,6 +190,7 @@ export class RuntimeConfigService {
       },
       auth: {
         enabled: this.config.auth.enabled,
+        allowed_roles: this.config.auth.allowed_roles,
       },
       limits: this.config.limits,
     };
@@ -367,6 +371,11 @@ function validateRuntimeConfig(value: unknown, configPath: string): RuntimeConfi
       issuer_url: readString(auth.issuer_url, 'config.auth.issuer_url', configPath),
       audience: readString(auth.audience, 'config.auth.audience', configPath),
       jwks_url: readString(auth.jwks_url, 'config.auth.jwks_url', configPath),
+      allowed_roles: readStringArray(
+        auth.allowed_roles,
+        'config.auth.allowed_roles',
+        configPath,
+      ),
       claim_mappings: {
         subject: readNonEmptyString(
           claimMappings.subject,
@@ -411,6 +420,15 @@ function validateRuntimeConfig(value: unknown, configPath: string): RuntimeConfi
       formatDeveloperError(
         'Invalid runtime config: auth requires either config.auth.issuer_url or config.auth.jwks_url.',
         'Set an issuer URL for OIDC discovery, or provide a direct JWKS URL override.',
+      ),
+    );
+  }
+
+  if (config.auth.enabled && config.auth.allowed_roles.length === 0) {
+    throw new Error(
+      formatDeveloperError(
+        'Invalid runtime config: config.auth.allowed_roles must contain at least one role when auth is enabled.',
+        'Add one or more role names that should have full access to protected Fetchlane routes.',
       ),
     );
   }

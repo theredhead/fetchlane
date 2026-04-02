@@ -31,6 +31,7 @@ export class AuthMiddleware implements NestMiddleware {
       const principal = await this.authService.authenticateAuthorizationHeader(
         request.header('authorization'),
       );
+      this.authService.authorizePrincipal(principal);
       setAuthenticatedPrincipal(request, principal);
       next();
     } catch (error) {
@@ -43,7 +44,12 @@ export class AuthMiddleware implements NestMiddleware {
 
         response.status(authError.statusCode).json({
           statusCode: authError.statusCode,
-          error: authError.statusCode === 401 ? 'Unauthorized' : 'Service Unavailable',
+          error:
+            authError.statusCode === 401
+              ? 'Unauthorized'
+              : authError.statusCode === 403
+                ? 'Forbidden'
+                : 'Service Unavailable',
           ...createApiErrorBody(
             authError.message,
             authError.hint,

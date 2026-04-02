@@ -121,6 +121,7 @@ describe('Operational limits (e2e)', () => {
           issuer_url: oidcServer?.issuer || '',
           audience: options.authEnabled ? 'fetchlane-api' : '',
           jwks_url: '',
+          allowed_roles: options.authEnabled ? ['reader'] : [],
           claim_mappings: {
             subject: 'sub',
             roles: 'realm_access.roles',

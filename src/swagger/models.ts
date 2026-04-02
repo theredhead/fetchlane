@@ -49,6 +49,9 @@ export class StatusConfigServerDto {
 export class StatusConfigAuthDto {
   @ApiProperty({ example: false })
   public enabled: boolean;
+
+  @ApiProperty({ example: ['fetchlane-admin'], type: [String] })
+  public allowed_roles: string[];
 }
 
 /** Swagger DTO for effective operational limits in the status response. */
