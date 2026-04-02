@@ -1,4 +1,5 @@
 import { BadRequestException, Logger } from '@nestjs/common';
+import { badRequest } from '../errors/api-error';
 import {
   FetchCompoundPredicteClause,
   FetchPredicteClause,
@@ -40,6 +41,7 @@ export class FetchRequestSQLWriter {
       [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
         .filter(Boolean)
         .join('\n'),
+    private readonly maxPageSize = 1000,
   ) {}
 
   /** Quotes a table or column name using the active engine rules. */
@@ -211,9 +213,10 @@ export class FetchRequestSQLWriter {
     const limit = Number(pagination.size);
     const pageIndex = Number(pagination.index);
 
-    if (!Number.isInteger(limit) || limit <= 0 || limit > 1000) {
-      throw new BadRequestException(
-        'FetchRequest pagination.size must be an integer between 1 and 1000.',
+    if (!Number.isInteger(limit) || limit <= 0 || limit > this.maxPageSize) {
+      throw badRequest(
+        `FetchRequest pagination.size must be an integer between 1 and ${this.maxPageSize}.`,
+        `Choose a page size from 1 to ${this.maxPageSize}, or increase limits.fetch_max_page_size in the runtime config if larger pages are required.`,
       );
     }
 

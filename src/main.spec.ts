@@ -7,9 +7,14 @@ const app = {
   enableShutdownHooks: vi.fn(),
   useGlobalFilters: vi.fn(),
   use: vi.fn(),
-  get: vi.fn().mockReturnValue({
-    use: vi.fn(),
-  }),
+  get: vi
+    .fn()
+    .mockReturnValueOnce({
+      use: vi.fn(),
+    })
+    .mockReturnValueOnce({
+      use: vi.fn(),
+    }),
   listen: vi.fn().mockResolvedValue(undefined),
 };
 
@@ -122,8 +127,8 @@ describe('main bootstrap', () => {
     expect(app.enableCors).toHaveBeenCalledWith({ origin: true });
     expect(app.enableShutdownHooks).toHaveBeenCalled();
     expect(app.useGlobalFilters).toHaveBeenCalledTimes(1);
-    expect(app.get).toHaveBeenCalled();
-    expect(app.use).toHaveBeenCalledTimes(2);
+    expect(app.get).toHaveBeenCalledTimes(2);
+    expect(app.use).toHaveBeenCalledTimes(4);
     expect(createDocument).toHaveBeenCalledWith(app, {
       title: 'Fetchlane API',
     });

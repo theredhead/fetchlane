@@ -141,6 +141,21 @@ When `auth.enabled` is `true`:
 
 Auth validation checks token signature, issuer, audience, and expiry. Claim mapping is driven by `auth.claim_mappings`, so provider-specific claim layouts can still map into a consistent Fetchlane request principal.
 
+## Operational Limits
+
+Fetchlane can now enforce a small set of production-safe limits entirely from runtime config:
+
+- `limits.request_body_bytes`
+- `limits.fetch_max_page_size`
+- `limits.fetch_max_predicates`
+- `limits.fetch_max_sort_fields`
+- `limits.rate_limit_window_ms`
+- `limits.rate_limit_max`
+
+HTTP rate limiting is applied in memory. Anonymous callers are limited by client IP. Authenticated callers are limited by their mapped subject claim when available, and fall back to IP otherwise.
+
+The status endpoint exposes the active limit values so container operators can verify what is actually running without exposing secrets.
+
 ## Supported Engines
 
 Fetchlane is designed around injectable engine support rather than hardcoded controller behavior. The API stays generic while connector implementations handle engine-specific differences internally.
