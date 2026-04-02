@@ -1,0 +1,32 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  },
+  "database": {
+    "url": "${FETCHLANE_DATABASE_URL}"
+  },
+  "limits": {
+    "request_body_bytes": 1048576,
+    "fetch_max_page_size": 1000,
+    "fetch_max_predicates": 25,
+    "fetch_max_sort_fields": 8,
+    "rate_limit_window_ms": 60000,
+    "rate_limit_max": 120
+  },
+  "auth": {
+    "enabled": false,
+    "mode": "oidc-jwt",
+    "issuer_url": "",
+    "audience": "",
+    "jwks_url": "",
+    "claim_mappings": {
+      "subject": "sub",
+      "roles": "realm_access.roles"
+    }
+  }
+}

@@ -22,8 +22,8 @@ Status values:
 | --- | --- | --- | --- |
 | Runtime config | `feature/runtime-config` | `done` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
 | Auth | `feature/optional-auth` | `done` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
-| Operational limits | `feature/operational-limits` | `in_progress` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
-| Deployment readiness | `feature/deployment-readiness` | `planned` | Container config examples, README updates, example config files, operator docs, release readiness pass |
+| Operational limits | `feature/operational-limits` | `done` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
+| Deployment readiness | `feature/deployment-readiness` | `done` | Container config examples, README updates, example config files, operator docs, release readiness pass |
 
 ## Delivery Order
 
@@ -49,13 +49,13 @@ Authentication should consume the new config system instead of inventing its own
 
 Checklist:
 
-- [ ] Add auth config section with `enabled`, `mode`, `issuer_url`, `audience`, and claim settings
-- [ ] Implement optional bearer token authentication
-- [ ] Support OIDC discovery and JWT validation
-- [ ] Ensure Keycloak-compatible behavior
-- [ ] Keep auth provider-agnostic for similar OIDC products
-- [ ] Decide which routes remain public, especially `/api/status` and `/api/docs`
-- [ ] Add tests and documentation
+- [x] Add auth config section with `enabled`, `mode`, `issuer_url`, `audience`, and claim settings
+- [x] Implement optional bearer token authentication
+- [x] Support OIDC discovery and JWT validation
+- [x] Ensure Keycloak-compatible behavior
+- [x] Keep auth provider-agnostic for similar OIDC products
+- [x] Decide which routes remain public, especially `/api/status` and `/api/docs`
+- [x] Add tests and documentation
 
 ### 3. Operational limits
 
@@ -64,12 +64,12 @@ This closes the biggest production-safety gaps once config and auth are in place
 
 Checklist:
 
-- [ ] Add configurable rate limiting
-- [ ] Add configurable request body size limits
-- [ ] Add configurable fetch page-size and query-shape limits
-- [ ] Consider optional table allowlists or deny-lists
-- [ ] Expose effective limits through the status endpoint where useful
-- [ ] Add tests and documentation
+- [x] Add configurable rate limiting
+- [x] Add configurable request body size limits
+- [x] Add configurable fetch page-size and query-shape limits
+- [x] Explicitly defer optional table allowlists or deny-lists to post-v1 unless production usage proves they are required
+- [x] Expose effective limits through the status endpoint where useful
+- [x] Add tests and documentation
 
 ### 4. Deployment readiness
 
@@ -78,12 +78,12 @@ This consolidates the final production-facing setup and operator experience.
 
 Checklist:
 
-- [ ] Add example mounted config file
-- [ ] Add container/Kubernetes-friendly config instructions
-- [ ] Document secret-handling expectations
-- [ ] Update README quick start and deployment guidance
-- [ ] Run final docs, build, unit, and e2e verification
-- [ ] Prepare a final v1.0 readiness checklist
+- [x] Add example mounted config file
+- [x] Add container/Kubernetes-friendly config instructions
+- [x] Document secret-handling expectations
+- [x] Update README quick start and deployment guidance
+- [x] Run final docs, build, unit, and e2e verification
+- [x] Prepare a final v1.0 readiness checklist
 
 ## Cross-Track Rules
 
@@ -109,3 +109,22 @@ Checklist:
 - Merged `feature/optional-auth` back into `develop`
 - Started `feature/operational-limits`
 - Added config-driven rate limiting, request body size enforcement, and FetchRequest page-size / predicate / sort guardrails
+- Merged `feature/operational-limits` back into `develop`
+- Started `feature/deployment-readiness`
+- Added tracked deployment examples for mounted config, Docker bind mounts, Kubernetes ConfigMap and Secret usage, and Keycloak-ready auth config
+- Completed final unit, e2e, build, and TypeDoc verification for the v1 production foundation tracks
+
+## V1 Readiness Sweep
+
+Ready for `v1.0`:
+
+- Config-driven runtime bootstrapping is in place and validated at startup
+- Optional OIDC bearer auth protects docs and data routes while keeping status public
+- Request body limits, FetchRequest guardrails, and HTTP throttling are configurable
+- Example config, `.env`, Docker, Kubernetes, and OIDC deployment docs are tracked in the repo
+- Unit tests, e2e tests, build output, and TypeDoc generation have all been verified on the current branch
+
+Remaining non-blockers:
+
+- Rate limiting is currently in-memory and therefore per-process; multi-replica deployments will need a shared store if they require globally coordinated throttling
+- Authorization is still binary authenticated-vs-public; role-based or table-level authorization can layer on top of the authenticated request context later

@@ -39,7 +39,8 @@ npm install
 cp .env.example .env
 ```
 
-3. Create a local runtime config file, for example `fetchlane.local.json`:
+3. Create a local runtime config file, for example `fetchlane.local.json`.
+   You can start from the tracked example at `config/fetchlane.example.json`:
 
 ```json
 {
@@ -123,6 +124,8 @@ sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:1433/master
 
 Startup fails fast with hint-rich errors when the config path is missing, the file cannot be read, the JSON is invalid, required fields are missing, or placeholder environment variables are unresolved.
 
+The tracked baseline config lives at `config/fetchlane.example.json`.
+
 ## Optional Auth
 
 Fetchlane can run fully open for local development, or it can require bearer JWTs from OIDC-compatible providers such as Keycloak, Auth0, or Entra ID.
@@ -155,6 +158,14 @@ Fetchlane can now enforce a small set of production-safe limits entirely from ru
 HTTP rate limiting is applied in memory. Anonymous callers are limited by client IP. Authenticated callers are limited by their mapped subject claim when available, and fall back to IP otherwise.
 
 The status endpoint exposes the active limit values so container operators can verify what is actually running without exposing secrets.
+
+## Deployment
+
+Fetchlane is designed for mounted runtime config in containers.
+
+- Docker, Kubernetes, and Keycloak-ready examples live in [docs/deployment.md](docs/deployment.md).
+- `.env.example` only contains the bootstrap env var and placeholder secret references.
+- `config/fetchlane.example.json` is the tracked starting point for mounted config.
 
 ## Supported Engines
 
@@ -297,6 +308,7 @@ Fetchlane ships with two documentation surfaces:
 | Swagger UI | Explore and test the HTTP API | `http://localhost:3000/api/docs` |
 | TypeDoc | Browse the TypeScript API surface | `docs/api` |
 | FetchRequest examples | Real request payloads from simple to advanced | `docs/fetchrequest-examples.md` |
+| Deployment guide | Config, Docker, Kubernetes, and OIDC examples | `docs/deployment.md` |
 
 Generate TypeDoc:
 
