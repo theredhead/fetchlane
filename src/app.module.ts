@@ -1,4 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { AuthMiddleware } from './auth/auth.middleware';
+import { OidcAuthService } from './auth/oidc-auth.service';
 import { DataAccessController } from './controllers/data-access.controller';
 import { runtimeConfigProviders } from './config/runtime-config';
 import { StatusController } from './controllers/status.controller';
@@ -18,6 +20,8 @@ import { StatusService } from './service/status.service';
   controllers: [DataAccessController, StatusController],
   providers: [
     LoggerService,
+    AuthMiddleware,
+    OidcAuthService,
     ...runtimeConfigProviders,
     ...databaseProviders,
     DatabaseLifecycleService,
