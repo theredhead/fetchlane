@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { createServer, Server } from 'node:http';
+import { createServer } from 'node:http';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -167,7 +167,9 @@ describe('Optional auth (e2e)', () => {
         delete: vi.fn(),
         select: vi.fn(),
         selectSingle: vi.fn(),
-        execute: vi.fn().mockResolvedValue({ rows: [{ fetchlane_status_check: 1 }] }),
+        execute: vi
+          .fn()
+          .mockResolvedValue({ rows: [{ fetchlane_status_check: 1 }] }),
         executeSingle: vi.fn(),
         executeScalar: vi.fn(),
         tableExists: vi.fn(),
@@ -192,7 +194,9 @@ describe('Optional auth (e2e)', () => {
 
     if (oidcServer) {
       await new Promise<void>((resolve, reject) =>
-        oidcServer?.server.close((error) => (error ? reject(error) : resolve())),
+        oidcServer?.server.close((error) =>
+          error ? reject(error) : resolve(),
+        ),
       );
       oidcServer = null;
     }

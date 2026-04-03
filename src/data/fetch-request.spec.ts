@@ -80,7 +80,8 @@ describe('FetchRequestSQLWriter', () => {
     const writer = new FetchRequestSQLWriter(
       (name) => `[${name}]`,
       (index) => `@p${index}`,
-      (baseQuery, limit, offset, orderByClause) => `
+      (baseQuery, limit, offset, orderByClause) =>
+        `
         SELECT *
         FROM (
           SELECT

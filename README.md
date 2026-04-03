@@ -64,7 +64,7 @@ cp .env.example .env
     "rate_limit_max": 120
   },
   "auth": {
-    "enabled": false,
+    "enabled": true,
     "mode": "oidc-jwt",
     "issuer_url": "",
     "audience": "",
@@ -92,6 +92,10 @@ npm run start:dev
 ```
 
 6. Open the docs:
+
+> **Security note:** The quick-start config above runs with auth disabled.
+> This is fine for local development but **must never be used for any
+> network-reachable deployment**. See [Optional Auth](#optional-auth) below.
 
 - Swagger UI: `http://localhost:3000/api/docs`
 - Status endpoint: `http://localhost:3000/api/status`
@@ -130,6 +134,13 @@ The tracked baseline config lives at `config/fetchlane.example.json`.
 
 ## Optional Auth
 
+> **WARNING — Running Fetchlane without authentication exposes your entire
+> database to anyone who can reach the service.** All tables, all rows, and all
+> write operations (insert, update, delete) are fully accessible without any
+> credentials. **Never run with `auth.enabled: false` outside of a trusted
+> local development environment.** For any network-reachable or production
+> deployment, enable auth and configure an OIDC provider.
+
 Fetchlane can run fully open for local development, or it can require bearer JWTs from OIDC-compatible providers such as Keycloak, Auth0, or Entra ID.
 
 When `auth.enabled` is `false`:
@@ -147,6 +158,92 @@ When `auth.enabled` is `true`:
 Auth validation checks token signature, issuer, audience, and expiry. Claim mapping is driven by `auth.claim_mappings`, so provider-specific claim layouts can still map into a consistent Fetchlane request principal.
 
 Swagger UI follows the same protection model as the data routes. When auth is enabled, the docs UI itself also requires a valid bearer token.
+
+## Fine-Grained Authorization
+
+When auth is enabled, Fetchlane supports an optional `authorization` section
+inside `auth` that enforces per-channel, per-table role requirements. Without
+this section the existing `allowed_roles` behavior applies — any user with a
+matching role has full access.
+
+### Channels
+
+| Channel          | Protects                                                | Config key                   |
+| ---------------- | ------------------------------------------------------- | ---------------------------- |
+| **Schema**       | `table-names`, `:table/info`, `:table/schema`           | `authorization.schema`       |
+| **Create table** | `tables/:table` (POST)                                  | `authorization.create_table` |
+| **CRUD**         | All record-level endpoints, per table and per operation | `authorization.crud`         |
+
+CRUD is further divided into four operations — `create`, `read`, `update`,
+`delete` — each with its own role list.
+
+### Role semantics
+
+| Value                | Meaning                                                  |
+| -------------------- | -------------------------------------------------------- |
+| `["role1", "role2"]` | Principal must hold **at least one** of the listed roles |
+| `["*"]`              | Any authenticated principal is allowed (wildcard)        |
+| `[]`                 | Nobody is allowed — the channel is completely locked     |
+
+### CRUD defaults and table overrides
+
+`authorization.crud.default` provides baseline roles for all tables. Individual
+tables can override any subset of operations via `authorization.crud.tables`.
+Operations not listed in a table override fall back to the default.
+
+### Example config
+
+```json
+{
+  "auth": {
+    "enabled": true,
+    "mode": "oidc-jwt",
+    "issuer_url": "https://keycloak.example.com/realms/fetchlane",
+    "audience": "fetchlane-api",
+    "jwks_url": "",
+    "allowed_roles": [],
+    "claim_mappings": {
+      "subject": "sub",
+      "roles": "realm_access.roles"
+    },
+    "authorization": {
+      "schema": ["admin", "schema-viewer"],
+      "create_table": ["admin"],
+      "crud": {
+        "default": {
+          "create": ["admin", "editor"],
+          "read": ["admin", "editor", "viewer"],
+          "update": ["admin", "editor"],
+          "delete": ["admin"]
+        },
+        "tables": {
+          "audit_log": {
+            "read": ["admin", "auditor"],
+            "create": [],
+            "update": [],
+            "delete": []
+          },
+          "public_data": {
+            "read": ["*"]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+In this example:
+
+- Only `admin` and `schema-viewer` can inspect table schemas
+- Only `admin` can create new tables
+- All tables default to editor/viewer-style access
+- `audit_log` restricts reads to `admin` and `auditor`, and locks all writes
+- `public_data` is readable by any authenticated user
+- Missing operations in table overrides (e.g. `public_data.delete`) fall back to the default
+
+When `authorization` is configured, `allowed_roles` may be empty — the
+fine-grained channels define all access control instead of a single global gate.
 
 ## Operational Limits
 
@@ -177,11 +274,11 @@ Fetchlane is designed for mounted runtime config in containers.
 
 Fetchlane is designed around injectable engine support rather than hardcoded controller behavior. The API stays generic while connector implementations handle engine-specific differences internally.
 
-| Engine | URL scheme | Driver |
-| --- | --- | --- |
-| PostgreSQL | `postgres://` | `pg` |
-| MySQL | `mysql://` | `mysql2` |
-| SQL Server | `sqlserver://` | `mssql` |
+| Engine     | URL scheme     | Driver   |
+| ---------- | -------------- | -------- |
+| PostgreSQL | `postgres://`  | `pg`     |
+| MySQL      | `mysql://`     | `mysql2` |
+| SQL Server | `sqlserver://` | `mssql`  |
 
 Engine drivers are listed as optional dependencies. Install the driver for the engine you want to use.
 
@@ -317,13 +414,13 @@ The goal is that validation errors, not-found cases, unsupported engine capabili
 
 Fetchlane ships with two documentation surfaces:
 
-| Docs | Purpose | Location |
-| --- | --- | --- |
-| Swagger UI | Explore and test the HTTP API | `http://localhost:3000/api/docs` |
-| TypeDoc | Browse the TypeScript API surface | `docs/api` |
-| FetchRequest examples | Real request payloads from simple to advanced | `docs/fetchrequest-examples.md` |
-| Deployment guide | Config, Docker, Kubernetes, and OIDC examples | `docs/deployment.md` |
-| REST client examples | Runnable HTTP requests for IDE REST clients | `rest/data-access.rest` |
+| Docs                  | Purpose                                       | Location                         |
+| --------------------- | --------------------------------------------- | -------------------------------- |
+| Swagger UI            | Explore and test the HTTP API                 | `http://localhost:3000/api/docs` |
+| TypeDoc               | Browse the TypeScript API surface             | `docs/api`                       |
+| FetchRequest examples | Real request payloads from simple to advanced | `docs/fetchrequest-examples.md`  |
+| Deployment guide      | Config, Docker, Kubernetes, and OIDC examples | `docs/deployment.md`             |
+| REST client examples  | Runnable HTTP requests for IDE REST clients   | `rest/data-access.rest`          |
 
 Generate TypeDoc:
 

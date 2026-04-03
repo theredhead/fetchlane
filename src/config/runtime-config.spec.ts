@@ -1,10 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  getRuntimeConfig,
-  resetRuntimeConfigForTests,
-} from './runtime-config';
+import { getRuntimeConfig, resetRuntimeConfigForTests } from './runtime-config';
 
 function createConfigFile(contents: string): { dir: string; path: string } {
   const dir = mkdtempSync(join(tmpdir(), 'fetchlane-config-'));
@@ -226,5 +223,262 @@ describe('runtime-config', () => {
 
     expect(() => getRuntimeConfig()).toThrow(/config.auth.allowed_roles/);
     expect(() => getRuntimeConfig()).toThrow(/at least one role/);
+  });
+
+  it('allows empty allowed_roles when authorization is configured', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          request_body_bytes: 1048576,
+          fetch_max_page_size: 1000,
+          fetch_max_predicates: 25,
+          fetch_max_sort_fields: 8,
+          rate_limit_window_ms: 60000,
+          rate_limit_max: 120,
+        },
+        auth: {
+          enabled: true,
+          mode: 'oidc-jwt',
+          issuer_url: 'https://issuer.example.com',
+          audience: 'fetchlane-api',
+          jwks_url: '',
+          allowed_roles: [],
+          claim_mappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+          authorization: {
+            schema: ['admin'],
+            create_table: ['admin'],
+            crud: {
+              default: {
+                create: ['admin'],
+                read: ['admin'],
+                update: ['admin'],
+                delete: ['admin'],
+              },
+              tables: {},
+            },
+          },
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.auth.allowed_roles).toEqual([]);
+    expect(result.auth.authorization).toBeDefined();
+    expect(result.auth.authorization!.schema).toEqual(['admin']);
+    expect(result.auth.authorization!.create_table).toEqual(['admin']);
+    expect(result.auth.authorization!.crud.default.read).toEqual(['admin']);
+  });
+
+  it('loads authorization config with table overrides', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          request_body_bytes: 1048576,
+          fetch_max_page_size: 1000,
+          fetch_max_predicates: 25,
+          fetch_max_sort_fields: 8,
+          rate_limit_window_ms: 60000,
+          rate_limit_max: 120,
+        },
+        auth: {
+          enabled: true,
+          mode: 'oidc-jwt',
+          issuer_url: 'https://issuer.example.com',
+          audience: 'fetchlane-api',
+          jwks_url: '',
+          allowed_roles: [],
+          claim_mappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+          authorization: {
+            schema: ['admin', 'viewer'],
+            create_table: ['admin'],
+            crud: {
+              default: {
+                create: ['editor'],
+                read: ['viewer'],
+                update: ['editor'],
+                delete: ['admin'],
+              },
+              tables: {
+                audit_log: {
+                  read: ['auditor'],
+                  create: [],
+                },
+                public_data: {
+                  read: ['*'],
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.auth.authorization!.crud.tables.audit_log).toEqual({
+      read: ['auditor'],
+      create: [],
+    });
+    expect(result.auth.authorization!.crud.tables.public_data).toEqual({
+      read: ['*'],
+    });
+  });
+
+  it('omits authorization when the section is absent from config', () => {
+    const configFile = createConfigFile(
+      buildConfig('postgres://postgres:password@127.0.0.1:5432/northwind'),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.auth.authorization).toBeUndefined();
+  });
+
+  it('fails when authorization.schema is not an array', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          request_body_bytes: 1048576,
+          fetch_max_page_size: 1000,
+          fetch_max_predicates: 25,
+          fetch_max_sort_fields: 8,
+          rate_limit_window_ms: 60000,
+          rate_limit_max: 120,
+        },
+        auth: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuer_url: '',
+          audience: '',
+          jwks_url: '',
+          allowed_roles: [],
+          claim_mappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+          authorization: {
+            schema: 'not-an-array',
+            create_table: [],
+            crud: {
+              default: {
+                create: [],
+                read: [],
+                update: [],
+                delete: [],
+              },
+              tables: {},
+            },
+          },
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(
+      /config.auth.authorization.schema/,
+    );
+    expect(() => getRuntimeConfig()).toThrow(/array of non-empty strings/);
+  });
+
+  it('fails when authorization.crud.default is missing a required operation', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          request_body_bytes: 1048576,
+          fetch_max_page_size: 1000,
+          fetch_max_predicates: 25,
+          fetch_max_sort_fields: 8,
+          rate_limit_window_ms: 60000,
+          rate_limit_max: 120,
+        },
+        auth: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuer_url: '',
+          audience: '',
+          jwks_url: '',
+          allowed_roles: [],
+          claim_mappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+          authorization: {
+            schema: [],
+            create_table: [],
+            crud: {
+              default: {
+                create: [],
+                read: [],
+              },
+              tables: {},
+            },
+          },
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(
+      /config.auth.authorization.crud.default.update/,
+    );
   });
 });

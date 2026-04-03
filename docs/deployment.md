@@ -30,6 +30,12 @@ Recommended secret handling for `v1.0`:
 
 ## Route Exposure
 
+> **WARNING — Running Fetchlane without authentication exposes your entire
+> database to anyone who can reach the service.** All tables, all rows, and all
+> write operations are fully accessible without credentials. **Never deploy
+> with `auth.enabled: false` in production or on any network-reachable host.**
+> Always enable auth and configure an OIDC provider for non-local deployments.
+
 When `auth.enabled` is `false`:
 
 - `/api/status` is public
@@ -81,6 +87,60 @@ That means health and readiness probes can still hit `/api/status` without ident
   }
 }
 ```
+
+## Fine-Grained Authorization
+
+When `auth.enabled` is `true`, adding an `authorization` section to `auth`
+enables per-channel, per-table role checks. Without it the `allowed_roles` list
+remains the only access gate.
+
+### Channels
+
+| Channel      | Endpoints                                       | Config key                   |
+| ------------ | ----------------------------------------------- | ---------------------------- |
+| Schema       | `table-names`, `:table/info`, `:table/schema`   | `authorization.schema`       |
+| Create table | `POST tables/:table`                            | `authorization.create_table` |
+| CRUD         | All record endpoints, per table × per operation | `authorization.crud`         |
+
+### Role values
+
+- `["role1", "role2"]` — principal needs at least one listed role
+- `["*"]` — any authenticated principal passes
+- `[]` — channel is locked (nobody allowed)
+
+### CRUD structure
+
+```json
+{
+  "authorization": {
+    "schema": ["admin", "schema-viewer"],
+    "create_table": ["admin"],
+    "crud": {
+      "default": {
+        "create": ["admin", "editor"],
+        "read": ["admin", "editor", "viewer"],
+        "update": ["admin", "editor"],
+        "delete": ["admin"]
+      },
+      "tables": {
+        "audit_log": {
+          "read": ["admin", "auditor"],
+          "create": [],
+          "update": [],
+          "delete": []
+        }
+      }
+    }
+  }
+}
+```
+
+`crud.default` applies to every table. Per-table overrides in `crud.tables`
+take precedence for the operations they define; missing operations fall back to
+the default.
+
+When `authorization` is present, `allowed_roles` may be empty — the
+fine-grained channels define access control instead of a single global gate.
 
 ## Docker Bind Mount
 
@@ -181,14 +241,14 @@ spec:
 
 ## Limits Reference
 
-| Setting | Meaning |
-| --- | --- |
-| `limits.request_body_bytes` | Maximum accepted JSON payload size |
-| `limits.fetch_max_page_size` | Maximum `pagination.size` in a `FetchRequest` |
-| `limits.fetch_max_predicates` | Maximum total predicate clauses in a `FetchRequest` |
-| `limits.fetch_max_sort_fields` | Maximum sort fields in a `FetchRequest` |
-| `limits.rate_limit_window_ms` | Duration of the in-memory rate-limit window |
-| `limits.rate_limit_max` | Maximum requests allowed per key inside one window |
+| Setting                        | Meaning                                             |
+| ------------------------------ | --------------------------------------------------- |
+| `limits.request_body_bytes`    | Maximum accepted JSON payload size                  |
+| `limits.fetch_max_page_size`   | Maximum `pagination.size` in a `FetchRequest`       |
+| `limits.fetch_max_predicates`  | Maximum total predicate clauses in a `FetchRequest` |
+| `limits.fetch_max_sort_fields` | Maximum sort fields in a `FetchRequest`             |
+| `limits.rate_limit_window_ms`  | Duration of the in-memory rate-limit window         |
+| `limits.rate_limit_max`        | Maximum requests allowed per key inside one window  |
 
 ## Operational Notes
 

@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  OnApplicationShutdown,
-} from '@nestjs/common';
+import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { DatabaseAdapter } from '../data/database';
 import { DATABASE_CONNECTION } from '../data/database.providers';
 
@@ -19,7 +15,9 @@ export class DatabaseLifecycleService implements OnApplicationShutdown {
     private readonly adapter: DatabaseAdapter,
   ) {}
 
-  /** Releases the active adapter during application shutdown. */
+  /**
+   * Releases the active adapter during application shutdown.
+   */
   public async onApplicationShutdown(): Promise<void> {
     await this.adapter.release();
   }

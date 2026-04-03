@@ -26,9 +26,18 @@ export class MySqlDatabase
     SupportsSchemaDescription,
     SupportsCreateTableSql
 {
+  /**
+   * Canonical adapter name used for registration and logging.
+   */
   public static readonly adapterName = 'mysql';
+  /**
+   * Connection URL engine aliases matched by this adapter.
+   */
   public static readonly engines = ['mysql'] as const;
 
+  /**
+   * Runtime adapter name exposed to callers.
+   */
   public readonly name = MySqlDatabase.adapterName;
 
   private poolPromise: Promise<any> | null = null;
@@ -38,17 +47,24 @@ export class MySqlDatabase
    */
   public constructor(private readonly config: ParsedDatabaseUrl) {}
 
-  /** Quotes an identifier using MySQL rules. */
+  /**
+   * Quotes an identifier using MySQL rules.
+   */
   public quoteIdentifier(name: string): string {
     return ['`', name.replace(/`/g, '``'), '`'].join('');
   }
 
-  /** Returns the native MySQL parameter token. */
+  /**
+   * Returns the native MySQL parameter token.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   public parameter(_index: number): string {
     return '?';
   }
 
-  /** Applies MySQL pagination syntax. */
+  /**
+   * Applies MySQL pagination syntax.
+   */
   public paginateQuery(
     baseQuery: string,
     limit: number,
@@ -60,7 +76,9 @@ export class MySqlDatabase
       .join('\n');
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
     const data: Record = { ...record };
@@ -72,10 +90,14 @@ export class MySqlDatabase
 
     const statement = `INSERT INTO ${quotedTableName} (${columns}) VALUES (${tokens});`;
     const result = await this.execute(statement, values);
-    return await this.selectSingle(table, 'WHERE id=?', [result.info?.insertId]);
+    return await this.selectSingle(table, 'WHERE id=?', [
+      result.info?.insertId,
+    ]);
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async update(table: string, record: Record): Promise<Record> {
     const id = record.id;
     const data: Record = { ...record };
@@ -90,7 +112,9 @@ export class MySqlDatabase
     return await this.selectSingle(table, 'WHERE id=?', [id]);
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async delete(table: string, id: number): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
     const record = await this.selectSingle(table, 'WHERE id=?', [id]);
@@ -98,7 +122,9 @@ export class MySqlDatabase
     return record;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async select(
     table: string,
     additional = '',
@@ -111,7 +137,9 @@ export class MySqlDatabase
     );
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async selectSingle(
     table: string,
     additional: string,
@@ -125,15 +153,21 @@ export class MySqlDatabase
     return result.rows.shift();
   }
 
-  /** @inheritdoc */
-  public async execute(statement: string, args: any[] = []): Promise<RecordSet> {
+  /**
+   * @inheritdoc
+   */
+  public async execute(
+    statement: string,
+    args: any[] = [],
+  ): Promise<RecordSet> {
     const pool = await this.getPool();
 
     return await new Promise((resolve, reject) => {
       pool.getConnection((connectionError: Error | null, connection: any) => {
         if (connectionError || !connection) {
           reject(
-            connectionError ?? new Error('Failed to acquire a MySQL connection.'),
+            connectionError ??
+              new Error('Failed to acquire a MySQL connection.'),
           );
           return;
         }
@@ -189,7 +223,9 @@ export class MySqlDatabase
     });
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async executeSingle<T>(
     statement: string,
     args: any[] = [],
@@ -198,7 +234,9 @@ export class MySqlDatabase
     return result.shift() as T;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async executeScalar<T>(
     statement: string,
     args: any[] = [],
@@ -208,7 +246,9 @@ export class MySqlDatabase
     return result[key as keyof Record] as T;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async tableExists(tableName: string): Promise<boolean> {
     const count = await this.executeScalar<number>(
       `
@@ -222,7 +262,9 @@ export class MySqlDatabase
     return Number(count) === 1;
   }
 
-  /** Lists user-visible tables. */
+  /**
+   * Lists user-visible tables.
+   */
   public async getTableNames(): Promise<Record[]> {
     return (
       await this.execute(
@@ -237,7 +279,9 @@ export class MySqlDatabase
     ).rows;
   }
 
-  /** Returns basic column metadata for a table. */
+  /**
+   * Returns basic column metadata for a table.
+   */
   public async getTableInfo(table: string): Promise<Record[]> {
     return (
       await this.execute(
@@ -253,7 +297,9 @@ export class MySqlDatabase
     ).rows;
   }
 
-  /** Returns normalized schema metadata for a table. */
+  /**
+   * Returns normalized schema metadata for a table.
+   */
   public async describeTable(
     table: string,
   ): Promise<TableSchemaDescription | null> {
@@ -366,8 +412,9 @@ export class MySqlDatabase
           isForeignKey && row.referenced_table
             ? String(row.referenced_table)
             : null,
-        referenced_columns:
-          isForeignKey ? splitCsv(row.referenced_columns_csv) : [],
+        referenced_columns: isForeignKey
+          ? splitCsv(row.referenced_columns_csv)
+          : [],
         update_rule:
           isForeignKey && row.update_rule ? String(row.update_rule) : null,
         delete_rule:
@@ -431,7 +478,9 @@ export class MySqlDatabase
     };
   }
 
-  /** Generates MySQL `CREATE TABLE` SQL. */
+  /**
+   * Generates MySQL `CREATE TABLE` SQL.
+   */
   public createTableSql(table: string, columns: ColumnDescription[]): string {
     const lines = [
       `CREATE TABLE ${this.quoteIdentifier(table)} (`,
@@ -450,7 +499,9 @@ export class MySqlDatabase
     return lines.join('\n');
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public release(): void {
     if (!this.poolPromise) {
       return;
@@ -564,7 +615,9 @@ async function loadMySqlModule(): Promise<any> {
     }
 
     const message =
-      error instanceof Error ? error.message : 'Unknown MySQL driver load failure.';
+      error instanceof Error
+        ? error.message
+        : 'Unknown MySQL driver load failure.';
 
     throw new Error(
       formatDeveloperError(

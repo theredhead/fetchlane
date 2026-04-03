@@ -3,102 +3,256 @@ import { readFileSync } from 'node:fs';
 import { parseDatabaseUrl, ParsedDatabaseUrl } from '../db.conf';
 import { formatDeveloperError } from '../errors/api-error';
 
-/** Supported server CORS configuration. */
+/**
+ * Supported server CORS configuration.
+ */
 export interface RuntimeCorsConfig {
-  /** Enables or disables CORS for the HTTP server. */
+  /**
+   * Enables or disables CORS for the HTTP server.
+   */
   enabled: boolean;
-  /** Allowed origins for CORS requests. */
+  /**
+   * Allowed origins for CORS requests.
+   */
   origins: string[];
 }
 
-/** Server settings loaded from the runtime config file. */
+/**
+ * Server settings loaded from the runtime config file.
+ */
 export interface RuntimeServerConfig {
-  /** Interface address for the HTTP listener. */
+  /**
+   * Interface address for the HTTP listener.
+   */
   host: string;
-  /** TCP port for the HTTP listener. */
+  /**
+   * TCP port for the HTTP listener.
+   */
   port: number;
-  /** CORS settings for the HTTP server. */
+  /**
+   * CORS settings for the HTTP server.
+   */
   cors: RuntimeCorsConfig;
 }
 
-/** Database settings loaded from the runtime config file. */
+/**
+ * Database settings loaded from the runtime config file.
+ */
 export interface RuntimeDatabaseConfig {
-  /** Connection URL used to reach the active database engine. */
+  /**
+   * Connection URL used to reach the active database engine.
+   */
   url: string;
 }
 
-/** Operational limits loaded from the runtime config file. */
+/**
+ * Operational limits loaded from the runtime config file.
+ */
 export interface RuntimeLimitsConfig {
-  /** Maximum accepted HTTP request body size in bytes. */
+  /**
+   * Maximum accepted HTTP request body size in bytes.
+   */
   request_body_bytes: number;
-  /** Maximum allowed FetchRequest page size. */
+  /**
+   * Maximum allowed FetchRequest page size.
+   */
   fetch_max_page_size: number;
-  /** Maximum number of predicates in a FetchRequest. */
+  /**
+   * Maximum number of predicates in a FetchRequest.
+   */
   fetch_max_predicates: number;
-  /** Maximum number of sort fields in a FetchRequest. */
+  /**
+   * Maximum number of sort fields in a FetchRequest.
+   */
   fetch_max_sort_fields: number;
-  /** Rate-limit window length in milliseconds. */
+  /**
+   * Rate-limit window length in milliseconds.
+   */
   rate_limit_window_ms: number;
-  /** Maximum requests allowed per rate-limit window. */
+  /**
+   * Maximum requests allowed per rate-limit window.
+   */
   rate_limit_max: number;
 }
 
-/** Claim mapping settings for authenticated principals. */
+/**
+ * Claim mapping settings for authenticated principals.
+ */
 export interface RuntimeAuthClaimMappingsConfig {
-  /** Claim path used as the authenticated subject identifier. */
+  /**
+   * Claim path used as the authenticated subject identifier.
+   */
   subject: string;
-  /** Claim path used as the authenticated roles collection. */
+  /**
+   * Claim path used as the authenticated roles collection.
+   */
   roles: string;
 }
 
-/** Authentication settings loaded from the runtime config file. */
-export interface RuntimeAuthConfig {
-  /** Enables or disables authentication. */
-  enabled: boolean;
-  /** Authentication mode for the service. */
-  mode: 'oidc-jwt';
-  /** OIDC issuer URL used for discovery and issuer validation. */
-  issuer_url: string;
-  /** JWT audience expected by the service. */
-  audience: string;
-  /** Optional JWKS URL override. */
-  jwks_url: string;
-  /** Roles that grant full authenticated access to protected routes. */
-  allowed_roles: string[];
-  /** Claim mappings used when auth is enabled. */
-  claim_mappings: RuntimeAuthClaimMappingsConfig;
+/**
+ * CRUD operation type for authorization checks.
+ */
+export type CrudOperation = 'create' | 'read' | 'update' | 'delete';
+
+/**
+ * Role requirements for each CRUD operation.
+ */
+export interface CrudOperationRoles {
+  /**
+   * Roles allowed to create records.
+   */
+  create: string[];
+  /**
+   * Roles allowed to read records.
+   */
+  read: string[];
+  /**
+   * Roles allowed to update records.
+   */
+  update: string[];
+  /**
+   * Roles allowed to delete records.
+   */
+  delete: string[];
 }
 
-/** Fully validated runtime configuration for Fetchlane. */
+/**
+ * Per-table override — omitted operations fall back to the CRUD default.
+ */
+export interface TableCrudOverride {
+  /**
+   * Roles allowed to create records in this table.
+   */
+  create?: string[];
+  /**
+   * Roles allowed to read records in this table.
+   */
+  read?: string[];
+  /**
+   * Roles allowed to update records in this table.
+   */
+  update?: string[];
+  /**
+   * Roles allowed to delete records in this table.
+   */
+  delete?: string[];
+}
+
+/**
+ * Fine-grained authorization settings for functional segments.
+ */
+export interface RuntimeAuthorizationConfig {
+  /**
+   * Roles allowed to access schema info (table-names, table info, describe).
+   */
+  schema: string[];
+  /**
+   * Roles allowed to create tables.
+   */
+  create_table: string[];
+  /**
+   * CRUD authorization with a default and optional per-table overrides.
+   */
+  crud: {
+    /**
+     * Default CRUD role requirements applied to all tables.
+     */
+    default: CrudOperationRoles;
+    /**
+     * Per-table overrides — missing operations fall back to `default`.
+     */
+    tables: { [tableName: string]: TableCrudOverride };
+  };
+}
+
+/**
+ * Authentication settings loaded from the runtime config file.
+ */
+export interface RuntimeAuthConfig {
+  /**
+   * Enables or disables authentication.
+   */
+  enabled: boolean;
+  /**
+   * Authentication mode for the service.
+   */
+  mode: 'oidc-jwt';
+  /**
+   * OIDC issuer URL used for discovery and issuer validation.
+   */
+  issuer_url: string;
+  /**
+   * JWT audience expected by the service.
+   */
+  audience: string;
+  /**
+   * Optional JWKS URL override.
+   */
+  jwks_url: string;
+  /**
+   * Roles that grant full authenticated access to protected routes.
+   */
+  allowed_roles: string[];
+  /**
+   * Claim mappings used when auth is enabled.
+   */
+  claim_mappings: RuntimeAuthClaimMappingsConfig;
+  /**
+   * Fine-grained per-channel authorization (optional).
+   */
+  authorization?: RuntimeAuthorizationConfig;
+}
+
+/**
+ * Fully validated runtime configuration for Fetchlane.
+ */
 export interface RuntimeConfig {
-  /** Server settings. */
+  /**
+   * Server settings.
+   */
   server: RuntimeServerConfig;
-  /** Database connection settings. */
+  /**
+   * Database connection settings.
+   */
   database: RuntimeDatabaseConfig;
-  /** Operational limits. */
+  /**
+   * Operational limits.
+   */
   limits: RuntimeLimitsConfig;
-  /** Authentication settings. */
+  /**
+   * Authentication settings.
+   */
   auth: RuntimeAuthConfig;
 }
 
-/** Public subset of runtime config exposed by the status endpoint. */
+/**
+ * Public subset of runtime config exposed by the status endpoint.
+ */
 export interface StatusRuntimeConfigSnapshot {
-  /** Safe server settings. */
+  /**
+   * Safe server settings.
+   */
   server: {
     host: string;
     port: number;
     cors_enabled: boolean;
   };
-  /** Safe auth summary. */
+  /**
+   * Safe auth summary.
+   */
   auth: {
     enabled: boolean;
     allowed_roles: string[];
   };
-  /** Effective operational limits. */
+  /**
+   * Effective operational limits.
+   */
   limits: RuntimeLimitsConfig;
 }
 
-/** Injection token for the validated runtime config object. */
+/**
+ * Injection token for the validated runtime config object.
+ */
 export const RUNTIME_CONFIG = Symbol('RUNTIME_CONFIG');
 
 let cachedRuntimeConfig: RuntimeConfig | null = null;
@@ -114,8 +268,13 @@ export function getRuntimeConfig(): RuntimeConfig {
   const configPath = readConfigPathFromEnvironment();
   const fileContents = readConfigFile(configPath);
   const parsedJson = parseJsonConfig(fileContents, configPath);
-  const interpolated = interpolateEnvironmentPlaceholders(parsedJson, configPath);
-  cachedRuntimeConfig = deepFreeze(validateRuntimeConfig(interpolated, configPath));
+  const interpolated = interpolateEnvironmentPlaceholders(
+    parsedJson,
+    configPath,
+  );
+  cachedRuntimeConfig = deepFreeze(
+    validateRuntimeConfig(interpolated, configPath),
+  );
   return cachedRuntimeConfig;
 }
 
@@ -134,7 +293,9 @@ export class RuntimeConfigService {
   /**
    * Creates the runtime config service from the validated config snapshot.
    */
-  public constructor(@Inject(RUNTIME_CONFIG) private readonly config: RuntimeConfig) {}
+  public constructor(
+    @Inject(RUNTIME_CONFIG) private readonly config: RuntimeConfig,
+  ) {}
 
   /**
    * Returns the full validated runtime config.
@@ -179,6 +340,13 @@ export class RuntimeConfigService {
   }
 
   /**
+   * Returns the fine-grained authorization settings, or `undefined` when not configured.
+   */
+  public getAuthorization(): RuntimeAuthorizationConfig | undefined {
+    return this.config.auth.authorization;
+  }
+
+  /**
    * Returns the safe runtime config subset exposed through status.
    */
   public getStatusSnapshot(): StatusRuntimeConfigSnapshot {
@@ -197,7 +365,9 @@ export class RuntimeConfigService {
   }
 }
 
-/** Nest providers exposing the validated runtime config and service wrapper. */
+/**
+ * Nest providers exposing the validated runtime config and service wrapper.
+ */
 export const runtimeConfigProviders: Provider[] = [
   {
     provide: RUNTIME_CONFIG,
@@ -259,7 +429,11 @@ function interpolateEnvironmentPlaceholders(
 ): unknown {
   if (Array.isArray(value)) {
     return value.map((entry, index) =>
-      interpolateEnvironmentPlaceholders(entry, configPath, `${path}[${index}]`),
+      interpolateEnvironmentPlaceholders(
+        entry,
+        configPath,
+        `${path}[${index}]`,
+      ),
     );
   }
 
@@ -300,7 +474,10 @@ function interpolateEnvironmentPlaceholders(
   return envValue;
 }
 
-function validateRuntimeConfig(value: unknown, configPath: string): RuntimeConfig {
+function validateRuntimeConfig(
+  value: unknown,
+  configPath: string,
+): RuntimeConfig {
   const root = readObject(value, 'config', configPath);
   const server = readObject(root.server, 'config.server', configPath);
   const serverCors = readObject(server.cors, 'config.server.cors', configPath);
@@ -368,7 +545,11 @@ function validateRuntimeConfig(value: unknown, configPath: string): RuntimeConfi
     auth: {
       enabled: readBoolean(auth.enabled, 'config.auth.enabled', configPath),
       mode: readAuthMode(auth.mode, 'config.auth.mode', configPath),
-      issuer_url: readString(auth.issuer_url, 'config.auth.issuer_url', configPath),
+      issuer_url: readString(
+        auth.issuer_url,
+        'config.auth.issuer_url',
+        configPath,
+      ),
       audience: readString(auth.audience, 'config.auth.audience', configPath),
       jwks_url: readString(auth.jwks_url, 'config.auth.jwks_url', configPath),
       allowed_roles: readStringArray(
@@ -388,6 +569,7 @@ function validateRuntimeConfig(value: unknown, configPath: string): RuntimeConfi
           configPath,
         ),
       },
+      authorization: readOptionalAuthorization(auth, configPath),
     },
   };
 
@@ -424,11 +606,15 @@ function validateRuntimeConfig(value: unknown, configPath: string): RuntimeConfi
     );
   }
 
-  if (config.auth.enabled && config.auth.allowed_roles.length === 0) {
+  if (
+    config.auth.enabled &&
+    config.auth.allowed_roles.length === 0 &&
+    !config.auth.authorization
+  ) {
     throw new Error(
       formatDeveloperError(
-        'Invalid runtime config: config.auth.allowed_roles must contain at least one role when auth is enabled.',
-        'Add one or more role names that should have full access to protected Fetchlane routes.',
+        'Invalid runtime config: config.auth.allowed_roles must contain at least one role when auth is enabled without fine-grained authorization.',
+        'Add one or more role names that should have full access to protected Fetchlane routes, or configure config.auth.authorization for fine-grained access control.',
       ),
     );
   }
@@ -484,7 +670,11 @@ function readNonEmptyString(
   );
 }
 
-function readBoolean(value: unknown, path: string, configPath: string): boolean {
+function readBoolean(
+  value: unknown,
+  path: string,
+  configPath: string,
+): boolean {
   if (typeof value === 'boolean') {
     return value;
   }
@@ -550,6 +740,129 @@ function readAuthMode(
       'Use the locked v1.0 auth mode "oidc-jwt".',
     ),
   );
+}
+
+function readOptionalAuthorization(
+  authObject: globalThis.Record<string, unknown>,
+  configPath: string,
+): RuntimeAuthorizationConfig | undefined {
+  if (authObject.authorization === undefined) {
+    return undefined;
+  }
+
+  const authz = readObject(
+    authObject.authorization,
+    'config.auth.authorization',
+    configPath,
+  );
+
+  const schema = readStringArray(
+    authz.schema,
+    'config.auth.authorization.schema',
+    configPath,
+  );
+
+  const createTable = readStringArray(
+    authz.create_table,
+    'config.auth.authorization.create_table',
+    configPath,
+  );
+
+  const crud = readObject(
+    authz.crud,
+    'config.auth.authorization.crud',
+    configPath,
+  );
+
+  const crudDefault = readObject(
+    crud.default,
+    'config.auth.authorization.crud.default',
+    configPath,
+  );
+
+  const defaultRoles: CrudOperationRoles = {
+    create: readStringArray(
+      crudDefault.create,
+      'config.auth.authorization.crud.default.create',
+      configPath,
+    ),
+    read: readStringArray(
+      crudDefault.read,
+      'config.auth.authorization.crud.default.read',
+      configPath,
+    ),
+    update: readStringArray(
+      crudDefault.update,
+      'config.auth.authorization.crud.default.update',
+      configPath,
+    ),
+    delete: readStringArray(
+      crudDefault.delete,
+      'config.auth.authorization.crud.default.delete',
+      configPath,
+    ),
+  };
+
+  const tablesObject = readObject(
+    crud.tables,
+    'config.auth.authorization.crud.tables',
+    configPath,
+  );
+
+  const tables: { [tableName: string]: TableCrudOverride } = {};
+
+  for (const [tableName, tableValue] of Object.entries(tablesObject)) {
+    const tableOverride = readObject(
+      tableValue,
+      `config.auth.authorization.crud.tables.${tableName}`,
+      configPath,
+    );
+
+    const override: TableCrudOverride = {};
+
+    if (tableOverride.create !== undefined) {
+      override.create = readStringArray(
+        tableOverride.create,
+        `config.auth.authorization.crud.tables.${tableName}.create`,
+        configPath,
+      );
+    }
+
+    if (tableOverride.read !== undefined) {
+      override.read = readStringArray(
+        tableOverride.read,
+        `config.auth.authorization.crud.tables.${tableName}.read`,
+        configPath,
+      );
+    }
+
+    if (tableOverride.update !== undefined) {
+      override.update = readStringArray(
+        tableOverride.update,
+        `config.auth.authorization.crud.tables.${tableName}.update`,
+        configPath,
+      );
+    }
+
+    if (tableOverride.delete !== undefined) {
+      override.delete = readStringArray(
+        tableOverride.delete,
+        `config.auth.authorization.crud.tables.${tableName}.delete`,
+        configPath,
+      );
+    }
+
+    tables[tableName] = override;
+  }
+
+  return {
+    schema,
+    create_table: createTable,
+    crud: {
+      default: defaultRoles,
+      tables,
+    },
+  };
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

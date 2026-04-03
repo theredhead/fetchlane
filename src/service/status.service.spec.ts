@@ -26,7 +26,9 @@ function createAdapterMock(): DatabaseAdapter {
 }
 
 describe('StatusService', () => {
-  const createRuntimeConfigService = (databaseUrl: string): RuntimeConfigService =>
+  const createRuntimeConfigService = (
+    databaseUrl: string,
+  ): RuntimeConfigService =>
     new RuntimeConfigService({
       server: {
         host: '0.0.0.0',
@@ -66,7 +68,9 @@ describe('StatusService', () => {
     const runtimeConfig = createRuntimeConfigService(
       'postgres://postgres:password@127.0.0.1:5432/northwind',
     );
-    vi.mocked(adapter.execute).mockResolvedValueOnce({ rows: [{ fetchlane_status_check: 1 }] });
+    vi.mocked(adapter.execute).mockResolvedValueOnce({
+      rows: [{ fetchlane_status_check: 1 }],
+    });
     const service = new StatusService(adapter, runtimeConfig);
 
     const result = await service.getStatus();
@@ -112,7 +116,9 @@ describe('StatusService', () => {
       'mysql://root:password@127.0.0.1:3306/northwind',
     );
     adapter.name = 'mysql';
-    vi.mocked(adapter.execute).mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+    vi.mocked(adapter.execute).mockRejectedValueOnce(
+      new Error('connect ECONNREFUSED'),
+    );
     const service = new StatusService(adapter, runtimeConfig);
 
     const result = await service.getStatus();
@@ -121,8 +127,7 @@ describe('StatusService', () => {
     expect(result.database.connected).toBe(false);
     expect(result.database.error).toEqual({
       message: 'The database connectivity check failed.',
-      hint:
-        'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
+      hint: 'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
     });
   });
 });

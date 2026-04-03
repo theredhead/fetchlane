@@ -1,8 +1,11 @@
-import { BadRequestException, NotFoundException, NotImplementedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  NotImplementedException,
+} from '@nestjs/common';
 import { DataAccessService } from './data-access.service';
 import {
   DatabaseAdapter,
-  Record,
   RecordSet,
   SupportsCreateTableSql,
   SupportsSchemaDescription,
@@ -171,9 +174,9 @@ describe('DataAccessService', () => {
   });
 
   it('rejects non-array SQL args with a bad request error', async () => {
-    await expect(service.execute('SELECT 1', { id: 1 } as any)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.execute('SELECT 1', { id: 1 } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('returns not found errors for missing tables and records', async () => {
@@ -186,9 +189,9 @@ describe('DataAccessService', () => {
     vi.mocked(adapter.tableExists).mockResolvedValueOnce(true);
     vi.mocked(adapter.selectSingle).mockResolvedValueOnce(undefined as any);
 
-    await expect(
-      service.selectSingleById('member', 7),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.selectSingleById('member', 7)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('throws when an optional capability is not supported', async () => {

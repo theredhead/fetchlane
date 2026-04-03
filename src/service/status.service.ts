@@ -149,14 +149,13 @@ export class StatusService {
         roundTripMs: Date.now() - startedAt,
         error: null,
       };
-    } catch (error) {
+    } catch {
       return {
         connected: false,
         roundTripMs: null,
         error: {
           message: 'The database connectivity check failed.',
-          hint:
-            'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
+          hint: 'Verify the configured database URL, credentials, host, port, driver installation, and that the target database server is reachable.',
         },
       };
     }
@@ -171,7 +170,10 @@ function loadPackageMetadata(): { name: string; version: string } {
   ].find((candidate) => existsSync(candidate));
 
   const packageJson = JSON.parse(
-    readFileSync(packageJsonPath ?? resolve(process.cwd(), 'package.json'), 'utf8'),
+    readFileSync(
+      packageJsonPath ?? resolve(process.cwd(), 'package.json'),
+      'utf8',
+    ),
   ) as Partial<{
     name: string;
     version: string;

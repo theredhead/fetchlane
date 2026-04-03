@@ -9,7 +9,9 @@ describe('StatusController', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    controller = new StatusController(statusService as unknown as StatusService);
+    controller = new StatusController(
+      statusService as unknown as StatusService,
+    );
   });
 
   it('returns the structured status payload', async () => {

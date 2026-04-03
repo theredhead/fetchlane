@@ -23,9 +23,10 @@ describe('SqlServerDatabase', () => {
       request: () => ({ input, query }),
     });
 
-    const result = await database.execute('SELECT * FROM [member] WHERE id=@p1', [
-      1,
-    ]);
+    const result = await database.execute(
+      'SELECT * FROM [member] WHERE id=@p1',
+      [1],
+    );
 
     expect(input).toHaveBeenCalledWith('p1', 1);
     expect(query).toHaveBeenCalledWith('SELECT * FROM [member] WHERE id=@p1');

@@ -5,11 +5,17 @@ import { JWTPayload } from 'jose';
  * Authenticated caller information attached to the current request.
  */
 export interface AuthenticatedPrincipal {
-  /** Stable subject identifier extracted from the configured subject claim. */
+  /**
+   * Stable subject identifier extracted from the configured subject claim.
+   */
   subject: string;
-  /** Roles extracted from the configured roles claim, if present. */
+  /**
+   * Roles extracted from the configured roles claim, if present.
+   */
   roles: string[];
-  /** Raw verified JWT claims for advanced downstream authorization logic. */
+  /**
+   * Raw verified JWT claims for advanced downstream authorization logic.
+   */
   claims: JWTPayload;
 }
 
@@ -17,7 +23,9 @@ export interface AuthenticatedPrincipal {
  * Internal request context used to carry authentication state.
  */
 export interface FetchlaneRequestContext {
-  /** Authenticated principal for the current request, or `null` when absent. */
+  /**
+   * Authenticated principal for the current request, or `null` when absent.
+   */
   principal: AuthenticatedPrincipal | null;
 }
 
@@ -25,7 +33,9 @@ export interface FetchlaneRequestContext {
  * Express request shape extended with Fetchlane request context.
  */
 export interface FetchlaneRequest extends Request {
-  /** Per-request auth context populated by Fetchlane middleware. */
+  /**
+   * Per-request auth context populated by Fetchlane middleware.
+   */
   fetchlaneContext?: FetchlaneRequestContext;
 }
 

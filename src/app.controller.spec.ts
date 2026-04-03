@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { Request } from 'express';
 import { DataAccessController } from './controllers/data-access.controller';
 
 describe('DataAccessController', () => {
@@ -19,12 +20,19 @@ describe('DataAccessController', () => {
   const fetchRequestHandler = {
     handleRequest: vi.fn(),
   };
+  const authorizationService = {
+    authorizeSchemaAccess: vi.fn(),
+    authorizeCreateTable: vi.fn(),
+    authorizeCrud: vi.fn(),
+  };
+  const mockRequest = {} as Request;
 
   beforeEach(() => {
     vi.clearAllMocks();
     controller = new DataAccessController(
       dataAccessService as any,
       fetchRequestHandler as any,
+      authorizationService as any,
     );
   });
 
@@ -35,27 +43,27 @@ describe('DataAccessController', () => {
   it('delegates index requests to the data access service with parsed pagination', async () => {
     dataAccessService.index.mockResolvedValueOnce([]);
 
-    await controller.index('test', '2', '3');
+    await controller.index(mockRequest, 'test', '2', '3');
 
     expect(dataAccessService.index).toHaveBeenCalledWith('test', 2, 3);
   });
 
   it('rejects invalid pagination values', async () => {
-    await expect(controller.index('test', '-1', '3')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    await expect(controller.index('test', '0', '0')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    await expect(controller.index('test', '0', '5000')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      controller.index(mockRequest, 'test', '-1', '3'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.index(mockRequest, 'test', '0', '0'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.index(mockRequest, 'test', '0', '5000'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('delegates table info requests to the data access service', async () => {
     dataAccessService.tableInfo.mockResolvedValueOnce([]);
 
-    await controller.tableInfo('member');
+    await controller.tableInfo(mockRequest, 'member');
 
     expect(dataAccessService.tableInfo).toHaveBeenCalledWith('member');
   });
@@ -69,7 +77,7 @@ describe('DataAccessController', () => {
     };
     fetchRequestHandler.handleRequest.mockResolvedValueOnce({ rows: [] });
 
-    await controller.fetch(request as any);
+    await controller.fetch(mockRequest, request as any);
 
     expect(fetchRequestHandler.handleRequest).toHaveBeenCalledWith(request);
   });
@@ -78,7 +86,7 @@ describe('DataAccessController', () => {
     fetchRequestHandler.handleRequest.mockRejectedValueOnce(new Error('boom'));
 
     await expect(
-      controller.fetch({
+      controller.fetch(mockRequest, {
         table: 'member',
         predicates: [],
         sort: [],
@@ -91,16 +99,18 @@ describe('DataAccessController', () => {
       { table_name: 'member' },
     ]);
 
-    await expect(controller.tableNames()).resolves.toEqual([
+    await expect(controller.tableNames(mockRequest)).resolves.toEqual([
       { table_name: 'member' },
     ]);
     expect(dataAccessService.getTableNames).toHaveBeenCalled();
   });
 
   it('delegates describe table requests to the data access service', async () => {
-    dataAccessService.describeTable.mockResolvedValueOnce({ table_name: 'member' });
+    dataAccessService.describeTable.mockResolvedValueOnce({
+      table_name: 'member',
+    });
 
-    await controller.describeTable('member');
+    await controller.describeTable(mockRequest, 'member');
 
     expect(dataAccessService.describeTable).toHaveBeenCalledWith('member');
   });
@@ -109,27 +119,27 @@ describe('DataAccessController', () => {
     const record = { name: 'Alice' };
     dataAccessService.insert.mockResolvedValueOnce({ id: 1, ...record });
 
-    await controller.createRecord('member', record as any);
+    await controller.createRecord(mockRequest, 'member', record as any);
 
     expect(dataAccessService.insert).toHaveBeenCalledWith('member', record);
   });
 
   it('rejects invalid identifiers and malformed record bodies', async () => {
-    await expect(controller.tableInfo('member;drop')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    await expect(controller.createRecord('member', [] as any)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
-    await expect(controller.updateRecord('member', 7, null as any)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      controller.tableInfo(mockRequest, 'member;drop'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.createRecord(mockRequest, 'member', [] as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.updateRecord(mockRequest, 'member', 7, null as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('delegates id-based record lookup to the data access service', async () => {
     dataAccessService.selectSingleById.mockResolvedValueOnce({ id: 7 });
 
-    await controller.getRecordbyId('member', 7);
+    await controller.getRecordbyId(mockRequest, 'member', 7);
 
     expect(dataAccessService.selectSingleById).toHaveBeenCalledWith(
       'member',
@@ -142,7 +152,7 @@ describe('DataAccessController', () => {
       'alice@example.com',
     );
 
-    await controller.getColumnFromRecordbyId('member', 7, 'email');
+    await controller.getColumnFromRecordbyId(mockRequest, 'member', 7, 'email');
 
     expect(dataAccessService.getColumnFromRecordbyId).toHaveBeenCalledWith(
       'member',
@@ -152,12 +162,20 @@ describe('DataAccessController', () => {
   });
 
   it('delegates column updates, record updates, deletes, and create table requests', async () => {
-    await controller.updateColumnForRecordById('member', 7, 'email', {
-      value: 'alice@example.com',
-    });
-    await controller.updateRecord('member', 7, { name: 'Alice' } as any);
-    await controller.deleteRecord('member', 7);
-    await controller.createTable('member', [
+    await controller.updateColumnForRecordById(
+      mockRequest,
+      'member',
+      7,
+      'email',
+      {
+        value: 'alice@example.com',
+      },
+    );
+    await controller.updateRecord(mockRequest, 'member', 7, {
+      name: 'Alice',
+    } as any);
+    await controller.deleteRecord(mockRequest, 'member', 7);
+    await controller.createTable(mockRequest, 'member', [
       { name: 'name', type: 'text', nullable: false },
     ]);
 
@@ -177,11 +195,11 @@ describe('DataAccessController', () => {
   });
 
   it('rejects malformed create table input', async () => {
-    await expect(controller.createTable('member', [] as any)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
     await expect(
-      controller.createTable('member', [
+      controller.createTable(mockRequest, 'member', [] as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      controller.createTable(mockRequest, 'member', [
         { name: 'name', type: '', nullable: false },
       ] as any),
     ).rejects.toBeInstanceOf(BadRequestException);

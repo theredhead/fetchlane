@@ -17,6 +17,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -27,6 +28,8 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request } from 'express';
+import { AuthorizationService } from 'src/auth/authorization.service';
 import { Record, RecordSet } from 'src/data/database';
 import { badRequest } from 'src/errors/api-error';
 import { TableSchemaDescriptionDto } from 'src/swagger/models';
@@ -46,10 +49,13 @@ const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
 @ApiBearerAuth('bearer')
 @Controller('api/data-access')
 export class DataAccessController {
-  /** Creates the Fetchlane data-access controller. */
+  /**
+   * Creates the Fetchlane data-access controller.
+   */
   public constructor(
     private readonly db: DataAccessService,
     private readonly fetchRequestHandler: FetchRequestHandlerService,
+    private readonly authz: AuthorizationService,
   ) {}
 
   @ApiOperation({
@@ -124,9 +130,15 @@ export class DataAccessController {
     },
   })
   @Post('fetch')
-  /** Executes a structured fetch request with predicates, sorting, and pagination. */
-  public async fetch(@Body() request: FetchRequest): Promise<RecordSet> {
+  /**
+   * Executes a structured fetch request with predicates, sorting, and pagination.
+   */
+  public async fetch(
+    @Req() req: Request,
+    @Body() request: FetchRequest,
+  ): Promise<RecordSet> {
     this.validateFetchRequestEnvelope(request);
+    this.authz.authorizeCrud(req, request.table, 'read');
     return await this.fetchRequestHandler.handleRequest(request);
   }
 
@@ -150,8 +162,11 @@ export class DataAccessController {
     },
   })
   @Get('table-names')
-  /** Lists the tables visible to the active database connection. */
-  public async tableNames(): Promise<Record[]> {
+  /**
+   * Lists the tables visible to the active database connection.
+   */
+  public async tableNames(@Req() req: Request): Promise<Record[]> {
+    this.authz.authorizeSchemaAccess(req);
     return await this.db.getTableNames();
   }
 
@@ -167,8 +182,14 @@ export class DataAccessController {
     },
   })
   @Get(':table/info')
-  /** Returns basic column metadata for a table. */
-  public async tableInfo(@Param('table') table: string): Promise<Record[]> {
+  /**
+   * Returns basic column metadata for a table.
+   */
+  public async tableInfo(
+    @Req() req: Request,
+    @Param('table') table: string,
+  ): Promise<Record[]> {
+    this.authz.authorizeSchemaAccess(req);
     return await this.db.tableInfo(this.validateIdentifier(table, 'table'));
   }
 
@@ -178,10 +199,14 @@ export class DataAccessController {
   @ApiParam({ name: 'table', example: 'member' })
   @ApiOkResponse({ type: TableSchemaDescriptionDto })
   @Get(':table/schema')
-  /** Returns a normalized schema description for a table. */
+  /**
+   * Returns a normalized schema description for a table.
+   */
   public async describeTable(
+    @Req() req: Request,
     @Param('table') table: string,
   ): Promise<TableSchemaDescription | null> {
+    this.authz.authorizeSchemaAccess(req);
     return await this.db.describeTable(this.validateIdentifier(table, 'table'));
   }
 
@@ -199,14 +224,19 @@ export class DataAccessController {
     },
   })
   @Get(':table')
-  /** Returns a paginated list of rows from a table. */
+  /**
+   * Returns a paginated list of rows from a table.
+   */
   public async index(
+    @Req() req: Request,
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
     @Query('pageSize') pageSize = 10,
   ): Promise<Record[]> {
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'read');
     return await this.db.index(
-      this.validateIdentifier(table, 'table'),
+      validatedTable,
       this.parsePageIndex(pageIndex),
       this.parsePageSize(pageSize),
     );
@@ -231,13 +261,18 @@ export class DataAccessController {
     },
   })
   @Post(':table')
-  /** Creates a new record in the target table. */
+  /**
+   * Creates a new record in the target table.
+   */
   public async createRecord(
+    @Req() req: Request,
     @Param('table') table: string,
     @Body() record: Record,
   ): Promise<Record> {
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'create');
     return await this.db.insert(
-      this.validateIdentifier(table, 'table'),
+      validatedTable,
       this.validateRecordBody(record, 'create'),
     );
   }
@@ -252,15 +287,17 @@ export class DataAccessController {
     },
   })
   @Get(':table/record/:id')
-  /** Returns a single record by numeric `id`. */
+  /**
+   * Returns a single record by numeric `id`.
+   */
   public async getRecordbyId(
+    @Req() req: Request,
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<Record> {
-    return await this.db.selectSingleById(
-      this.validateIdentifier(table, 'table'),
-      id,
-    );
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'read');
+    return await this.db.selectSingleById(validatedTable, id);
   }
 
   @ApiOperation({ summary: 'Get a single column value from a record by id' })
@@ -275,14 +312,19 @@ export class DataAccessController {
     },
   })
   @Get(':table/record/:id/column/:column')
-  /** Returns a single column value from a record identified by numeric `id`. */
+  /**
+   * Returns a single column value from a record identified by numeric `id`.
+   */
   public async getColumnFromRecordbyId(
+    @Req() req: Request,
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
   ): Promise<string | null> {
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'read');
     return await this.db.getColumnFromRecordbyId(
-      this.validateIdentifier(table, 'table'),
+      validatedTable,
       id,
       this.validateIdentifier(column, 'column'),
     );
@@ -305,15 +347,20 @@ export class DataAccessController {
     },
   })
   @Patch(':table/record/:id/column/:column')
-  /** Updates a single column on a record identified by numeric `id`. */
+  /**
+   * Updates a single column on a record identified by numeric `id`.
+   */
   public async updateColumnForRecordById(
+    @Req() req: Request,
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Param('column') column: string,
     @Body() value: unknown,
   ): Promise<Record> {
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'update');
     return await this.db.updateColumnForRecordById(
-      this.validateIdentifier(table, 'table'),
+      validatedTable,
       id,
       this.validateIdentifier(column, 'column'),
       value,
@@ -340,14 +387,19 @@ export class DataAccessController {
     },
   })
   @Put(':table/record/:id')
-  /** Replaces a record by numeric `id`. */
+  /**
+   * Replaces a record by numeric `id`.
+   */
   public async updateRecord(
+    @Req() req: Request,
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
     @Body() record: Record,
   ): Promise<Record> {
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'update');
     return await this.db.update(
-      this.validateIdentifier(table, 'table'),
+      validatedTable,
       id,
       this.validateRecordBody(record, 'update'),
     );
@@ -363,12 +415,17 @@ export class DataAccessController {
     },
   })
   @Delete(':table/record/:id')
-  /** Deletes a record by numeric `id`. */
+  /**
+   * Deletes a record by numeric `id`.
+   */
   public async deleteRecord(
+    @Req() req: Request,
     @Param('table') table: string,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<Record> {
-    return await this.db.delete(this.validateIdentifier(table, 'table'), id);
+    const validatedTable = this.validateIdentifier(table, 'table');
+    this.authz.authorizeCrud(req, validatedTable, 'delete');
+    return await this.db.delete(validatedTable, id);
   }
 
   @ApiOperation({ summary: 'Generate a CREATE TABLE script for a new table' })
@@ -416,11 +473,15 @@ export class DataAccessController {
     },
   })
   @Post('tables/:table')
-  /** Generates engine-specific SQL for creating a table. */
+  /**
+   * Generates engine-specific SQL for creating a table.
+   */
   public async createTable(
+    @Req() req: Request,
     @Param('table') table: string,
     @Body() columns: ColumnDescription[],
   ): Promise<string> {
+    this.authz.authorizeCreateTable(req);
     return await this.db.createTable(
       this.validateIdentifier(table, 'table'),
       this.validateCreateTableColumns(columns),
@@ -496,7 +557,10 @@ export class DataAccessController {
     return normalized;
   }
 
-  private validateRecordBody(record: unknown, action: 'create' | 'update'): Record {
+  private validateRecordBody(
+    record: unknown,
+    action: 'create' | 'update',
+  ): Record {
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
       throw badRequest(
         `Request body for ${action} must be a JSON object.`,
@@ -514,9 +578,7 @@ export class DataAccessController {
     return record as Record;
   }
 
-  private validateCreateTableColumns(
-    columns: unknown,
-  ): ColumnDescription[] {
+  private validateCreateTableColumns(columns: unknown): ColumnDescription[] {
     if (!Array.isArray(columns) || columns.length === 0) {
       throw badRequest(
         'CREATE TABLE input must be a non-empty array of column definitions.',

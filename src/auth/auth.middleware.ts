@@ -22,7 +22,10 @@ export class AuthMiddleware implements NestMiddleware {
     response: Response,
     next: NextFunction,
   ): Promise<void> {
-    if (!this.authService.isEnabled() || !this.requiresAuthentication(request)) {
+    if (
+      !this.authService.isEnabled() ||
+      !this.requiresAuthentication(request)
+    ) {
       next();
       return;
     }
@@ -71,8 +74,6 @@ export class AuthMiddleware implements NestMiddleware {
     }
 
     const path = request.originalUrl || request.url;
-    return (
-      path.startsWith('/api/data-access') || path.startsWith('/api/docs')
-    );
+    return path.startsWith('/api/data-access') || path.startsWith('/api/docs');
   }
 }

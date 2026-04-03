@@ -9,13 +9,19 @@ import { StatusResponseDto } from '../swagger/models';
  * Rich status endpoint for service and database diagnostics.
  */
 export class StatusController {
-  /** Creates the status controller. */
+  /**
+   * Creates the status controller.
+   */
   public constructor(private readonly statusService: StatusService) {}
 
-  @ApiOperation({ summary: 'Get service status, runtime details, and database health' })
+  @ApiOperation({
+    summary: 'Get service status, runtime details, and database health',
+  })
   @ApiOkResponse({ type: StatusResponseDto })
   @Get()
-  /** Returns a structured status payload for the running application. */
+  /**
+   * Returns a structured status payload for the running application.
+   */
   public async index(): Promise<StatusResponseDto> {
     return await this.statusService.getStatus();
   }

@@ -17,7 +17,9 @@ describe('databaseProviders', () => {
   const connectionProvider = databaseProviders.find(
     (provider: any) => provider.provide === DATABASE_CONNECTION,
   ) as any;
-  const createRuntimeConfigService = (databaseUrl: string): RuntimeConfigService =>
+  const createRuntimeConfigService = (
+    databaseUrl: string,
+  ): RuntimeConfigService =>
     new RuntimeConfigService({
       server: {
         host: '0.0.0.0',
@@ -94,7 +96,9 @@ describe('databaseProviders', () => {
       'sqlite://user:password@localhost/example',
     );
 
-    expect(() => activeAdapterProvider.useFactory(registry, runtimeConfig)).toThrow(
+    expect(() =>
+      activeAdapterProvider.useFactory(registry, runtimeConfig),
+    ).toThrow(
       'Unsupported database engine "sqlite". Supported engines: mysql, postgres',
     );
   });

@@ -27,7 +27,9 @@ describe('MySqlDatabase', () => {
         release,
       });
     });
-    vi.spyOn(database as any, 'createPool').mockResolvedValue({ getConnection });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({
+      getConnection,
+    });
 
     const result = await database.execute('SELECT * FROM `member`');
 
@@ -58,7 +60,9 @@ describe('MySqlDatabase', () => {
         release,
       });
     });
-    vi.spyOn(database as any, 'createPool').mockResolvedValue({ getConnection });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({
+      getConnection,
+    });
 
     const result = await database.execute(
       'INSERT INTO `member` (`name`) VALUES (?)',
@@ -74,7 +78,9 @@ describe('MySqlDatabase', () => {
     const getConnection = vi.fn((callback: any) => {
       callback(new Error('no connection'));
     });
-    vi.spyOn(database as any, 'createPool').mockResolvedValue({ getConnection });
+    vi.spyOn(database as any, 'createPool').mockResolvedValue({
+      getConnection,
+    });
 
     await expect(database.execute('SELECT 1')).rejects.toThrow('no connection');
   });

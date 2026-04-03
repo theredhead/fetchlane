@@ -44,7 +44,9 @@ export function createApiErrorBody(
   };
 }
 
-/** Creates a `400 Bad Request` with a developer hint. */
+/**
+ * Creates a `400 Bad Request` with a developer hint.
+ */
 export function badRequest(
   message: string,
   hint: string,
@@ -53,7 +55,9 @@ export function badRequest(
   return new BadRequestException(createApiErrorBody(message, hint, details));
 }
 
-/** Creates a `404 Not Found` with a developer hint. */
+/**
+ * Creates a `404 Not Found` with a developer hint.
+ */
 export function notFound(
   message: string,
   hint: string,
@@ -62,7 +66,9 @@ export function notFound(
   return new NotFoundException(createApiErrorBody(message, hint, details));
 }
 
-/** Creates a `409 Conflict` with a developer hint. */
+/**
+ * Creates a `409 Conflict` with a developer hint.
+ */
 export function conflict(
   message: string,
   hint: string,
@@ -71,7 +77,9 @@ export function conflict(
   return new ConflictException(createApiErrorBody(message, hint, details));
 }
 
-/** Creates a `501 Not Implemented` with a developer hint. */
+/**
+ * Creates a `501 Not Implemented` with a developer hint.
+ */
 export function notImplemented(
   message: string,
   hint: string,
@@ -82,7 +90,9 @@ export function notImplemented(
   );
 }
 
-/** Creates a `503 Service Unavailable` with a developer hint. */
+/**
+ * Creates a `503 Service Unavailable` with a developer hint.
+ */
 export function serviceUnavailable(
   message: string,
   hint: string,
@@ -93,7 +103,9 @@ export function serviceUnavailable(
   );
 }
 
-/** Creates a `500 Internal Server Error` with a developer hint. */
+/**
+ * Creates a `500 Internal Server Error` with a developer hint.
+ */
 export function internalServerError(
   message: string,
   hint: string,

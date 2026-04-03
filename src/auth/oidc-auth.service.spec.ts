@@ -51,13 +51,15 @@ async function createOidcServer() {
     issuer,
     jwksUrl: `${issuer}/jwks`,
     server,
-    async signToken(overrides: {
-      subject?: string;
-      audience?: string;
-      issuer?: string;
-      expiresIn?: string;
-      claims?: Record<string, unknown>;
-    } = {}): Promise<string> {
+    async signToken(
+      overrides: {
+        subject?: string;
+        audience?: string;
+        issuer?: string;
+        expiresIn?: string;
+        claims?: Record<string, unknown>;
+      } = {},
+    ): Promise<string> {
       return await new SignJWT({
         realm_access: {
           roles: ['reader', 'writer'],
@@ -177,8 +179,7 @@ describe('OidcAuthService', () => {
       service.authenticateAuthorizationHeader(`Bearer ${token}`),
     ).rejects.toMatchObject({
       message: 'The access token has expired.',
-      hint:
-        'Request a fresh access token from your OIDC provider, then retry the request.',
+      hint: 'Request a fresh access token from your OIDC provider, then retry the request.',
     });
   });
 
@@ -195,8 +196,7 @@ describe('OidcAuthService', () => {
     await expect(
       service.authenticateAuthorizationHeader(`Bearer ${token}`),
     ).rejects.toMatchObject({
-      message:
-        'The access token issuer does not match the configured issuer.',
+      message: 'The access token issuer does not match the configured issuer.',
     });
   });
 
@@ -229,8 +229,7 @@ describe('OidcAuthService', () => {
       service.authenticateAuthorizationHeader(undefined),
     ).rejects.toMatchObject({
       message: 'Authentication is required for this route.',
-      hint:
-        'Send an Authorization header in the form "Bearer <JWT>" issued by your configured OIDC provider.',
+      hint: 'Send an Authorization header in the form "Bearer <JWT>" issued by your configured OIDC provider.',
     });
   });
 
@@ -245,8 +244,7 @@ describe('OidcAuthService', () => {
       service.authenticateAuthorizationHeader('Bearer not-a-valid-jwt'),
     ).rejects.toMatchObject({
       message: 'The access token could not be verified.',
-      hint:
-        'Use a valid JWT signed by the configured OIDC provider, and verify that the issuer and JWKS settings match.',
+      hint: 'Use a valid JWT signed by the configured OIDC provider, and verify that the issuer and JWKS settings match.',
     });
   });
 
@@ -288,8 +286,7 @@ describe('OidcAuthService', () => {
       statusCode: 403,
       message:
         'The authenticated principal does not have a role that is allowed to access Fetchlane.',
-      hint:
-        'Grant one of the configured roles (admin) to the caller, or update config.auth.allowed_roles if access should be broader.',
+      hint: 'Grant one of the configured roles (admin) to the caller, or update config.auth.allowed_roles if access should be broader.',
     });
   });
 });

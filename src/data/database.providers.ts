@@ -10,11 +10,17 @@ import { MySqlDatabase } from './mysql/mysql-database';
 import { PostgresDatabase } from './postgres/postgres-database';
 import { SqlServerDatabase } from './sqlserver/sqlserver-database';
 
-/** Injection token for the registry of supported database adapters. */
+/**
+ * Injection token for the registry of supported database adapters.
+ */
 export const DATABASE_ADAPTERS = Symbol('DATABASE_ADAPTERS');
-/** Injection token for the adapter constructor selected from runtime config. */
+/**
+ * Injection token for the adapter constructor selected from runtime config.
+ */
 export const ACTIVE_DATABASE_ADAPTER = Symbol('ACTIVE_DATABASE_ADAPTER');
-/** Injection token for the active database connection. */
+/**
+ * Injection token for the active database connection.
+ */
 export const DATABASE_CONNECTION = Symbol('DATABASE_CONNECTION');
 
 const supportedDatabaseAdapters: readonly DatabaseAdapterConstructor[] = [
@@ -23,7 +29,9 @@ const supportedDatabaseAdapters: readonly DatabaseAdapterConstructor[] = [
   SqlServerDatabase,
 ];
 
-/** Nest providers that register and connect the active database adapter. */
+/**
+ * Nest providers that register and connect the active database adapter.
+ */
 export const databaseProviders: Provider[] = [
   {
     provide: DATABASE_ADAPTERS,

@@ -1,7 +1,4 @@
-import {
-  Inject,
-  Injectable,
-} from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import {
   DatabaseAdapter,
   Record,
@@ -15,11 +12,7 @@ import {
   TableSchemaDescription,
 } from '../data/database-metadata';
 import { DATABASE_CONNECTION } from '../data/database.providers';
-import {
-  badRequest,
-  notFound,
-  notImplemented,
-} from '../errors/api-error';
+import { badRequest, notFound, notImplemented } from '../errors/api-error';
 
 @Injectable()
 /**
@@ -33,7 +26,9 @@ export class DataAccessService {
     @Inject(DATABASE_CONNECTION) private readonly adapter: DatabaseAdapter,
   ) {}
 
-  /** Lists the tables exposed by the active adapter. */
+  /**
+   * Lists the tables exposed by the active adapter.
+   */
   public async getTableNames(): Promise<Record[]> {
     if (!supportsTableListing(this.adapter)) {
       throw notImplemented(
@@ -45,7 +40,9 @@ export class DataAccessService {
     return await this.adapter.getTableNames();
   }
 
-  /** Returns basic column metadata for a table. */
+  /**
+   * Returns basic column metadata for a table.
+   */
   public async tableInfo(table: string): Promise<Record[]> {
     await this.ensureTableExists(table);
 
@@ -59,7 +56,9 @@ export class DataAccessService {
     return await this.adapter.getTableInfo(table);
   }
 
-  /** Returns normalized schema metadata for a table. */
+  /**
+   * Returns normalized schema metadata for a table.
+   */
   public async describeTable(
     table: string,
   ): Promise<TableSchemaDescription | null> {
@@ -75,7 +74,9 @@ export class DataAccessService {
     return await this.adapter.describeTable(table);
   }
 
-  /** Returns a paginated list of rows from a table. */
+  /**
+   * Returns a paginated list of rows from a table.
+   */
   public async index(
     table: string,
     pageIndex = 0,
@@ -92,7 +93,9 @@ export class DataAccessService {
     return data.rows;
   }
 
-  /** Looks up a single row by numeric `id`. */
+  /**
+   * Looks up a single row by numeric `id`.
+   */
   public async selectSingleById(table: string, id: number): Promise<Record> {
     await this.ensureTableExists(table);
 
@@ -105,13 +108,17 @@ export class DataAccessService {
     return this.ensureRecordExists(table, id, record);
   }
 
-  /** Inserts a row into a table. */
+  /**
+   * Inserts a row into a table.
+   */
   public async insert(table: string, record: Record): Promise<Record> {
     await this.ensureTableExists(table);
     return await this.adapter.insert(table, record);
   }
 
-  /** Replaces a row in a table by numeric `id`. */
+  /**
+   * Replaces a row in a table by numeric `id`.
+   */
   public async update(
     table: string,
     id: number,
@@ -123,7 +130,9 @@ export class DataAccessService {
     return this.ensureRecordExists(table, id, updated);
   }
 
-  /** Deletes a row from a table by numeric `id`. */
+  /**
+   * Deletes a row from a table by numeric `id`.
+   */
   public async delete(table: string, id: number): Promise<Record> {
     await this.ensureTableExists(table);
 
@@ -131,7 +140,9 @@ export class DataAccessService {
     return this.ensureRecordExists(table, id, deleted);
   }
 
-  /** Returns a single column value from a row identified by numeric `id`. */
+  /**
+   * Returns a single column value from a row identified by numeric `id`.
+   */
   public async getColumnFromRecordbyId(
     table: string,
     id: number,
@@ -156,7 +167,9 @@ export class DataAccessService {
     return (existingRecord[column] as string | null) ?? null;
   }
 
-  /** Updates a single column on a row identified by numeric `id`. */
+  /**
+   * Updates a single column on a row identified by numeric `id`.
+   */
   public async updateColumnForRecordById(
     table: string,
     id: number,
@@ -170,7 +183,9 @@ export class DataAccessService {
     return this.ensureRecordExists(table, id, updated);
   }
 
-  /** Generates engine-specific `CREATE TABLE` SQL for a proposed schema. */
+  /**
+   * Generates engine-specific `CREATE TABLE` SQL for a proposed schema.
+   */
   public async createTable(
     table: string,
     columns: ColumnDescription[],
@@ -185,7 +200,9 @@ export class DataAccessService {
     return this.adapter.createTableSql(table, columns);
   }
 
-  /** Executes raw SQL against the active adapter. */
+  /**
+   * Executes raw SQL against the active adapter.
+   */
   public async execute(text: string, args: any[]) {
     if (!Array.isArray(args)) {
       throw badRequest(
@@ -224,4 +241,7 @@ export class DataAccessService {
   }
 }
 
-export type { ColumnDescription, TableSchemaDescription } from '../data/database-metadata';
+export type {
+  ColumnDescription,
+  TableSchemaDescription,
+} from '../data/database-metadata';

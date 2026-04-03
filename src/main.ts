@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json } from 'express';
@@ -14,6 +14,52 @@ import { RateLimitMiddleware } from './limits/rate-limit.middleware';
  */
 export function configureApplication(app: INestApplication): void {
   const runtimeConfig = getRuntimeConfig();
+  const logger = new Logger('Fetchlane');
+
+  if (!runtimeConfig.auth.enabled) {
+    logger.warn('');
+    logger.warn(
+      '╔══════════════════════════════════════════════════════════════════╗',
+    );
+    logger.warn(
+      '║  WARNING: Authentication is DISABLED                           ║',
+    );
+    logger.warn(
+      '║                                                                ║',
+    );
+    logger.warn(
+      '║  All tables, rows, and write operations are fully accessible   ║',
+    );
+    logger.warn(
+      '║  without any credentials. Your entire database is exposed to   ║',
+    );
+    logger.warn(
+      '║  anyone who can reach this service.                            ║',
+    );
+    logger.warn(
+      '║                                                                ║',
+    );
+    logger.warn(
+      '║  Never run with auth.enabled=false outside of a trusted        ║',
+    );
+    logger.warn(
+      '║  local development environment.                                ║',
+    );
+    logger.warn(
+      '║                                                                ║',
+    );
+    logger.warn(
+      '║  Set config.auth.enabled=true and configure an OIDC provider   ║',
+    );
+    logger.warn(
+      '║  for any network-reachable or production deployment.           ║',
+    );
+    logger.warn(
+      '╚══════════════════════════════════════════════════════════════════╝',
+    );
+    logger.warn('');
+  }
+
   if (runtimeConfig.server.cors.enabled) {
     app.enableCors({
       origin: runtimeConfig.server.cors.origins.includes('*')
@@ -45,11 +91,13 @@ export function configureApplication(app: INestApplication): void {
   });
   const authMiddleware = app.get(AuthMiddleware);
   const rateLimitMiddleware = app.get(RateLimitMiddleware);
-  app.use((request, response, next) =>
-    void authMiddleware.use(request, response, next),
+  app.use(
+    (request, response, next) =>
+      void authMiddleware.use(request, response, next),
   );
-  app.use((request, response, next) =>
-    void rateLimitMiddleware.use(request, response, next),
+  app.use(
+    (request, response, next) =>
+      void rateLimitMiddleware.use(request, response, next),
   );
 
   const swaggerConfig = new DocumentBuilder()

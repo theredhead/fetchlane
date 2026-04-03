@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { AuthorizationService } from './auth/authorization.service';
 import { AuthMiddleware } from './auth/auth.middleware';
 import { OidcAuthService } from './auth/oidc-auth.service';
 import { DataAccessController } from './controllers/data-access.controller';
@@ -22,6 +23,7 @@ import { StatusService } from './service/status.service';
   providers: [
     LoggerService,
     AuthMiddleware,
+    AuthorizationService,
     OidcAuthService,
     RateLimitMiddleware,
     ...runtimeConfigProviders,
@@ -33,7 +35,9 @@ import { StatusService } from './service/status.service';
   ],
 })
 export class AppModule implements NestModule {
-  /** Applies request logging middleware to all public controllers. */
+  /**
+   * Applies request logging middleware to all public controllers.
+   */
   public configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(RequestLoggerMiddleware)

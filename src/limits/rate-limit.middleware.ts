@@ -19,18 +19,12 @@ export class RateLimitMiddleware implements NestMiddleware {
   /**
    * Creates the rate-limit middleware from runtime config.
    */
-  public constructor(
-    private readonly runtimeConfig: RuntimeConfigService,
-  ) {}
+  public constructor(private readonly runtimeConfig: RuntimeConfigService) {}
 
   /**
    * Tracks request counts and rejects callers that exceed the configured limit.
    */
-  public use(
-    request: Request,
-    response: Response,
-    next: NextFunction,
-  ): void {
+  public use(request: Request, response: Response, next: NextFunction): void {
     const limits = this.runtimeConfig.getLimits();
     const now = Date.now();
     const key = this.buildRateLimitKey(request);

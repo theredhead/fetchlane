@@ -44,12 +44,16 @@ export class FetchRequestSQLWriter {
     private readonly maxPageSize = 1000,
   ) {}
 
-  /** Quotes a table or column name using the active engine rules. */
+  /**
+   * Quotes a table or column name using the active engine rules.
+   */
   public quote(objectName: string): string {
     return this.quoteObjectName(objectName);
   }
 
-  /** Renders a fetch request into SQL text and bound arguments. */
+  /**
+   * Renders a fetch request into SQL text and bound arguments.
+   */
   public write(request: FetchRequest): { text: string; args: unknown[] } {
     this.validateRequestShape(request);
 
@@ -245,7 +249,11 @@ export class FetchRequestSQLWriter {
   }
 
   private validateRequestShape(request: FetchRequest): void {
-    if (!request || typeof request.table !== 'string' || !request.table.trim()) {
+    if (
+      !request ||
+      typeof request.table !== 'string' ||
+      !request.table.trim()
+    ) {
       throw new BadRequestException(
         'FetchRequest.table must be a non-empty string.',
       );
@@ -289,7 +297,5 @@ function countPositionalPlaceholders(text: string): number {
 }
 
 function countNamedPlaceholders(text: string): number {
-  return (
-    text.match(/(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g)?.length ?? 0
-  );
+  return text.match(/(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g)?.length ?? 0;
 }

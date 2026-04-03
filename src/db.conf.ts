@@ -4,17 +4,29 @@ import { formatDeveloperError } from './errors/api-error';
  * Parsed connection details extracted from a database connection URL.
  */
 export interface ParsedDatabaseUrl {
-  /** Database engine or protocol name, such as `postgres` or `mysql`. */
+  /**
+   * Database engine or protocol name, such as `postgres` or `mysql`.
+   */
   engine: string;
-  /** Username used to authenticate with the database server. */
+  /**
+   * Username used to authenticate with the database server.
+   */
   user: string;
-  /** Password used to authenticate with the database server. */
+  /**
+   * Password used to authenticate with the database server.
+   */
   password: string;
-  /** Hostname or IP address of the database server. */
+  /**
+   * Hostname or IP address of the database server.
+   */
   host: string;
-  /** Optional TCP port for the database server. */
+  /**
+   * Optional TCP port for the database server.
+   */
   port?: number;
-  /** Database or catalog name selected by the connection URL. */
+  /**
+   * Database or catalog name selected by the connection URL.
+   */
   database: string;
 }
 

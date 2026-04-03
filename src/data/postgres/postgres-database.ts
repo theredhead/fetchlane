@@ -26,9 +26,18 @@ export class PostgresDatabase
     SupportsSchemaDescription,
     SupportsCreateTableSql
 {
+  /**
+   * Canonical adapter name used for registration and logging.
+   */
   public static readonly adapterName = 'postgres';
+  /**
+   * Connection URL engine aliases matched by this adapter.
+   */
   public static readonly engines = ['postgres', 'postgresql'] as const;
 
+  /**
+   * Runtime adapter name exposed to callers.
+   */
   public readonly name = PostgresDatabase.adapterName;
 
   private poolPromise: Promise<any> | null = null;
@@ -38,17 +47,23 @@ export class PostgresDatabase
    */
   public constructor(private readonly config: ParsedDatabaseUrl) {}
 
-  /** Quotes an identifier using PostgreSQL rules. */
+  /**
+   * Quotes an identifier using PostgreSQL rules.
+   */
   public quoteIdentifier(name: string): string {
     return ['"', name.replace(/"/g, '""'), '"'].join('');
   }
 
-  /** Returns the native PostgreSQL parameter token. */
+  /**
+   * Returns the native PostgreSQL parameter token.
+   */
   public parameter(index: number): string {
     return `$${index}`;
   }
 
-  /** Applies PostgreSQL pagination syntax. */
+  /**
+   * Applies PostgreSQL pagination syntax.
+   */
   public paginateQuery(
     baseQuery: string,
     limit: number,
@@ -60,7 +75,9 @@ export class PostgresDatabase
       .join('\n');
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
     const data: Record = { ...record };
@@ -79,7 +96,9 @@ export class PostgresDatabase
     ]);
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async update(table: string, record: Record): Promise<Record> {
     const id = record.id;
     const data: Record = { ...record };
@@ -95,10 +114,14 @@ export class PostgresDatabase
     const statement = `UPDATE ${quotedTableName} SET ${snippets} WHERE id=${this.parameter(keys.length + 1)}`;
 
     await this.execute(statement, [...Object.values(data), id]);
-    return await this.selectSingle(table, `WHERE id=${this.parameter(1)}`, [id]);
+    return await this.selectSingle(table, `WHERE id=${this.parameter(1)}`, [
+      id,
+    ]);
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async delete(table: string, id: number): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
     const record = await this.selectSingle(
@@ -113,7 +136,9 @@ export class PostgresDatabase
     return record;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async select(
     table: string,
     additional = '',
@@ -126,7 +151,9 @@ export class PostgresDatabase
     );
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async selectSingle(
     table: string,
     additional: string,
@@ -140,8 +167,13 @@ export class PostgresDatabase
     return result.rows.shift();
   }
 
-  /** @inheritdoc */
-  public async execute(statement: string, args: any[] = []): Promise<RecordSet> {
+  /**
+   * @inheritdoc
+   */
+  public async execute(
+    statement: string,
+    args: any[] = [],
+  ): Promise<RecordSet> {
     const pool = await this.getPool();
     const client = await pool.connect();
 
@@ -171,7 +203,9 @@ export class PostgresDatabase
     }
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async executeSingle<T>(
     statement: string,
     args: any[] = [],
@@ -180,7 +214,9 @@ export class PostgresDatabase
     return result.shift() as T;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async executeScalar<T>(
     statement: string,
     args: any[] = [],
@@ -190,7 +226,9 @@ export class PostgresDatabase
     return result[key as keyof Record] as T;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async tableExists(tableName: string): Promise<boolean> {
     const count = await this.executeScalar<number>(
       `
@@ -204,7 +242,9 @@ export class PostgresDatabase
     return Number(count) === 1;
   }
 
-  /** Lists user-visible tables. */
+  /**
+   * Lists user-visible tables.
+   */
   public async getTableNames(): Promise<Record[]> {
     return (
       await this.execute(
@@ -219,7 +259,9 @@ export class PostgresDatabase
     ).rows;
   }
 
-  /** Returns basic column metadata for a table. */
+  /**
+   * Returns basic column metadata for a table.
+   */
   public async getTableInfo(table: string): Promise<Record[]> {
     return (
       await this.execute(
@@ -235,7 +277,9 @@ export class PostgresDatabase
     ).rows;
   }
 
-  /** Returns normalized schema metadata for a table. */
+  /**
+   * Returns normalized schema metadata for a table.
+   */
   public async describeTable(
     table: string,
   ): Promise<TableSchemaDescription | null> {
@@ -434,7 +478,9 @@ export class PostgresDatabase
     };
   }
 
-  /** Generates PostgreSQL `CREATE TABLE` SQL. */
+  /**
+   * Generates PostgreSQL `CREATE TABLE` SQL.
+   */
   public createTableSql(table: string, columns: ColumnDescription[]): string {
     const lines = [
       `CREATE TABLE ${this.quoteIdentifier(table)} (`,
@@ -453,7 +499,9 @@ export class PostgresDatabase
     return lines.join('\n');
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public release(): void {
     if (!this.poolPromise) {
       return;
@@ -463,7 +511,10 @@ export class PostgresDatabase
     this.poolPromise = null;
   }
 
-  private isCommandResult(result: { command: string; rowCount?: number | null }): boolean {
+  private isCommandResult(result: {
+    command: string;
+    rowCount?: number | null;
+  }): boolean {
     return result.command !== 'SELECT' && result.rowCount != null;
   }
 

@@ -1,6 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { JWTPayload, createRemoteJWKSet, errors, jwtVerify } from 'jose';
-import { RuntimeAuthConfig, RuntimeConfigService } from '../config/runtime-config';
+import {
+  RuntimeAuthConfig,
+  RuntimeConfigService,
+} from '../config/runtime-config';
 import { AuthenticatedPrincipal } from './request-context';
 
 interface OidcDiscoveryDocument {
@@ -12,11 +15,17 @@ interface OidcDiscoveryDocument {
  * Structured auth error used by middleware to return hint-rich responses.
  */
 export class AuthError extends Error {
-  /** HTTP status code returned to the caller. */
+  /**
+   * HTTP status code returned to the caller.
+   */
   public readonly statusCode: number;
-  /** Developer-facing hint explaining how to fix the auth problem. */
+  /**
+   * Developer-facing hint explaining how to fix the auth problem.
+   */
   public readonly hint: string;
-  /** Optional low-level detail for logs or diagnostics. */
+  /**
+   * Optional low-level detail for logs or diagnostics.
+   */
   public readonly details?: string;
 
   /**
@@ -41,16 +50,14 @@ export class AuthError extends Error {
  */
 @Injectable()
 export class OidcAuthService {
-  private jwksResolverPromise:
-    | Promise<ReturnType<typeof createRemoteJWKSet>>
-    | null = null;
+  private jwksResolverPromise: Promise<
+    ReturnType<typeof createRemoteJWKSet>
+  > | null = null;
 
   /**
    * Creates the auth service from runtime config.
    */
-  public constructor(
-    private readonly runtimeConfig: RuntimeConfigService,
-  ) {}
+  public constructor(private readonly runtimeConfig: RuntimeConfigService) {}
 
   /**
    * Returns whether auth is enabled for the current runtime.
@@ -135,7 +142,8 @@ export class OidcAuthService {
   private async createJwksResolver(
     authConfig: RuntimeAuthConfig,
   ): Promise<ReturnType<typeof createRemoteJWKSet>> {
-    const jwksUrl = authConfig.jwks_url || (await this.discoverJwksUrl(authConfig));
+    const jwksUrl =
+      authConfig.jwks_url || (await this.discoverJwksUrl(authConfig));
 
     try {
       return createRemoteJWKSet(new URL(jwksUrl));
@@ -149,7 +157,9 @@ export class OidcAuthService {
     }
   }
 
-  private async discoverJwksUrl(authConfig: RuntimeAuthConfig): Promise<string> {
+  private async discoverJwksUrl(
+    authConfig: RuntimeAuthConfig,
+  ): Promise<string> {
     const issuerUrl = authConfig.issuer_url.trim().replace(/\/+$/, '');
     if (!issuerUrl) {
       throw new AuthError(

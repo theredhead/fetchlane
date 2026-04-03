@@ -40,7 +40,9 @@ export class FetchRequestHandlerService {
     );
   }
 
-  /** Executes a structured fetch request and returns the typed result set. */
+  /**
+   * Executes a structured fetch request and returns the typed result set.
+   */
   public async handleRequest<T extends Record>(
     request: FetchRequest,
   ): Promise<FetchResponse<T>> {

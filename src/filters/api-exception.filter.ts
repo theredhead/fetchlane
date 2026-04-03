@@ -103,7 +103,8 @@ export class ApiExceptionFilter implements ExceptionFilter {
   }
 
   private translateUnknownException(exception: unknown): NormalizedApiError {
-    const error = exception instanceof Error ? exception : new Error(String(exception));
+    const error =
+      exception instanceof Error ? exception : new Error(String(exception));
     const code = this.readErrorCode(error);
     const details = error.message || undefined;
 

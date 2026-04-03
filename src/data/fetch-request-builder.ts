@@ -24,7 +24,9 @@ export interface WhereClause {
  * Fluent builder for constructing `FetchRequest` payloads.
  */
 export class FetchRequestBuilder {
-  /** Mutable request object assembled by the builder. */
+  /**
+   * Mutable request object assembled by the builder.
+   */
   public readonly request: FetchRequest = {
     table: '',
     predicates: [],
@@ -41,16 +43,66 @@ export class FetchRequestBuilder {
   public constructor(table: string) {
     this.request.table = table;
   }
-  //#region where
-  /** Adds a simple SQL predicate or a batch of prebuilt where clauses. */
+
+  /**
+   * Adds a simple SQL predicate or a batch of prebuilt where clauses.
+   */
   public where(where: WhereClause[]): FetchRequestBuilder;
-  /** Adds a simple SQL predicate or a batch of prebuilt where clauses. */
+  /**
+   * Adds a simple SQL predicate or a batch of prebuilt where clauses.
+   */
   public where(text: string, ...args: any[]): FetchRequestBuilder;
   public where(...args: any[]): FetchRequestBuilder {
     if (args.length === 1) {
       return this._whereByAddingWhereClauseArray(args[0]);
     }
     return this._whereByAddingFetchSimplePredicteClause(args[0], args.slice(1));
+  }
+
+  /**
+   * Groups predicates with `AND`.
+   */
+  public whereAnd(predicates: FetchSimplePredicteClause[]) {
+    this.request.predicates.push({ type: 'AND', predicates });
+    return this;
+  }
+
+  /**
+   * Groups predicates with `OR`.
+   */
+  public whereOr(predicates: FetchSimplePredicteClause[]) {
+    this.request.predicates.push({ type: 'OR', predicates });
+    return this;
+  }
+
+  /**
+   * Replaces or appends sort definitions for the fetch request.
+   */
+  public orderBy(clauses: Sort): FetchRequestBuilder;
+  /**
+   * Replaces or appends sort definitions for the fetch request.
+   */
+  public orderBy(
+    column: string,
+    direction: 'ASC' | 'DESC',
+  ): FetchRequestBuilder;
+  public orderBy(...args: any[]): FetchRequestBuilder {
+    if (args.length === 1 && Array.isArray(args[0])) {
+      return this._orderBySortClausesArray(args[0]);
+    }
+    return this._orderByColumnAndDirection(args[0], args[1]);
+  }
+
+  /**
+   * Applies zero-based pagination to the request.
+   */
+  public paginate(
+    pageSize: number,
+    pageIndex: number = 0,
+  ): FetchRequestBuilder {
+    this.request.pagination.size = pageSize;
+    this.request.pagination.index = pageIndex;
+    return this;
   }
 
   private _whereByAddingFetchSimplePredicteClause(
@@ -65,37 +117,12 @@ export class FetchRequestBuilder {
     this.request.predicates.push(...where);
     return this;
   }
-  //#endregion where
-  //#region whereAnd/Or
-  /** Groups predicates with `AND`. */
-  public whereAnd(predicates: FetchSimplePredicteClause[]) {
-    this.request.predicates.push({ type: 'AND', predicates });
-    return this;
-  }
-  /** Groups predicates with `OR`. */
-  public whereOr(predicates: FetchSimplePredicteClause[]) {
-    this.request.predicates.push({ type: 'OR', predicates });
-    return this;
-  }
-  //#endregion whereAnd/Or
-  //#region orderBy
-  /** Replaces or appends sort definitions for the fetch request. */
-  public orderBy(clauses: Sort): FetchRequestBuilder;
-  /** Replaces or appends sort definitions for the fetch request. */
-  public orderBy(
-    column: string,
-    direction: 'ASC' | 'DESC',
-  ): FetchRequestBuilder;
-  public orderBy(...args: any[]): FetchRequestBuilder {
-    if (args.length === 1 && Array.isArray(args[0])) {
-      return this._orderBySortClausesArray(args[0]);
-    }
-    return this._orderByColumnAndDirection(args[0], args[1]);
-  }
+
   private _orderBySortClausesArray(clauses: Sort): FetchRequestBuilder {
     this.request.sort = clauses;
     return this;
   }
+
   private _orderByColumnAndDirection(
     column: string,
     direction: 'ASC' | 'DESC',
@@ -103,18 +130,6 @@ export class FetchRequestBuilder {
     this.request.sort.push({ column, direction });
     return this;
   }
-  //#endregion orderBy
-  //#region paginate
-  /** Applies zero-based pagination to the request. */
-  public paginate(
-    pageSize: number,
-    pageIndex: number = 0,
-  ): FetchRequestBuilder {
-    this.request.pagination.size = pageSize;
-    this.request.pagination.index = pageIndex;
-    return this;
-  }
-  //#endregion paginate
 }
 
 // const req = from('users').where('login = ?', 'kris')

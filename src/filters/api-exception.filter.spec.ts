@@ -56,8 +56,7 @@ describe('ApiExceptionFilter', () => {
       expect.objectContaining({
         statusCode: 400,
         message: 'Validation failed',
-        hint:
-          'Check the request shape, route parameters, and JSON payload for invalid or missing values.',
+        hint: 'Check the request shape, route parameters, and JSON payload for invalid or missing values.',
       }),
     );
   });
@@ -65,9 +64,12 @@ describe('ApiExceptionFilter', () => {
   it('translates raw database constraint errors into conflict responses', () => {
     const filter = new ApiExceptionFilter();
     const { host, json, status } = createHost('/api/data-access/member');
-    const error = Object.assign(new Error('duplicate key value violates unique constraint'), {
-      code: '23505',
-    });
+    const error = Object.assign(
+      new Error('duplicate key value violates unique constraint'),
+      {
+        code: '23505',
+      },
+    );
 
     filter.catch(error, host);
 
@@ -77,8 +79,7 @@ describe('ApiExceptionFilter', () => {
         statusCode: 409,
         message:
           'The database rejected the write because it violates a constraint.',
-        hint:
-          'Check unique keys, foreign keys, and required column values before retrying the request.',
+        hint: 'Check unique keys, foreign keys, and required column values before retrying the request.',
       }),
     );
   });

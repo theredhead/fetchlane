@@ -26,9 +26,18 @@ export class SqlServerDatabase
     SupportsSchemaDescription,
     SupportsCreateTableSql
 {
+  /**
+   * Canonical adapter name used for registration and logging.
+   */
   public static readonly adapterName = 'sqlserver';
+  /**
+   * Connection URL engine aliases matched by this adapter.
+   */
   public static readonly engines = ['sqlserver', 'mssql'] as const;
 
+  /**
+   * Runtime adapter name exposed to callers.
+   */
   public readonly name = SqlServerDatabase.adapterName;
 
   private poolPromise: Promise<any> | null = null;
@@ -38,17 +47,23 @@ export class SqlServerDatabase
    */
   public constructor(private readonly config: ParsedDatabaseUrl) {}
 
-  /** Quotes an identifier using SQL Server rules. */
+  /**
+   * Quotes an identifier using SQL Server rules.
+   */
   public quoteIdentifier(name: string): string {
     return ['[', name.replace(/]/g, ']]'), ']'].join('');
   }
 
-  /** Returns the native SQL Server parameter token. */
+  /**
+   * Returns the native SQL Server parameter token.
+   */
   public parameter(index: number): string {
     return `@p${index}`;
   }
 
-  /** Applies SQL Server pagination syntax. */
+  /**
+   * Applies SQL Server pagination syntax.
+   */
   public paginateQuery(
     baseQuery: string,
     limit: number,
@@ -74,7 +89,9 @@ export class SqlServerDatabase
     `.trim();
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
     const data: Record = { ...record };
@@ -95,7 +112,9 @@ export class SqlServerDatabase
     return await this.selectSingle(table, 'WHERE id=@p1', [insertedId]);
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async update(table: string, record: Record): Promise<Record> {
     const id = record.id;
     const data: Record = { ...record };
@@ -114,7 +133,9 @@ export class SqlServerDatabase
     return await this.selectSingle(table, 'WHERE id=@p1', [id]);
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async delete(table: string, id: number): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
     const record = await this.selectSingle(table, 'WHERE id=@p1', [id]);
@@ -122,7 +143,9 @@ export class SqlServerDatabase
     return record;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async select(
     table: string,
     additional = '',
@@ -135,7 +158,9 @@ export class SqlServerDatabase
     );
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async selectSingle(
     table: string,
     additional: string,
@@ -149,8 +174,13 @@ export class SqlServerDatabase
     return result.rows.shift();
   }
 
-  /** @inheritdoc */
-  public async execute(statement: string, args: any[] = []): Promise<RecordSet> {
+  /**
+   * @inheritdoc
+   */
+  public async execute(
+    statement: string,
+    args: any[] = [],
+  ): Promise<RecordSet> {
     const pool = await this.getPool();
     const request = pool.request();
 
@@ -176,7 +206,9 @@ export class SqlServerDatabase
     };
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async executeSingle<T>(
     statement: string,
     args: any[] = [],
@@ -185,7 +217,9 @@ export class SqlServerDatabase
     return result.shift() as T;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async executeScalar<T>(
     statement: string,
     args: any[] = [],
@@ -195,7 +229,9 @@ export class SqlServerDatabase
     return result[key as keyof Record] as T;
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public async tableExists(tableName: string): Promise<boolean> {
     const count = await this.executeScalar<number>(
       `
@@ -210,7 +246,9 @@ export class SqlServerDatabase
     return Number(count) === 1;
   }
 
-  /** Lists user-visible tables. */
+  /**
+   * Lists user-visible tables.
+   */
   public async getTableNames(): Promise<Record[]> {
     return (
       await this.execute(
@@ -225,7 +263,9 @@ export class SqlServerDatabase
     ).rows;
   }
 
-  /** Returns basic column metadata for a table. */
+  /**
+   * Returns basic column metadata for a table.
+   */
   public async getTableInfo(table: string): Promise<Record[]> {
     return (
       await this.execute(
@@ -241,7 +281,9 @@ export class SqlServerDatabase
     ).rows;
   }
 
-  /** Returns normalized schema metadata for a table. */
+  /**
+   * Returns normalized schema metadata for a table.
+   */
   public async describeTable(
     table: string,
   ): Promise<TableSchemaDescription | null> {
@@ -359,8 +401,9 @@ export class SqlServerDatabase
           isForeignKey && row.referenced_table
             ? String(row.referenced_table)
             : null,
-        referenced_columns:
-          isForeignKey ? splitCsv(row.referenced_columns_csv) : [],
+        referenced_columns: isForeignKey
+          ? splitCsv(row.referenced_columns_csv)
+          : [],
         update_rule:
           isForeignKey && row.update_rule ? String(row.update_rule) : null,
         delete_rule:
@@ -430,7 +473,9 @@ export class SqlServerDatabase
     };
   }
 
-  /** Generates SQL Server `CREATE TABLE` SQL. */
+  /**
+   * Generates SQL Server `CREATE TABLE` SQL.
+   */
   public createTableSql(table: string, columns: ColumnDescription[]): string {
     const lines = [
       `CREATE TABLE ${this.quoteIdentifier(table)} (`,
@@ -449,7 +494,9 @@ export class SqlServerDatabase
     return lines.join('\n');
   }
 
-  /** @inheritdoc */
+  /**
+   * @inheritdoc
+   */
   public release(): void {
     if (!this.poolPromise) {
       return;

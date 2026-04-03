@@ -1,8 +1,5 @@
 import { ParsedDatabaseUrl } from '../db.conf';
-import {
-  ColumnDescription,
-  TableSchemaDescription,
-} from './database-metadata';
+import { ColumnDescription, TableSchemaDescription } from './database-metadata';
 
 /**
  * Generic row-shaped record returned by the data-access layer.
@@ -13,11 +10,17 @@ export type Record = { id?: number; [column: string]: any };
  * Result of executing a SQL statement through a database adapter.
  */
 export interface RecordSet {
-  /** Driver-specific metadata such as affected row counts. */
+  /**
+   * Driver-specific metadata such as affected row counts.
+   */
   info?: any;
-  /** Driver-specific field metadata when available. */
+  /**
+   * Driver-specific field metadata when available.
+   */
   fields?: any[];
-  /** Rows returned by the statement. */
+  /**
+   * Rows returned by the statement.
+   */
   rows: Record[];
 }
 
@@ -25,16 +28,24 @@ export interface RecordSet {
  * Shared runtime contract implemented by every database adapter.
  */
 export interface DatabaseAdapter {
-  /** Canonical engine name. */
+  /**
+   * Canonical engine name.
+   */
   readonly name: string;
 
-  /** Quotes an identifier such as a table or column name. */
+  /**
+   * Quotes an identifier such as a table or column name.
+   */
   quoteIdentifier(name: string): string;
 
-  /** Returns the native parameter token for the given 1-based position. */
+  /**
+   * Returns the native parameter token for the given 1-based position.
+   */
   parameter(index: number): string;
 
-  /** Applies engine-specific pagination to a base query. */
+  /**
+   * Applies engine-specific pagination to a base query.
+   */
   paginateQuery(
     baseQuery: string,
     limit: number,
@@ -42,34 +53,54 @@ export interface DatabaseAdapter {
     orderByClause: string | null,
   ): string;
 
-  /** Inserts a record into a table and returns the stored row. */
+  /**
+   * Inserts a record into a table and returns the stored row.
+   */
   insert(table: string, record: Record): Promise<Record>;
 
-  /** Updates a record in a table and returns the stored row. */
+  /**
+   * Updates a record in a table and returns the stored row.
+   */
   update(table: string, record: Record): Promise<Record>;
 
-  /** Deletes a record from a table and returns the deleted row. */
+  /**
+   * Deletes a record from a table and returns the deleted row.
+   */
   delete(table: string, id: number): Promise<Record>;
 
-  /** Selects rows from a table with an optional SQL suffix and bound arguments. */
+  /**
+   * Selects rows from a table with an optional SQL suffix and bound arguments.
+   */
   select(table: string, where?: string, args?: any[]): Promise<RecordSet>;
 
-  /** Selects a single row from a table. */
+  /**
+   * Selects a single row from a table.
+   */
   selectSingle(table: string, where: string, args: any[]): Promise<Record>;
 
-  /** Executes a SQL statement and returns the full result set. */
+  /**
+   * Executes a SQL statement and returns the full result set.
+   */
   execute(statement: string, args?: any[]): Promise<RecordSet>;
 
-  /** Executes a SQL statement and returns the first row. */
+  /**
+   * Executes a SQL statement and returns the first row.
+   */
   executeSingle<T>(statement: string, args?: any[]): Promise<T>;
 
-  /** Executes a SQL statement and returns the first column of the first row. */
+  /**
+   * Executes a SQL statement and returns the first column of the first row.
+   */
   executeScalar<T>(statement: string, args?: any[]): Promise<T>;
 
-  /** Determines whether a table exists in the current database. */
+  /**
+   * Determines whether a table exists in the current database.
+   */
   tableExists(tableName: string): Promise<boolean>;
 
-  /** Releases any pooled or open database resources. */
+  /**
+   * Releases any pooled or open database resources.
+   */
   release(): void | Promise<void>;
 }
 
@@ -110,7 +141,9 @@ export interface DatabaseAdapterConstructor {
   new (config: ParsedDatabaseUrl): DatabaseAdapter;
 }
 
-/** Registry mapping connection URL aliases to adapter constructors. */
+/**
+ * Registry mapping connection URL aliases to adapter constructors.
+ */
 export type DatabaseAdapterRegistry = Map<string, DatabaseAdapterConstructor>;
 
 /**
@@ -136,7 +169,10 @@ export function createDatabaseAdapterRegistry(
 export function supportsTableListing(
   adapter: DatabaseAdapter,
 ): adapter is DatabaseAdapter & SupportsTableListing {
-  return typeof (adapter as Partial<SupportsTableListing>).getTableNames === 'function';
+  return (
+    typeof (adapter as Partial<SupportsTableListing>).getTableNames ===
+    'function'
+  );
 }
 
 /**
@@ -145,7 +181,9 @@ export function supportsTableListing(
 export function supportsTableInfo(
   adapter: DatabaseAdapter,
 ): adapter is DatabaseAdapter & SupportsTableInfo {
-  return typeof (adapter as Partial<SupportsTableInfo>).getTableInfo === 'function';
+  return (
+    typeof (adapter as Partial<SupportsTableInfo>).getTableInfo === 'function'
+  );
 }
 
 /**
@@ -154,7 +192,10 @@ export function supportsTableInfo(
 export function supportsSchemaDescription(
   adapter: DatabaseAdapter,
 ): adapter is DatabaseAdapter & SupportsSchemaDescription {
-  return typeof (adapter as Partial<SupportsSchemaDescription>).describeTable === 'function';
+  return (
+    typeof (adapter as Partial<SupportsSchemaDescription>).describeTable ===
+    'function'
+  );
 }
 
 /**
@@ -163,5 +204,8 @@ export function supportsSchemaDescription(
 export function supportsCreateTableSql(
   adapter: DatabaseAdapter,
 ): adapter is DatabaseAdapter & SupportsCreateTableSql {
-  return typeof (adapter as Partial<SupportsCreateTableSql>).createTableSql === 'function';
+  return (
+    typeof (adapter as Partial<SupportsCreateTableSql>).createTableSql ===
+    'function'
+  );
 }

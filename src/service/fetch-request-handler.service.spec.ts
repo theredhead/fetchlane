@@ -102,7 +102,10 @@ describe('FetchRequestHandlerService', () => {
     await service.handleRequest({
       table: 'member',
       predicates: [
-        { text: 'status = :status AND city = :city', args: { status: 'open', city: 'Enschede' } },
+        {
+          text: 'status = :status AND city = :city',
+          args: { status: 'open', city: 'Enschede' },
+        },
       ],
       sort: [],
     });

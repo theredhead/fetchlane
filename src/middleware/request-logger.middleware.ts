@@ -8,13 +8,15 @@ import { LoggerService } from '../service/logger.service';
  */
 export class RequestLoggerMiddleware implements NestMiddleware {
   /**
+   * Creates the middleware with the shared logger service.
+   */
+  public constructor(private readonly logger: LoggerService) {}
+
+  /**
    * Logs the incoming request line.
    */
   public use(req: Request, res: Response, next: NextFunction): void {
     this.logger.log(`[${req.ip}] ${req.method} ${req.url}`);
     next();
   }
-
-  /** Creates the middleware with the shared logger service. */
-  public constructor(private readonly logger: LoggerService) {}
 }
