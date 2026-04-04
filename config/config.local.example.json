@@ -1,0 +1,34 @@
+{
+  "_comment": "LOCAL DEVELOPMENT ONLY — do not use this config for any network-reachable deployment.",
+  "server": {
+    "host": "0.0.0.0",
+    "port": 3000,
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  },
+  "database": {
+    "url": "postgres://postgres:password@127.0.0.1:5432/northwind"
+  },
+  "limits": {
+    "requestBodyBytes": 1048576,
+    "fetchMaxPageSize": 1000,
+    "fetchMaxPredicates": 25,
+    "fetchMaxSortFields": 8,
+    "rateLimitWindowMs": 60000,
+    "rateLimitMax": 120
+  },
+  "enableSchemaFeatures": true,
+  "authentication": {
+    "enabled": false,
+    "mode": "oidc-jwt",
+    "issuerUrl": "",
+    "audience": "",
+    "jwksUrl": "",
+    "claimMappings": {
+      "subject": "sub",
+      "roles": "realm_access.roles"
+    }
+  }
+}

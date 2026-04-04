@@ -33,55 +33,32 @@ Fetchlane is a NestJS service that exposes a consistent HTTP interface across mu
 npm install
 ```
 
-2. Create your local environment file:
+2. Copy the local example config:
+
+```bash
+cp config/config.local.example.json fetchlane.local.json
+```
+
+3. Edit `fetchlane.local.json` and replace the database URL with your own:
+
+```json
+{
+  "database": {
+    "url": "postgres://postgres:password@127.0.0.1:5432/northwind"
+  }
+}
+```
+
+4. Create a `.env` file from the tracked example:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Create a local runtime config file, for example `fetchlane.local.json`.
-   You can start from the tracked example at `config/fetchlane.example.json`:
-
-```json
-{
-  "server": {
-    "host": "0.0.0.0",
-    "port": 3000,
-    "cors": {
-      "enabled": true,
-      "origins": ["*"]
-    }
-  },
-  "database": {
-    "url": "${FETCHLANE_DATABASE_URL}"
-  },
-  "limits": {
-    "requestBodyBytes": 1048576,
-    "fetchMaxPageSize": 1000,
-    "fetchMaxPredicates": 25,
-    "fetchMaxSortFields": 8,
-    "rateLimitWindowMs": 60000,
-    "rateLimitMax": 120
-  },
-  "authentication": {
-    "enabled": true,
-    "mode": "oidc-jwt",
-    "issuerUrl": "",
-    "audience": "",
-    "jwksUrl": "",
-    "claimMappings": {
-      "subject": "sub",
-      "roles": "realm_access.roles"
-    }
-  }
-}
-```
-
-4. Set the bootstrap env var and database URL in `.env`:
+The default `.env` already points at `fetchlane.local.json`:
 
 ```env
 FETCHLANE_CONFIG=./fetchlane.local.json
-FETCHLANE_DATABASE_URL=postgres://postgres:password@127.0.0.1:5432/northwind
 ```
 
 5. Start the app:
@@ -92,15 +69,13 @@ npm run start:dev
 
 6. Open the docs:
 
-> **Security note:** The quick-start config above has authentication enabled but with
-> empty issuer/audience values, which will reject all tokens. For local
-> development you may set `authentication.enabled` to `false`, but **never do so for
-> any network-reachable deployment**. See [Optional Authentication](#optional-authentication) below.
-
 - Swagger UI: `http://localhost:3000/api/docs`
 - Status endpoint: `http://localhost:3000/api/status`
-  This returns a structured service snapshot with runtime metadata, safe config details, database connectivity, and capability flags.
-  If authentication is enabled, authorize in Swagger UI with a bearer token before calling `/api/docs` or `/api/data-access/**`.
+
+The local example has authentication **disabled** and schema features **enabled**
+so you can explore the full API surface immediately. See
+[Secure Deployment](#secure-deployment) when you are ready to harden the
+service for network-reachable environments.
 
 ## Runtime Config
 
@@ -124,6 +99,13 @@ Placeholders are optional — you can write literal values directly in the JSON 
 
 However, hardcoding secrets in the config file is discouraged for any shared, committed, or network-reachable environment. Prefer environment variable placeholders for credentials and connection strings outside of trusted local setups.
 
+Two tracked example configs are available:
+
+| File                                | Purpose                                                                                              |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `config/config.local.example.json`  | Local development — auth disabled, schema features enabled, hardcoded database URL                   |
+| `config/config.secure.example.json` | Production — auth enabled with OIDC placeholders, schema features disabled, authorization configured |
+
 The database connection URL still uses this format:
 
 Expected format:
@@ -141,8 +123,6 @@ sqlserver://sa:YourStrong!Passw0rd@127.0.0.1:1433/master
 ```
 
 Startup fails fast with hint-rich errors when the config path is missing, the file cannot be read, the JSON is invalid, required fields are missing, or placeholder environment variables are unresolved.
-
-The tracked baseline config lives at `config/fetchlane.example.json`.
 
 ## Schema Features
 
@@ -278,6 +258,37 @@ In this example:
 When `authorization` is configured, the fine-grained channels define all
 access control.
 
+## Secure Deployment
+
+When you are ready to expose Fetchlane beyond localhost, start from the hardened
+example config:
+
+```bash
+cp config/config.secure.example.json fetchlane.json
+```
+
+This config:
+
+- Enables authentication with OIDC/JWT bearer validation
+- Requires environment variables for secrets: `FETCHLANE_DATABASE_URL`,
+  `FETCHLANE_OIDC_ISSUER_URL`, and `FETCHLANE_OIDC_AUDIENCE`
+- Disables schema features by default (set `enableSchemaFeatures` to `true`
+  only if your consumers need table discovery)
+- Restricts CORS origins to a specific domain
+- Configures fine-grained authorization with role-based allow/deny gates
+
+Provide the required environment variables at startup:
+
+```env
+FETCHLANE_CONFIG=/app/config/fetchlane.json
+FETCHLANE_DATABASE_URL=postgres://user:secret@db-host:5432/production
+FETCHLANE_OIDC_ISSUER_URL=https://keycloak.example.com/realms/fetchlane
+FETCHLANE_OIDC_AUDIENCE=fetchlane-api
+```
+
+Docker, Kubernetes, and provider-specific examples (Keycloak, Auth0, Entra ID)
+are in [docs/deployment.md](docs/deployment.md).
+
 ## Operational Limits
 
 Fetchlane can now enforce a small set of production-safe limits entirely from runtime config:
@@ -293,7 +304,7 @@ HTTP rate limiting is applied in memory. Anonymous callers are limited by client
 
 The status endpoint exposes the active limit values so container operators can verify what is actually running without exposing secrets.
 
-These limits are runtime-config driven. The examples in this README assume the default values from `config/fetchlane.example.json`.
+These limits are runtime-config driven.
 
 ## Deployment
 
@@ -301,7 +312,8 @@ Fetchlane is designed for mounted runtime config in containers.
 
 - Docker, Kubernetes, and Keycloak-ready examples live in [docs/deployment.md](docs/deployment.md).
 - `.env.example` only contains the bootstrap env var and placeholder secret references.
-- `config/fetchlane.example.json` is the tracked starting point for mounted config.
+- `config/config.local.example.json` is the local development starting point.
+- `config/config.secure.example.json` is the production starting point with authentication and authorization.
 
 ## Supported Engines
 

@@ -262,7 +262,7 @@ with a stack trace via `LoggerService`.
 - The JSON file supports `${ENV_VAR}` interpolation.
 - The config object is validated and **deep-frozen** at startup (singleton).
 - Sections: `server`, `database`, `limits`, `authentication`, plus top-level `enableSchemaFeatures`.
-- See `config/fetchlane.example.json` for the full schema and defaults.
+- See `config/config.local.example.json` and `config/config.secure.example.json` for the full schema and defaults.
 
 ---
 
@@ -376,7 +376,7 @@ matches**. This includes:
 - Deployment docs (`docs/deployment.md`)
 - AGENTS.md itself (this file)
 - Swagger DTO descriptions
-- Config examples (`config/fetchlane.example.json`)
+- Config examples (`config/config.local.example.json`, `config/config.secure.example.json`)
 - Inline comments that describe the changed logic
 
 Stale or contradictory documentation is treated as a bug.

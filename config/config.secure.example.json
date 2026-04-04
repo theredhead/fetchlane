@@ -4,7 +4,7 @@
     "port": 3000,
     "cors": {
       "enabled": true,
-      "origins": ["*"]
+      "origins": ["https://app.example.com"]
     }
   },
   "database": {
@@ -22,8 +22,8 @@
   "authentication": {
     "enabled": true,
     "mode": "oidc-jwt",
-    "issuerUrl": "",
-    "audience": "",
+    "issuerUrl": "${FETCHLANE_OIDC_ISSUER_URL}",
+    "audience": "${FETCHLANE_OIDC_AUDIENCE}",
     "jwksUrl": "",
     "claimMappings": {
       "subject": "sub",

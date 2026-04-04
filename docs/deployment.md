@@ -32,7 +32,12 @@ Placeholders are optional. You can also write literal values directly in the JSO
 
 This is convenient for local development, but hardcoding secrets in the config file is discouraged for any shared, committed, or network-reachable environment.
 
-The tracked baseline config lives at `config/fetchlane.example.json`.
+Two tracked example configs are available:
+
+| File                                | Purpose                                                                    |
+| ----------------------------------- | -------------------------------------------------------------------------- |
+| `config/config.local.example.json`  | Local development — auth disabled, schema features enabled                 |
+| `config/config.secure.example.json` | Production — auth enabled with OIDC placeholders, authorization configured |
 
 Recommended secret handling for `v1.0`:
 
@@ -171,7 +176,7 @@ docker run --rm \
   -p 3000:3000 \
   --env FETCHLANE_CONFIG=/app/config/fetchlane.json \
   --env FETCHLANE_DATABASE_URL=postgres://postgres:password@db:5432/northwind \
-  --mount type=bind,src="$(pwd)/config/fetchlane.example.json",dst=/app/config/fetchlane.json,readonly \
+  --mount type=bind,src="$(pwd)/config/config.secure.example.json",dst=/app/config/fetchlane.json,readonly \
   fetchlane:latest
 ```
 
