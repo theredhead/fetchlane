@@ -38,6 +38,12 @@ import { TableSchemaDescriptionDto } from 'src/swagger/models';
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
 
 /**
+ * Default page size for the simple GET /:table endpoint when the caller
+ * does not provide a pageSize query parameter.
+ */
+const DEFAULT_QUERY_PAGE_SIZE = 100;
+
+/**
  * As is good practice, this controller follows REST principles:
  *
  * GET: read data from your API
@@ -236,7 +242,7 @@ export class DataAccessController {
     @Req() req: Request,
     @Param('table') table: string,
     @Query('pageIndex') pageIndex = 0,
-    @Query('pageSize') pageSize = 10,
+    @Query('pageSize') pageSize = DEFAULT_QUERY_PAGE_SIZE,
   ): Promise<Record[]> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'read');

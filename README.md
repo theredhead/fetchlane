@@ -142,14 +142,14 @@ Two tracked example configs are available:
 Each top-level config area controls one concern. They are independent — changing
 one does not silently affect another.
 
-| Area                     | Controls                                  | If omitted                                                    | Affects                                |
-| ------------------------ | ----------------------------------------- | ------------------------------------------------------------- | -------------------------------------- |
-| `server`                 | Listen address, port, and CORS origins    | **Invalid** — required                                        | Network binding and cross-origin rules |
-| `database`               | Connection URL (engine, host, credentials)| **Invalid** — required                                        | Which engine loads and which DB is used|
-| `limits`                 | Request body size, page sizes, rate limit | **Invalid** — required                                        | Request validation and throttling      |
-| `enableSchemaFeatures`   | Whether schema endpoints exist            | **Invalid** — required (boolean)                              | Route existence (`404` when `false`)   |
-| `authentication`         | Whether callers must present a bearer JWT | **Invalid** — required                                        | Authentication enforcement             |
-| `authentication.authorization` | Per-channel, per-table role gates   | **Invalid** when authentication is enabled; ignored otherwise | Authorization enforcement              |
+| Area                           | Controls                                   | If omitted                                                    | Affects                                 |
+| ------------------------------ | ------------------------------------------ | ------------------------------------------------------------- | --------------------------------------- |
+| `server`                       | Listen address, port, and CORS origins     | **Invalid** — required                                        | Network binding and cross-origin rules  |
+| `database`                     | Connection URL (engine, host, credentials) | **Invalid** — required                                        | Which engine loads and which DB is used |
+| `limits`                       | Request body size, page sizes, rate limit  | **Invalid** — required                                        | Request validation and throttling       |
+| `enableSchemaFeatures`         | Whether schema endpoints exist             | **Invalid** — required (boolean)                              | Route existence (`404` when `false`)    |
+| `authentication`               | Whether callers must present a bearer JWT  | **Invalid** — required                                        | Authentication enforcement              |
+| `authentication.authorization` | Per-channel, per-table role gates          | **Invalid** when authentication is enabled; ignored otherwise | Authorization enforcement               |
 
 **Feature enablement** (`enableSchemaFeatures`) decides whether an endpoint
 exists at all. **Authentication** (`authentication.enabled`) decides whether

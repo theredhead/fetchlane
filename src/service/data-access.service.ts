@@ -13,6 +13,13 @@ import {
 } from '../data/database-metadata';
 import { DATABASE_CONNECTION } from '../data/database.providers';
 import { badRequest, notFound, notImplemented } from '../errors/api-error';
+import { RuntimeConfigService } from 'src/config/runtime-config';
+
+/**
+ * Fallback page size used when the service is called without an explicit
+ * page size (e.g. direct service calls outside the HTTP controller path).
+ */
+const DEFAULT_PAGE_SIZE = 100;
 
 @Injectable()
 /**
@@ -24,6 +31,7 @@ export class DataAccessService {
    */
   public constructor(
     @Inject(DATABASE_CONNECTION) private readonly adapter: DatabaseAdapter,
+    private readonly runtimeConfig: RuntimeConfigService,
   ) {}
 
   /**
@@ -80,8 +88,14 @@ export class DataAccessService {
   public async index(
     table: string,
     pageIndex = 0,
-    pageSize = 1000,
+    pageSize?: number,
   ): Promise<Record[]> {
+    if (pageSize === undefined) {
+      pageSize = Math.max(
+        DEFAULT_PAGE_SIZE,
+        this.runtimeConfig.getLimits().fetchMaxPageSize,
+      );
+    }
     await this.ensureTableExists(table);
 
     const offset = pageIndex * pageSize;

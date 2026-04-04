@@ -187,6 +187,11 @@ export interface RuntimeAuthorizationConfig {
 /**
  * Authentication settings loaded from the runtime config file.
  */
+/**
+ * The only authentication mode supported in v1.0.
+ */
+export const AUTHENTICATION_MODE_OIDC_JWT = 'oidc-jwt' as const;
+
 export interface RuntimeAuthenticationConfig {
   /**
    * Enables or disables authentication.
@@ -195,7 +200,7 @@ export interface RuntimeAuthenticationConfig {
   /**
    * Authentication mode for the service.
    */
-  mode: 'oidc-jwt';
+  mode: typeof AUTHENTICATION_MODE_OIDC_JWT;
   /**
    * OIDC issuer URL used for discovery and issuer validation.
    */
@@ -769,14 +774,14 @@ function readAuthenticationMode(
   configPath: string,
 ): 'oidc-jwt' {
   const mode = readNonEmptyString(value, path, configPath);
-  if (mode === 'oidc-jwt') {
+  if (mode === AUTHENTICATION_MODE_OIDC_JWT) {
     return mode;
   }
 
   throw new Error(
     formatDeveloperError(
-      `Invalid runtime config: ${path} must be "oidc-jwt".`,
-      'Use the locked v1.0 authentication mode "oidc-jwt".',
+      `Invalid runtime config: ${path} must be "${AUTHENTICATION_MODE_OIDC_JWT}".`,
+      `Use the locked v1.0 authentication mode "${AUTHENTICATION_MODE_OIDC_JWT}".`,
     ),
   );
 }

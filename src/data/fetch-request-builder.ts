@@ -6,6 +6,12 @@ import {
 } from './fetch-predicate.types';
 
 /**
+ * Default page size used by the fetch request builder when no size is
+ * specified through the fluent API.
+ */
+const DEFAULT_FETCH_PAGE_SIZE = 100;
+
+/**
  * Creates a fluent builder for a fetch request targeting the given table.
  */
 export function from(table: string): FetchRequestBuilder {
@@ -33,7 +39,7 @@ export class FetchRequestBuilder {
     sort: [],
     pagination: {
       index: 0,
-      size: 100,
+      size: DEFAULT_FETCH_PAGE_SIZE,
     },
   };
 

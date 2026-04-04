@@ -11,6 +11,12 @@ import {
 
 type FetchParameterMode = 'named' | 'positional' | null;
 
+/**
+ * Fallback maximum page size used when no config-driven limit is injected
+ * into the FetchRequestSQLWriter constructor.
+ */
+const DEFAULT_FALLBACK_MAX_PAGE_SIZE = 1000;
+
 interface PlaceholderState {
   args: unknown[];
   index: number;
@@ -41,7 +47,7 @@ export class FetchRequestSQLWriter {
       [baseQuery, orderByClause, `LIMIT ${limit} OFFSET ${offset}`]
         .filter(Boolean)
         .join('\n'),
-    private readonly maxPageSize = 1000,
+    private readonly maxPageSize = DEFAULT_FALLBACK_MAX_PAGE_SIZE,
   ) {}
 
   /**
