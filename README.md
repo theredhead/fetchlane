@@ -16,6 +16,10 @@
 
 Fetchlane is a NestJS service that exposes a consistent HTTP interface across multiple database engines. It is built for browsing data, inspecting schemas, performing CRUD operations, and executing structured fetch requests without baking engine-specific logic into the API surface.
 
+> **Note:** Fetchlane is in early alpha. It is not ready for production use.
+> APIs, configuration, and behavior may change without notice. The open-source
+> license is still being determined — until then, all rights are reserved.
+
 ## Why Fetchlane
 
 - One REST shape across multiple database engines
