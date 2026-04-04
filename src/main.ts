@@ -6,8 +6,55 @@ import { json } from 'express';
 import { AppModule } from './app.module';
 import { AuthenticationMiddleware } from './authentication/authentication.middleware';
 import { getRuntimeConfig } from './config/runtime-config';
+import { parseDatabaseUrl } from './db.conf';
 import { ApiExceptionFilter } from './filters/api-exception.filter';
 import { RateLimitMiddleware } from './limits/rate-limit.middleware';
+
+/**
+ * Logs a concise configuration summary so operators can verify the service
+ * booted in the intended mode without inspecting the config file.
+ */
+function logConfigurationSummary(
+  logger: Logger,
+  runtimeConfig: ReturnType<typeof getRuntimeConfig>,
+): void {
+  const engine = parseDatabaseUrl(runtimeConfig.database.url).engine;
+  const authentication = runtimeConfig.authentication.enabled
+    ? 'enabled'
+    : 'DISABLED';
+  const schema = runtimeConfig.enableSchemaFeatures ? 'enabled' : 'disabled';
+  const authorization =
+    runtimeConfig.authentication.enabled &&
+    runtimeConfig.authentication.authorization
+      ? 'configured'
+      : 'not configured';
+
+  const corsOrigins = runtimeConfig.server.cors.enabled
+    ? runtimeConfig.server.cors.origins.join(', ')
+    : 'disabled';
+
+  const warnings: string[] = [];
+  if (!runtimeConfig.authentication.enabled) {
+    warnings.push('authentication is disabled — all endpoints are public');
+  }
+  if (
+    runtimeConfig.server.cors.enabled &&
+    runtimeConfig.server.cors.origins.includes('*')
+  ) {
+    warnings.push('CORS allows all origins');
+  }
+
+  logger.log('Configuration summary:');
+  logger.log(`  Engine:          ${engine}`);
+  logger.log(`  Authentication:  ${authentication}`);
+  logger.log(`  Authorization:   ${authorization}`);
+  logger.log(`  Schema features: ${schema}`);
+  logger.log(`  CORS origins:    ${corsOrigins}`);
+
+  for (const warning of warnings) {
+    logger.warn(`  ⚠ ${warning}`);
+  }
+}
 
 /**
  * Applies Fetchlane runtime configuration to an already created Nest application.
@@ -15,6 +62,8 @@ import { RateLimitMiddleware } from './limits/rate-limit.middleware';
 export function configureApplication(app: INestApplication): void {
   const runtimeConfig = getRuntimeConfig();
   const logger = new Logger('Fetchlane');
+
+  logConfigurationSummary(logger, runtimeConfig);
 
   if (!runtimeConfig.authentication.enabled) {
     logger.warn('');

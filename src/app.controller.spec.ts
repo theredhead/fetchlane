@@ -27,6 +27,7 @@ describe('DataAccessController', () => {
   };
   const runtimeConfigService = {
     isSchemaFeaturesEnabled: vi.fn().mockReturnValue(true),
+    getLimits: vi.fn().mockReturnValue({ fetchMaxPageSize: 1000 }),
   };
   const mockRequest = {} as Request;
 

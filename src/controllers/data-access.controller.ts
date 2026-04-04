@@ -518,11 +518,12 @@ export class DataAccessController {
 
   private parsePageSize(value: number | string): number {
     const parsed = this.parseIntegerQueryValue(value, 'pageSize');
+    const maxPageSize = this.runtimeConfig.getLimits().fetchMaxPageSize;
 
-    if (parsed <= 0 || parsed > 1000) {
+    if (parsed <= 0 || parsed > maxPageSize) {
       throw badRequest(
-        'Query parameter "pageSize" must be an integer between 1 and 1000.',
-        'Choose a page size from 1 to 1000 so the API can paginate safely.',
+        `Query parameter "pageSize" must be an integer between 1 and ${maxPageSize}.`,
+        `Choose a page size from 1 to ${maxPageSize} so the API can paginate safely.`,
       );
     }
 

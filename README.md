@@ -77,6 +77,37 @@ so you can explore the full API surface immediately. See
 [Secure Deployment](#secure-deployment) when you are ready to harden the
 service for network-reachable environments.
 
+## How Access Is Decided
+
+Every incoming request walks the same decision chain:
+
+1. **Is the endpoint family enabled?**
+   Schema endpoints (`table-names`, `info`, `schema`, `create-table`) only
+   exist when `enableSchemaFeatures` is `true`. Otherwise the route returns
+   `404 Not Found`.
+
+2. **Is authentication enabled?**
+   When `authentication.enabled` is `false`, all enabled endpoints are public.
+   Skip to step 6.
+
+3. **Is the caller authenticated?**
+   The request must carry a valid bearer JWT (signature, issuer, audience,
+   expiry). If not → `401 Unauthorized`.
+
+4. **Does any deny rule match?**
+   If the caller holds a role listed in a `deny` gate for this channel or
+   table, access is rejected → `403 Forbidden`.
+
+5. **Does any allow rule match?**
+   The caller must hold at least one role listed in the `allow` gate (or the
+   gate must be `["*"]`). If not → `403 Forbidden`.
+
+6. **Request proceeds.**
+
+Deny always overrides allow. For the full configuration reference, see
+[Fine-Grained Authorization](#fine-grained-authorization) and
+[Runtime Config](#runtime-config).
+
 ## Runtime Config
 
 Fetchlane boots from a single environment variable:
@@ -105,6 +136,27 @@ Two tracked example configs are available:
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `config/config.local.example.json`  | Local development — auth disabled, schema features enabled, hardcoded database URL                   |
 | `config/config.secure.example.json` | Production — auth enabled with OIDC placeholders, schema features disabled, authorization configured |
+
+### Config Areas at a Glance
+
+Each top-level config area controls one concern. They are independent — changing
+one does not silently affect another.
+
+| Area                     | Controls                                  | If omitted                                                    | Affects                                |
+| ------------------------ | ----------------------------------------- | ------------------------------------------------------------- | -------------------------------------- |
+| `server`                 | Listen address, port, and CORS origins    | **Invalid** — required                                        | Network binding and cross-origin rules |
+| `database`               | Connection URL (engine, host, credentials)| **Invalid** — required                                        | Which engine loads and which DB is used|
+| `limits`                 | Request body size, page sizes, rate limit | **Invalid** — required                                        | Request validation and throttling      |
+| `enableSchemaFeatures`   | Whether schema endpoints exist            | **Invalid** — required (boolean)                              | Route existence (`404` when `false`)   |
+| `authentication`         | Whether callers must present a bearer JWT | **Invalid** — required                                        | Authentication enforcement             |
+| `authentication.authorization` | Per-channel, per-table role gates   | **Invalid** when authentication is enabled; ignored otherwise | Authorization enforcement              |
+
+**Feature enablement** (`enableSchemaFeatures`) decides whether an endpoint
+exists at all. **Authentication** (`authentication.enabled`) decides whether
+callers must prove their identity. **Authorization**
+(`authentication.authorization`) decides which authenticated callers may access
+which channels and tables. **Limits** (`limits`) cap request sizes and rates
+regardless of identity.
 
 The database connection URL still uses this format:
 
@@ -386,7 +438,7 @@ Predicate placeholders are database-agnostic:
 
 Runtime guardrails also apply:
 
-- `pagination.size` must not exceed `limits.fetchMaxPageSize`
+- `pagination.size` and `pageSize` (on `GET /:table`) must not exceed `limits.fetchMaxPageSize`
 - total predicate clauses must not exceed `limits.fetchMaxPredicates`
 - sort fields must not exceed `limits.fetchMaxSortFields`
 
