@@ -31,25 +31,25 @@ export class StatusRuntimeDto {
    * ISO-8601 timestamp when the service started.
    */
   @ApiProperty({ example: '2026-04-02T00:00:00.000Z' })
-  public started_at: string;
+  public startedAt: string;
 
   /**
    * ISO-8601 timestamp of this status check.
    */
   @ApiProperty({ example: '2026-04-02T00:05:00.000Z' })
-  public checked_at: string;
+  public checkedAt: string;
 
   /**
    * Milliseconds since the service started.
    */
   @ApiProperty({ example: 300000 })
-  public uptime_ms: number;
+  public uptimeMs: number;
 
   /**
    * Node.js runtime version.
    */
   @ApiProperty({ example: 'v22.14.0' })
-  public node_version: string;
+  public nodeVersion: string;
 
   /**
    * Operating system platform and architecture.
@@ -84,24 +84,18 @@ export class StatusConfigServerDto {
    * Whether CORS is enabled for the HTTP server.
    */
   @ApiProperty({ example: true })
-  public cors_enabled: boolean;
+  public corsEnabled: boolean;
 }
 
 /**
- * Swagger DTO for safe auth config in the status response.
+ * Swagger DTO for safe authentication config in the status response.
  */
-export class StatusConfigAuthDto {
+export class StatusConfigAuthenticationDto {
   /**
    * Whether authentication is enabled.
    */
   @ApiProperty({ example: false })
   public enabled: boolean;
-
-  /**
-   * Roles that grant full authenticated access.
-   */
-  @ApiProperty({ example: ['fetchlane-admin'], type: [String] })
-  public allowed_roles: string[];
 }
 
 /**
@@ -112,37 +106,37 @@ export class StatusConfigLimitsDto {
    * Maximum accepted HTTP request body size in bytes.
    */
   @ApiProperty({ example: 1048576 })
-  public request_body_bytes: number;
+  public requestBodyBytes: number;
 
   /**
    * Maximum allowed FetchRequest page size.
    */
   @ApiProperty({ example: 1000 })
-  public fetch_max_page_size: number;
+  public fetchMaxPageSize: number;
 
   /**
    * Maximum number of predicates in a FetchRequest.
    */
   @ApiProperty({ example: 25 })
-  public fetch_max_predicates: number;
+  public fetchMaxPredicates: number;
 
   /**
    * Maximum number of sort fields in a FetchRequest.
    */
   @ApiProperty({ example: 8 })
-  public fetch_max_sort_fields: number;
+  public fetchMaxSortFields: number;
 
   /**
    * Rate-limit window length in milliseconds.
    */
   @ApiProperty({ example: 60000 })
-  public rate_limit_window_ms: number;
+  public rateLimitWindowMs: number;
 
   /**
    * Maximum requests allowed per rate-limit window.
    */
   @ApiProperty({ example: 120 })
-  public rate_limit_max: number;
+  public rateLimitMax: number;
 }
 
 /**
@@ -156,10 +150,10 @@ export class StatusConfigDto {
   public server: StatusConfigServerDto;
 
   /**
-   * Safe auth summary.
+   * Safe authentication summary.
    */
-  @ApiProperty({ type: StatusConfigAuthDto })
-  public auth: StatusConfigAuthDto;
+  @ApiProperty({ type: StatusConfigAuthenticationDto })
+  public authentication: StatusConfigAuthenticationDto;
 
   /**
    * Effective operational limits.
@@ -176,25 +170,25 @@ export class StatusDatabaseCapabilitiesDto {
    * Whether the adapter supports listing tables.
    */
   @ApiProperty({ example: true })
-  public table_listing: boolean;
+  public tableListing: boolean;
 
   /**
    * Whether the adapter supports column metadata queries.
    */
   @ApiProperty({ example: true })
-  public table_info: boolean;
+  public tableInfo: boolean;
 
   /**
    * Whether the adapter supports normalized schema descriptions.
    */
   @ApiProperty({ example: true })
-  public schema_description: boolean;
+  public schemaDescription: boolean;
 
   /**
    * Whether the adapter supports generating CREATE TABLE SQL.
    */
   @ApiProperty({ example: true })
-  public create_table_sql: boolean;
+  public createTableSql: boolean;
 }
 
 /**
@@ -255,7 +249,7 @@ export class StatusDatabaseDto {
    * Round-trip latency in milliseconds, or `null` on failure.
    */
   @ApiPropertyOptional({ example: 4, nullable: true })
-  public round_trip_ms: number | null;
+  public roundTripMs: number | null;
 
   /**
    * Feature capabilities of the active adapter.

@@ -24,21 +24,20 @@ function buildConfig(databaseUrl: string): string {
       url: databaseUrl,
     },
     limits: {
-      request_body_bytes: 1048576,
-      fetch_max_page_size: 1000,
-      fetch_max_predicates: 25,
-      fetch_max_sort_fields: 8,
-      rate_limit_window_ms: 60000,
-      rate_limit_max: 120,
+      requestBodyBytes: 1048576,
+      fetchMaxPageSize: 1000,
+      fetchMaxPredicates: 25,
+      fetchMaxSortFields: 8,
+      rateLimitWindowMs: 60000,
+      rateLimitMax: 120,
     },
-    auth: {
+    authentication: {
       enabled: false,
       mode: 'oidc-jwt',
-      issuer_url: '',
+      issuerUrl: '',
       audience: '',
-      jwks_url: '',
-      allowed_roles: [],
-      claim_mappings: {
+      jwksUrl: '',
+      claimMappings: {
         subject: 'sub',
         roles: 'realm_access.roles',
       },
@@ -87,8 +86,8 @@ describe('runtime-config', () => {
     );
     expect(result.server.host).toBe('0.0.0.0');
     expect(result.server.port).toBe(3000);
-    expect(result.limits.fetch_max_page_size).toBe(1000);
-    expect(result.auth.mode).toBe('oidc-jwt');
+    expect(result.limits.fetchMaxPageSize).toBe(1000);
+    expect(result.authentication.mode).toBe('oidc-jwt');
   });
 
   it('fails when FETCHLANE_CONFIG is missing', () => {
@@ -154,21 +153,20 @@ describe('runtime-config', () => {
         },
         database: {},
         limits: {
-          request_body_bytes: 1048576,
-          fetch_max_page_size: 1000,
-          fetch_max_predicates: 25,
-          fetch_max_sort_fields: 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: 120,
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
         },
-        auth: {
+        authentication: {
           enabled: false,
           mode: 'oidc-jwt',
-          issuer_url: '',
+          issuerUrl: '',
           audience: '',
-          jwks_url: '',
-          allowed_roles: [],
-          claim_mappings: {
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
@@ -182,7 +180,7 @@ describe('runtime-config', () => {
     expect(() => getRuntimeConfig()).toThrow(/positive integer/);
   });
 
-  it('fails when auth is enabled without allowed roles', () => {
+  it('fails when authentication is enabled without authorization', () => {
     const configFile = createConfigFile(
       JSON.stringify({
         server: {
@@ -197,21 +195,20 @@ describe('runtime-config', () => {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
         limits: {
-          request_body_bytes: 1048576,
-          fetch_max_page_size: 1000,
-          fetch_max_predicates: 25,
-          fetch_max_sort_fields: 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: 120,
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
         },
-        auth: {
+        authentication: {
           enabled: true,
           mode: 'oidc-jwt',
-          issuer_url: 'https://issuer.example.com',
+          issuerUrl: 'https://issuer.example.com',
           audience: 'fetchlane-api',
-          jwks_url: '',
-          allowed_roles: [],
-          claim_mappings: {
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
@@ -221,11 +218,15 @@ describe('runtime-config', () => {
     createdDirs.push(configFile.dir);
     process.env.FETCHLANE_CONFIG = configFile.path;
 
-    expect(() => getRuntimeConfig()).toThrow(/config.auth.allowed_roles/);
-    expect(() => getRuntimeConfig()).toThrow(/at least one role/);
+    expect(() => getRuntimeConfig()).toThrow(
+      /config.authentication.authorization/,
+    );
+    expect(() => getRuntimeConfig()).toThrow(
+      /required when authentication is enabled/,
+    );
   });
 
-  it('allows empty allowed_roles when authorization is configured', () => {
+  it('loads valid config when authentication is enabled with authorization', () => {
     const configFile = createConfigFile(
       JSON.stringify({
         server: {
@@ -240,27 +241,26 @@ describe('runtime-config', () => {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
         limits: {
-          request_body_bytes: 1048576,
-          fetch_max_page_size: 1000,
-          fetch_max_predicates: 25,
-          fetch_max_sort_fields: 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: 120,
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
         },
-        auth: {
+        authentication: {
           enabled: true,
           mode: 'oidc-jwt',
-          issuer_url: 'https://issuer.example.com',
+          issuerUrl: 'https://issuer.example.com',
           audience: 'fetchlane-api',
-          jwks_url: '',
-          allowed_roles: [],
-          claim_mappings: {
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
           authorization: {
             schema: ['admin'],
-            create_table: ['admin'],
+            createTable: ['admin'],
             crud: {
               default: {
                 create: ['admin'],
@@ -279,11 +279,12 @@ describe('runtime-config', () => {
 
     const result = getRuntimeConfig();
 
-    expect(result.auth.allowed_roles).toEqual([]);
-    expect(result.auth.authorization).toBeDefined();
-    expect(result.auth.authorization!.schema).toEqual(['admin']);
-    expect(result.auth.authorization!.create_table).toEqual(['admin']);
-    expect(result.auth.authorization!.crud.default.read).toEqual(['admin']);
+    expect(result.authentication.authorization).toBeDefined();
+    expect(result.authentication.authorization!.schema).toEqual(['admin']);
+    expect(result.authentication.authorization!.createTable).toEqual(['admin']);
+    expect(result.authentication.authorization!.crud.default.read).toEqual([
+      'admin',
+    ]);
   });
 
   it('loads authorization config with table overrides', () => {
@@ -301,27 +302,26 @@ describe('runtime-config', () => {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
         limits: {
-          request_body_bytes: 1048576,
-          fetch_max_page_size: 1000,
-          fetch_max_predicates: 25,
-          fetch_max_sort_fields: 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: 120,
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
         },
-        auth: {
+        authentication: {
           enabled: true,
           mode: 'oidc-jwt',
-          issuer_url: 'https://issuer.example.com',
+          issuerUrl: 'https://issuer.example.com',
           audience: 'fetchlane-api',
-          jwks_url: '',
-          allowed_roles: [],
-          claim_mappings: {
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
           authorization: {
             schema: ['admin', 'viewer'],
-            create_table: ['admin'],
+            createTable: ['admin'],
             crud: {
               default: {
                 create: ['editor'],
@@ -348,11 +348,13 @@ describe('runtime-config', () => {
 
     const result = getRuntimeConfig();
 
-    expect(result.auth.authorization!.crud.tables.audit_log).toEqual({
+    expect(result.authentication.authorization!.crud.tables.audit_log).toEqual({
       read: ['auditor'],
       create: [],
     });
-    expect(result.auth.authorization!.crud.tables.public_data).toEqual({
+    expect(
+      result.authentication.authorization!.crud.tables.public_data,
+    ).toEqual({
       read: ['*'],
     });
   });
@@ -366,7 +368,7 @@ describe('runtime-config', () => {
 
     const result = getRuntimeConfig();
 
-    expect(result.auth.authorization).toBeUndefined();
+    expect(result.authentication.authorization).toBeUndefined();
   });
 
   it('fails when authorization.schema is not an array', () => {
@@ -384,27 +386,26 @@ describe('runtime-config', () => {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
         limits: {
-          request_body_bytes: 1048576,
-          fetch_max_page_size: 1000,
-          fetch_max_predicates: 25,
-          fetch_max_sort_fields: 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: 120,
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
         },
-        auth: {
+        authentication: {
           enabled: false,
           mode: 'oidc-jwt',
-          issuer_url: '',
+          issuerUrl: '',
           audience: '',
-          jwks_url: '',
-          allowed_roles: [],
-          claim_mappings: {
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
           authorization: {
             schema: 'not-an-array',
-            create_table: [],
+            createTable: [],
             crud: {
               default: {
                 create: [],
@@ -422,7 +423,7 @@ describe('runtime-config', () => {
     process.env.FETCHLANE_CONFIG = configFile.path;
 
     expect(() => getRuntimeConfig()).toThrow(
-      /config.auth.authorization.schema/,
+      /config.authentication.authorization.schema/,
     );
     expect(() => getRuntimeConfig()).toThrow(/array of non-empty strings/);
   });
@@ -442,27 +443,26 @@ describe('runtime-config', () => {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
         limits: {
-          request_body_bytes: 1048576,
-          fetch_max_page_size: 1000,
-          fetch_max_predicates: 25,
-          fetch_max_sort_fields: 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: 120,
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
         },
-        auth: {
+        authentication: {
           enabled: false,
           mode: 'oidc-jwt',
-          issuer_url: '',
+          issuerUrl: '',
           audience: '',
-          jwks_url: '',
-          allowed_roles: [],
-          claim_mappings: {
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
           authorization: {
             schema: [],
-            create_table: [],
+            createTable: [],
             crud: {
               default: {
                 create: [],
@@ -478,7 +478,7 @@ describe('runtime-config', () => {
     process.env.FETCHLANE_CONFIG = configFile.path;
 
     expect(() => getRuntimeConfig()).toThrow(
-      /config.auth.authorization.crud.default.update/,
+      /config.authentication.authorization.crud.default.update/,
     );
   });
 });

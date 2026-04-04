@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { JWTPayload, createRemoteJWKSet, errors, jwtVerify } from 'jose';
 import {
-  RuntimeAuthConfig,
+  RuntimeAuthenticationConfig,
   RuntimeConfigService,
 } from '../config/runtime-config';
 import { AuthenticatedPrincipal } from './request-context';
@@ -12,15 +12,15 @@ interface OidcDiscoveryDocument {
 }
 
 /**
- * Structured auth error used by middleware to return hint-rich responses.
+ * Structured authentication error used by middleware to return hint-rich responses.
  */
-export class AuthError extends Error {
+export class AuthenticationError extends Error {
   /**
    * HTTP status code returned to the caller.
    */
   public readonly statusCode: number;
   /**
-   * Developer-facing hint explaining how to fix the auth problem.
+   * Developer-facing hint explaining how to fix the authentication problem.
    */
   public readonly hint: string;
   /**
@@ -29,7 +29,7 @@ export class AuthError extends Error {
   public readonly details?: string;
 
   /**
-   * Creates a structured auth error.
+   * Creates a structured authentication error.
    */
   public constructor(
     statusCode: number,
@@ -38,7 +38,7 @@ export class AuthError extends Error {
     details?: string,
   ) {
     super(message);
-    this.name = 'AuthError';
+    this.name = 'AuthenticationError';
     this.statusCode = statusCode;
     this.hint = hint;
     this.details = details;
@@ -49,21 +49,21 @@ export class AuthError extends Error {
  * Validates OIDC-compatible bearer JWTs and maps them into Fetchlane principals.
  */
 @Injectable()
-export class OidcAuthService {
+export class OidcAuthenticationService {
   private jwksResolverPromise: Promise<
     ReturnType<typeof createRemoteJWKSet>
   > | null = null;
 
   /**
-   * Creates the auth service from runtime config.
+   * Creates the authentication service from runtime config.
    */
   public constructor(private readonly runtimeConfig: RuntimeConfigService) {}
 
   /**
-   * Returns whether auth is enabled for the current runtime.
+   * Returns whether authentication is enabled for the current runtime.
    */
   public isEnabled(): boolean {
-    return this.runtimeConfig.getAuth().enabled;
+    return this.runtimeConfig.getAuthentication().enabled;
   }
 
   /**
@@ -72,45 +72,25 @@ export class OidcAuthService {
   public async authenticateAuthorizationHeader(
     authorizationHeader: string | undefined,
   ): Promise<AuthenticatedPrincipal> {
-    const authConfig = this.runtimeConfig.getAuth();
+    const authenticationConfig = this.runtimeConfig.getAuthentication();
     const token = this.readBearerToken(authorizationHeader);
-    const jwks = await this.getJwksResolver(authConfig);
+    const jwks = await this.getJwksResolver(authenticationConfig);
 
     try {
       const { payload } = await jwtVerify(token, jwks, {
-        issuer: authConfig.issuer_url || undefined,
-        audience: authConfig.audience,
+        issuer: authenticationConfig.issuerUrl || undefined,
+        audience: authenticationConfig.audience,
       });
 
-      return this.mapPrincipal(payload, authConfig);
+      return this.mapPrincipal(payload, authenticationConfig);
     } catch (error) {
       throw this.translateJwtError(error);
     }
   }
 
-  /**
-   * Ensures that the authenticated principal has one of the configured full-access roles.
-   */
-  public authorizePrincipal(principal: AuthenticatedPrincipal): void {
-    const allowedRoles = this.runtimeConfig.getAuth().allowed_roles;
-    if (allowedRoles.length === 0) {
-      return;
-    }
-
-    if (principal.roles.some((role) => allowedRoles.includes(role))) {
-      return;
-    }
-
-    throw new AuthError(
-      HttpStatus.FORBIDDEN,
-      'The authenticated principal does not have a role that is allowed to access Fetchlane.',
-      `Grant one of the configured roles (${allowedRoles.join(', ')}) to the caller, or update config.auth.allowed_roles if access should be broader.`,
-    );
-  }
-
   private readBearerToken(authorizationHeader: string | undefined): string {
     if (!authorizationHeader) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.UNAUTHORIZED,
         'Authentication is required for this route.',
         'Send an Authorization header in the form "Bearer <JWT>" issued by your configured OIDC provider.',
@@ -119,7 +99,7 @@ export class OidcAuthService {
 
     const match = authorizationHeader.match(/^Bearer\s+(.+)$/i);
     if (!match || !match[1]?.trim()) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.UNAUTHORIZED,
         'The Authorization header is not a valid bearer token.',
         'Use the form "Authorization: Bearer <JWT>" with a non-empty access token.',
@@ -130,42 +110,43 @@ export class OidcAuthService {
   }
 
   private async getJwksResolver(
-    authConfig: RuntimeAuthConfig,
+    authenticationConfig: RuntimeAuthenticationConfig,
   ): Promise<ReturnType<typeof createRemoteJWKSet>> {
     if (!this.jwksResolverPromise) {
-      this.jwksResolverPromise = this.createJwksResolver(authConfig);
+      this.jwksResolverPromise = this.createJwksResolver(authenticationConfig);
     }
 
     return await this.jwksResolverPromise;
   }
 
   private async createJwksResolver(
-    authConfig: RuntimeAuthConfig,
+    authenticationConfig: RuntimeAuthenticationConfig,
   ): Promise<ReturnType<typeof createRemoteJWKSet>> {
     const jwksUrl =
-      authConfig.jwks_url || (await this.discoverJwksUrl(authConfig));
+      authenticationConfig.jwksUrl ||
+      (await this.discoverJwksUrl(authenticationConfig));
 
     try {
       return createRemoteJWKSet(new URL(jwksUrl));
     } catch (error) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.SERVICE_UNAVAILABLE,
         'Fetchlane could not initialize JWT key validation.',
-        'Set config.auth.jwks_url to a valid JWKS endpoint, or configure a valid issuer_url for OIDC discovery.',
+        'Set config.authentication.jwksUrl to a valid JWKS endpoint, or configure a valid issuerUrl for OIDC discovery.',
         error instanceof Error ? error.message : String(error),
       );
     }
   }
 
   private async discoverJwksUrl(
-    authConfig: RuntimeAuthConfig,
+    authenticationConfig: RuntimeAuthenticationConfig,
   ): Promise<string> {
-    const issuerUrl = authConfig.issuer_url.trim().replace(/\/+$/, '');
+    const issuerUrl = authenticationConfig.issuerUrl.trim().replace(/\/+$/, '');
     if (!issuerUrl) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.SERVICE_UNAVAILABLE,
-        'Fetchlane auth is enabled but no issuer metadata source is configured.',
-        'Set config.auth.issuer_url for OIDC discovery, or configure config.auth.jwks_url directly.',
+        'Fetchlane authentication is enabled but no issuer metadata source is configured.',
+        'Set config.authentication.issuerUrl for OIDC discovery, or configure config.authentication.jwksUrl directly.',
       );
     }
 
@@ -175,29 +156,29 @@ export class OidcAuthService {
     try {
       response = await fetch(discoveryUrl);
     } catch (error) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.SERVICE_UNAVAILABLE,
         'Fetchlane could not reach the configured OIDC issuer discovery endpoint.',
-        'Verify config.auth.issuer_url, network reachability, and TLS settings for your identity provider.',
+        'Verify config.authentication.issuerUrl, network reachability, and TLS settings for your identity provider.',
         error instanceof Error ? error.message : String(error),
       );
     }
 
     if (!response.ok) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.SERVICE_UNAVAILABLE,
         'Fetchlane could not load the OIDC discovery document.',
-        'Verify that config.auth.issuer_url points to a valid OIDC issuer and that the discovery endpoint is reachable.',
+        'Verify that config.authentication.issuerUrl points to a valid OIDC issuer and that the discovery endpoint is reachable.',
         `Discovery endpoint returned HTTP ${response.status}.`,
       );
     }
 
     const discoveryDocument = (await response.json()) as OidcDiscoveryDocument;
     if (!discoveryDocument.jwks_uri) {
-      throw new AuthError(
+      throw new AuthenticationError(
         HttpStatus.SERVICE_UNAVAILABLE,
         'The OIDC discovery document does not expose a JWKS endpoint.',
-        'Use an issuer that publishes jwks_uri, or configure config.auth.jwks_url explicitly.',
+        'Use an issuer that publishes jwks_uri, or configure config.authentication.jwksUrl explicitly.',
       );
     }
 
@@ -206,16 +187,16 @@ export class OidcAuthService {
 
   private mapPrincipal(
     payload: JWTPayload,
-    authConfig: RuntimeAuthConfig,
+    authenticationConfig: RuntimeAuthenticationConfig,
   ): AuthenticatedPrincipal {
     const subject = this.readStringClaim(
       payload,
-      authConfig.claim_mappings.subject,
+      authenticationConfig.claimMappings.subject,
       'subject',
     );
     const roles = this.readStringArrayClaim(
       payload,
-      authConfig.claim_mappings.roles,
+      authenticationConfig.claimMappings.roles,
     );
 
     return {
@@ -235,10 +216,10 @@ export class OidcAuthService {
       return claimValue;
     }
 
-    throw new AuthError(
+    throw new AuthenticationError(
       HttpStatus.UNAUTHORIZED,
       `The validated access token is missing the configured ${claimLabel} claim.`,
-      `Set config.auth.claim_mappings.${claimLabel} to a claim path that resolves to a non-empty string in your provider's JWT.`,
+      `Set config.authentication.claimMappings.${claimLabel} to a claim path that resolves to a non-empty string in your provider's JWT.`,
     );
   }
 
@@ -258,10 +239,10 @@ export class OidcAuthService {
       return claimValue;
     }
 
-    throw new AuthError(
+    throw new AuthenticationError(
       HttpStatus.UNAUTHORIZED,
       'The validated access token does not expose roles in the configured claim path.',
-      'Set config.auth.claim_mappings.roles to a claim path that resolves to an array of strings, or remove role-based assumptions for this provider.',
+      'Set config.authentication.claimMappings.roles to a claim path that resolves to an array of strings, or remove role-based assumptions for this provider.',
     );
   }
 
@@ -279,13 +260,13 @@ export class OidcAuthService {
     }, payload);
   }
 
-  private translateJwtError(error: unknown): AuthError {
-    if (error instanceof AuthError) {
+  private translateJwtError(error: unknown): AuthenticationError {
+    if (error instanceof AuthenticationError) {
       return error;
     }
 
     if (error instanceof errors.JWTExpired) {
-      return new AuthError(
+      return new AuthenticationError(
         HttpStatus.UNAUTHORIZED,
         'The access token has expired.',
         'Request a fresh access token from your OIDC provider, then retry the request.',
@@ -294,18 +275,18 @@ export class OidcAuthService {
 
     if (error instanceof errors.JWTClaimValidationFailed) {
       if (error.claim === 'iss') {
-        return new AuthError(
+        return new AuthenticationError(
           HttpStatus.UNAUTHORIZED,
           'The access token issuer does not match the configured issuer.',
-          'Check config.auth.issuer_url and ensure the token was issued by that provider.',
+          'Check config.authentication.issuerUrl and ensure the token was issued by that provider.',
         );
       }
 
       if (error.claim === 'aud') {
-        return new AuthError(
+        return new AuthenticationError(
           HttpStatus.UNAUTHORIZED,
           'The access token audience does not match the configured audience.',
-          'Check config.auth.audience and request a token intended for this Fetchlane deployment.',
+          'Check config.authentication.audience and request a token intended for this Fetchlane deployment.',
         );
       }
     }
@@ -314,7 +295,7 @@ export class OidcAuthService {
       error instanceof errors.JWSSignatureVerificationFailed ||
       error instanceof errors.JOSEError
     ) {
-      return new AuthError(
+      return new AuthenticationError(
         HttpStatus.UNAUTHORIZED,
         'The access token could not be verified.',
         'Use a valid JWT signed by the configured OIDC provider, and verify that the issuer and JWKS settings match.',
@@ -322,7 +303,7 @@ export class OidcAuthService {
       );
     }
 
-    return new AuthError(
+    return new AuthenticationError(
       HttpStatus.UNAUTHORIZED,
       'The access token is invalid.',
       'Use a valid JWT issued by your configured OIDC provider and send it as a bearer token.',

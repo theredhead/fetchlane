@@ -19,22 +19,21 @@ describe('FetchRequestHandlerService', () => {
         url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
       },
       limits: {
-        request_body_bytes: 1048576,
-        fetch_max_page_size: 1000,
-        fetch_max_predicates: 25,
-        fetch_max_sort_fields: 8,
-        rate_limit_window_ms: 60000,
-        rate_limit_max: 120,
+        requestBodyBytes: 1048576,
+        fetchMaxPageSize: 1000,
+        fetchMaxPredicates: 25,
+        fetchMaxSortFields: 8,
+        rateLimitWindowMs: 60000,
+        rateLimitMax: 120,
         ...limitOverrides,
       },
-      auth: {
+      authentication: {
         enabled: false,
         mode: 'oidc-jwt',
-        issuer_url: '',
+        issuerUrl: '',
         audience: '',
-        jwks_url: '',
-        allowed_roles: [],
-        claim_mappings: {
+        jwksUrl: '',
+        claimMappings: {
           subject: 'sub',
           roles: 'realm_access.roles',
         },
@@ -143,7 +142,7 @@ describe('FetchRequestHandlerService', () => {
     const service = new FetchRequestHandlerService(
       { execute: vi.fn() } as any,
       createRuntimeConfigService({
-        fetch_max_predicates: 1,
+        fetchMaxPredicates: 1,
       }),
       {
         name: 'postgres',
@@ -169,7 +168,7 @@ describe('FetchRequestHandlerService', () => {
     const service = new FetchRequestHandlerService(
       { execute: vi.fn() } as any,
       createRuntimeConfigService({
-        fetch_max_sort_fields: 1,
+        fetchMaxSortFields: 1,
       }),
       {
         name: 'postgres',
@@ -195,7 +194,7 @@ describe('FetchRequestHandlerService', () => {
     const service = new FetchRequestHandlerService(
       { execute: vi.fn() } as any,
       createRuntimeConfigService({
-        fetch_max_page_size: 5,
+        fetchMaxPageSize: 5,
       }),
       {
         name: 'postgres',

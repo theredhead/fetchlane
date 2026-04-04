@@ -56,21 +56,20 @@ cp .env.example .env
     "url": "${FETCHLANE_DATABASE_URL}"
   },
   "limits": {
-    "request_body_bytes": 1048576,
-    "fetch_max_page_size": 1000,
-    "fetch_max_predicates": 25,
-    "fetch_max_sort_fields": 8,
-    "rate_limit_window_ms": 60000,
-    "rate_limit_max": 120
+    "requestBodyBytes": 1048576,
+    "fetchMaxPageSize": 1000,
+    "fetchMaxPredicates": 25,
+    "fetchMaxSortFields": 8,
+    "rateLimitWindowMs": 60000,
+    "rateLimitMax": 120
   },
-  "auth": {
+  "authentication": {
     "enabled": true,
     "mode": "oidc-jwt",
-    "issuer_url": "",
+    "issuerUrl": "",
     "audience": "",
-    "jwks_url": "",
-    "allowed_roles": [],
-    "claim_mappings": {
+    "jwksUrl": "",
+    "claimMappings": {
       "subject": "sub",
       "roles": "realm_access.roles"
     }
@@ -93,14 +92,15 @@ npm run start:dev
 
 6. Open the docs:
 
-> **Security note:** The quick-start config above runs with auth disabled.
-> This is fine for local development but **must never be used for any
-> network-reachable deployment**. See [Optional Auth](#optional-auth) below.
+> **Security note:** The quick-start config above has authentication enabled but with
+> empty issuer/audience values, which will reject all tokens. For local
+> development you may set `authentication.enabled` to `false`, but **never do so for
+> any network-reachable deployment**. See [Optional Authentication](#optional-authentication) below.
 
 - Swagger UI: `http://localhost:3000/api/docs`
 - Status endpoint: `http://localhost:3000/api/status`
   This returns a structured service snapshot with runtime metadata, safe config details, database connectivity, and capability flags.
-  If auth is enabled, authorize in Swagger UI with a bearer token before calling `/api/docs` or `/api/data-access/**`.
+  If authentication is enabled, authorize in Swagger UI with a bearer token before calling `/api/docs` or `/api/data-access/**`.
 
 ## Runtime Config
 
@@ -110,7 +110,7 @@ Fetchlane boots from a single environment variable:
 FETCHLANE_CONFIG=/path/to/fetchlane.json
 ```
 
-That JSON file becomes the primary runtime interface for server settings, database connectivity, limits, and auth. String values may use full-string environment placeholders such as `${FETCHLANE_DATABASE_URL}`.
+That JSON file becomes the primary runtime interface for server settings, database connectivity, limits, and authentication. String values may use full-string environment placeholders such as `${FETCHLANE_DATABASE_URL}`.
 
 The database connection URL still uses this format:
 
@@ -132,47 +132,58 @@ Startup fails fast with hint-rich errors when the config path is missing, the fi
 
 The tracked baseline config lives at `config/fetchlane.example.json`.
 
-## Optional Auth
+## Schema Features
+
+Schema-exposing endpoints (`table-names`, `table-info`, `describe-table`, `create-table`) are disabled by default. To enable them, set `enableSchemaFeatures` to `true` in the runtime config:
+
+```json
+{
+  "enableSchemaFeatures": true
+}
+```
+
+When disabled, those endpoints return `404 Not Found`.
+
+## Optional Authentication
 
 > **WARNING — Running Fetchlane without authentication exposes your entire
 > database to anyone who can reach the service.** All tables, all rows, and all
 > write operations (insert, update, delete) are fully accessible without any
-> credentials. **Never run with `auth.enabled: false` outside of a trusted
+> credentials. **Never run with `authentication.enabled: false` outside of a trusted
 > local development environment.** For any network-reachable or production
-> deployment, enable auth and configure an OIDC provider.
+> deployment, enable authentication and configure an OIDC provider.
 
 Fetchlane can run fully open for local development, or it can require bearer JWTs from OIDC-compatible providers such as Keycloak, Auth0, or Entra ID.
 
-When `auth.enabled` is `false`:
+When `authentication.enabled` is `false`:
 
 - `/api/status` is public
 - `/api/docs` is public
 - `/api/data-access/**` is public
 
-When `auth.enabled` is `true`:
+When `authentication.enabled` is `true`:
 
 - `/api/status` stays public
 - `/api/docs` requires a bearer token
 - `/api/data-access/**` requires a bearer token
 
-Auth validation checks token signature, issuer, audience, and expiry. Claim mapping is driven by `auth.claim_mappings`, so provider-specific claim layouts can still map into a consistent Fetchlane request principal.
+Authentication validation checks token signature, issuer, audience, and expiry. Claim mapping is driven by `authentication.claimMappings`, so provider-specific claim layouts can still map into a consistent Fetchlane request principal.
 
-Swagger UI follows the same protection model as the data routes. When auth is enabled, the docs UI itself also requires a valid bearer token.
+Swagger UI follows the same protection model as the data routes. When authentication is enabled, the docs UI itself also requires a valid bearer token.
 
 ## Fine-Grained Authorization
 
-When auth is enabled, Fetchlane supports an optional `authorization` section
-inside `auth` that enforces per-channel, per-table role requirements. Without
-this section the existing `allowed_roles` behavior applies — any user with a
-matching role has full access.
+When authentication is enabled, Fetchlane supports an `authorization` section
+inside `authentication` that enforces per-channel, per-table role requirements.
+Authorization is required when authentication is enabled.
 
 ### Channels
 
-| Channel          | Protects                                                | Config key                   |
-| ---------------- | ------------------------------------------------------- | ---------------------------- |
-| **Schema**       | `table-names`, `:table/info`, `:table/schema`           | `authorization.schema`       |
-| **Create table** | `tables/:table` (POST)                                  | `authorization.create_table` |
-| **CRUD**         | All record-level endpoints, per table and per operation | `authorization.crud`         |
+| Channel          | Protects                                                | Config key                  |
+| ---------------- | ------------------------------------------------------- | --------------------------- |
+| **Schema**       | `table-names`, `:table/info`, `:table/schema`           | `authorization.schema`      |
+| **Create table** | `tables/:table` (POST)                                  | `authorization.createTable` |
+| **CRUD**         | All record-level endpoints, per table and per operation | `authorization.crud`        |
 
 CRUD is further divided into four operations — `create`, `read`, `update`,
 `delete` — each with its own role list.
@@ -195,20 +206,19 @@ Operations not listed in a table override fall back to the default.
 
 ```json
 {
-  "auth": {
+  "authentication": {
     "enabled": true,
     "mode": "oidc-jwt",
-    "issuer_url": "https://keycloak.example.com/realms/fetchlane",
+    "issuerUrl": "https://keycloak.example.com/realms/fetchlane",
     "audience": "fetchlane-api",
-    "jwks_url": "",
-    "allowed_roles": [],
-    "claim_mappings": {
+    "jwksUrl": "",
+    "claimMappings": {
       "subject": "sub",
       "roles": "realm_access.roles"
     },
     "authorization": {
       "schema": ["admin", "schema-viewer"],
-      "create_table": ["admin"],
+      "createTable": ["admin"],
       "crud": {
         "default": {
           "create": ["admin", "editor"],
@@ -242,19 +252,19 @@ In this example:
 - `public_data` is readable by any authenticated user
 - Missing operations in table overrides (e.g. `public_data.delete`) fall back to the default
 
-When `authorization` is configured, `allowed_roles` may be empty — the
-fine-grained channels define all access control instead of a single global gate.
+When `authorization` is configured, the fine-grained channels define all
+access control.
 
 ## Operational Limits
 
 Fetchlane can now enforce a small set of production-safe limits entirely from runtime config:
 
-- `limits.request_body_bytes`
-- `limits.fetch_max_page_size`
-- `limits.fetch_max_predicates`
-- `limits.fetch_max_sort_fields`
-- `limits.rate_limit_window_ms`
-- `limits.rate_limit_max`
+- `limits.requestBodyBytes`
+- `limits.fetchMaxPageSize`
+- `limits.fetchMaxPredicates`
+- `limits.fetchMaxSortFields`
+- `limits.rateLimitWindowMs`
+- `limits.rateLimitMax`
 
 HTTP rate limiting is applied in memory. Anonymous callers are limited by client IP. Authenticated callers are limited by their mapped subject claim when available, and fall back to IP otherwise.
 
@@ -341,9 +351,9 @@ Predicate placeholders are database-agnostic:
 
 Runtime guardrails also apply:
 
-- `pagination.size` must not exceed `limits.fetch_max_page_size`
-- total predicate clauses must not exceed `limits.fetch_max_predicates`
-- sort fields must not exceed `limits.fetch_max_sort_fields`
+- `pagination.size` must not exceed `limits.fetchMaxPageSize`
+- total predicate clauses must not exceed `limits.fetchMaxPredicates`
+- sort fields must not exceed `limits.fetchMaxSortFields`
 
 Example shape:
 

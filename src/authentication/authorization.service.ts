@@ -5,12 +5,12 @@ import {
   RuntimeAuthorizationConfig,
   RuntimeConfigService,
 } from '../config/runtime-config';
-import { AuthError } from './oidc-auth.service';
+import { AuthenticationError } from './oidc-authentication.service';
 import { getAuthenticatedPrincipal } from './request-context';
 
 /**
  * Fine-grained authorization service that enforces per-channel role
- * requirements configured via `config.auth.authorization`.
+ * requirements configured via `config.authentication.authorization`.
  *
  * When authorization is not configured, all checks are no-ops and every
  * authenticated user has unrestricted access (backward-compatible).
@@ -51,7 +51,7 @@ export class AuthorizationService {
       return;
     }
 
-    this.requireRole(request, this.authorization.create_table, 'create_table');
+    this.requireRole(request, this.authorization.createTable, 'createTable');
   }
 
   /**
@@ -93,7 +93,7 @@ export class AuthorizationService {
     const principal = getAuthenticatedPrincipal(request);
 
     if (!principal) {
-      throw new AuthError(
+      throw new AuthenticationError(
         403,
         `Authorization denied for ${channel}: no authenticated principal on request.`,
         'Ensure authentication is enabled and the request carries a valid bearer token.',
@@ -101,15 +101,15 @@ export class AuthorizationService {
     }
 
     if (allowedRoles.length === 0) {
-      throw new AuthError(
+      throw new AuthenticationError(
         403,
         `Authorization denied for ${channel}: this channel is locked.`,
-        'No roles are configured for this channel. Update config.auth.authorization to allow access.',
+        'No roles are configured for this channel. Update config.authentication.authorization to allow access.',
       );
     }
 
     if (!principal.roles.some((role) => allowedRoles.includes(role))) {
-      throw new AuthError(
+      throw new AuthenticationError(
         403,
         `Authorization denied for ${channel}: principal lacks a required role.`,
         `Grant one of the following roles to the caller: ${allowedRoles.join(', ')}.`,

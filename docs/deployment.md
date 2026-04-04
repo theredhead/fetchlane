@@ -33,20 +33,20 @@ Recommended secret handling for `v1.0`:
 > **WARNING — Running Fetchlane without authentication exposes your entire
 > database to anyone who can reach the service.** All tables, all rows, and all
 > write operations are fully accessible without credentials. **Never deploy
-> with `auth.enabled: false` in production or on any network-reachable host.**
-> Always enable auth and configure an OIDC provider for non-local deployments.
+> with `authentication.enabled: false` in production or on any network-reachable host.**
+> Always enable authentication and configure an OIDC provider for non-local deployments.
 
-When `auth.enabled` is `false`:
+When `authentication.enabled` is `false`:
 
 - `/api/status` is public
 - `/api/docs` is public
 - `/api/data-access/**` is public
 
-When `auth.enabled` is `true`:
+When `authentication.enabled` is `true`:
 
 - `/api/status` stays public
-- `/api/docs` requires bearer auth
-- `/api/data-access/**` requires bearer auth
+- `/api/docs` requires bearer authentication
+- `/api/data-access/**` requires bearer authentication
 
 That means health and readiness probes can still hit `/api/status` without identity-provider dependencies, while interactive docs and data access remain protected.
 
@@ -66,21 +66,20 @@ That means health and readiness probes can still hit `/api/status` without ident
     "url": "${FETCHLANE_DATABASE_URL}"
   },
   "limits": {
-    "request_body_bytes": 1048576,
-    "fetch_max_page_size": 1000,
-    "fetch_max_predicates": 25,
-    "fetch_max_sort_fields": 8,
-    "rate_limit_window_ms": 60000,
-    "rate_limit_max": 120
+    "requestBodyBytes": 1048576,
+    "fetchMaxPageSize": 1000,
+    "fetchMaxPredicates": 25,
+    "fetchMaxSortFields": 8,
+    "rateLimitWindowMs": 60000,
+    "rateLimitMax": 120
   },
-  "auth": {
+  "authentication": {
     "enabled": true,
     "mode": "oidc-jwt",
-    "issuer_url": "https://keycloak.example.com/realms/fetchlane",
+    "issuerUrl": "https://keycloak.example.com/realms/fetchlane",
     "audience": "fetchlane-api",
-    "jwks_url": "",
-    "allowed_roles": ["fetchlane-admin"],
-    "claim_mappings": {
+    "jwksUrl": "",
+    "claimMappings": {
       "subject": "sub",
       "roles": "realm_access.roles"
     }
@@ -90,17 +89,17 @@ That means health and readiness probes can still hit `/api/status` without ident
 
 ## Fine-Grained Authorization
 
-When `auth.enabled` is `true`, adding an `authorization` section to `auth`
-enables per-channel, per-table role checks. Without it the `allowed_roles` list
-remains the only access gate.
+When `authentication.enabled` is `true`, an `authorization` section in `authentication`
+enables per-channel, per-table role checks. Authorization is required when
+authentication is enabled.
 
 ### Channels
 
-| Channel      | Endpoints                                       | Config key                   |
-| ------------ | ----------------------------------------------- | ---------------------------- |
-| Schema       | `table-names`, `:table/info`, `:table/schema`   | `authorization.schema`       |
-| Create table | `POST tables/:table`                            | `authorization.create_table` |
-| CRUD         | All record endpoints, per table × per operation | `authorization.crud`         |
+| Channel      | Endpoints                                       | Config key                  |
+| ------------ | ----------------------------------------------- | --------------------------- |
+| Schema       | `table-names`, `:table/info`, `:table/schema`   | `authorization.schema`      |
+| Create table | `POST tables/:table`                            | `authorization.createTable` |
+| CRUD         | All record endpoints, per table × per operation | `authorization.crud`        |
 
 ### Role values
 
@@ -114,7 +113,7 @@ remains the only access gate.
 {
   "authorization": {
     "schema": ["admin", "schema-viewer"],
-    "create_table": ["admin"],
+    "createTable": ["admin"],
     "crud": {
       "default": {
         "create": ["admin", "editor"],
@@ -139,8 +138,8 @@ remains the only access gate.
 take precedence for the operations they define; missing operations fall back to
 the default.
 
-When `authorization` is present, `allowed_roles` may be empty — the
-fine-grained channels define access control instead of a single global gate.
+When `authorization` is present, the fine-grained channels define access
+control.
 
 ## Docker Bind Mount
 
@@ -175,21 +174,20 @@ data:
         "url": "${FETCHLANE_DATABASE_URL}"
       },
       "limits": {
-        "request_body_bytes": 1048576,
-        "fetch_max_page_size": 1000,
-        "fetch_max_predicates": 25,
-        "fetch_max_sort_fields": 8,
-        "rate_limit_window_ms": 60000,
-        "rate_limit_max": 120
+        "requestBodyBytes": 1048576,
+        "fetchMaxPageSize": 1000,
+        "fetchMaxPredicates": 25,
+        "fetchMaxSortFields": 8,
+        "rateLimitWindowMs": 60000,
+        "rateLimitMax": 120
       },
-      "auth": {
+      "authentication": {
         "enabled": true,
         "mode": "oidc-jwt",
-        "issuer_url": "https://keycloak.example.com/realms/fetchlane",
+        "issuerUrl": "https://keycloak.example.com/realms/fetchlane",
         "audience": "fetchlane-api",
-        "jwks_url": "",
-        "allowed_roles": ["fetchlane-admin"],
-        "claim_mappings": {
+        "jwksUrl": "",
+        "claimMappings": {
           "subject": "sub",
           "roles": "realm_access.roles"
         }
@@ -241,14 +239,14 @@ spec:
 
 ## Limits Reference
 
-| Setting                        | Meaning                                             |
-| ------------------------------ | --------------------------------------------------- |
-| `limits.request_body_bytes`    | Maximum accepted JSON payload size                  |
-| `limits.fetch_max_page_size`   | Maximum `pagination.size` in a `FetchRequest`       |
-| `limits.fetch_max_predicates`  | Maximum total predicate clauses in a `FetchRequest` |
-| `limits.fetch_max_sort_fields` | Maximum sort fields in a `FetchRequest`             |
-| `limits.rate_limit_window_ms`  | Duration of the in-memory rate-limit window         |
-| `limits.rate_limit_max`        | Maximum requests allowed per key inside one window  |
+| Setting                     | Meaning                                             |
+| --------------------------- | --------------------------------------------------- |
+| `limits.requestBodyBytes`   | Maximum accepted JSON payload size                  |
+| `limits.fetchMaxPageSize`   | Maximum `pagination.size` in a `FetchRequest`       |
+| `limits.fetchMaxPredicates` | Maximum total predicate clauses in a `FetchRequest` |
+| `limits.fetchMaxSortFields` | Maximum sort fields in a `FetchRequest`             |
+| `limits.rateLimitWindowMs`  | Duration of the in-memory rate-limit window         |
+| `limits.rateLimitMax`       | Maximum requests allowed per key inside one window  |
 
 ## Operational Notes
 

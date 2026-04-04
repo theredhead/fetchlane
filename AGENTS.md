@@ -13,15 +13,15 @@ REST API for table access, schema discovery, and structured querying across
 **PostgreSQL**, **MySQL**, and **SQL Server**. It ships as a Docker container
 and requires no code changes to switch engines — only a connection URL.
 
-| Layer       | Responsibility                                                         |
-| ----------- | ---------------------------------------------------------------------- |
-| Controllers | HTTP routing, Swagger decorators, request validation                   |
-| Services    | Business logic, FetchRequest handling, database lifecycle              |
-| Data        | Engine-specific adapters (Postgres, MySQL, SQL Server), query building |
-| Auth        | Optional OIDC/JWT bearer authentication middleware                     |
-| Config      | Runtime JSON config with env-var interpolation, deep-frozen singleton  |
-| Filters     | Global exception filter with structured error responses                |
-| Middleware  | Request logging, rate limiting                                         |
+| Layer          | Responsibility                                                         |
+| -------------- | ---------------------------------------------------------------------- |
+| Controllers    | HTTP routing, Swagger decorators, request validation                   |
+| Services       | Business logic, FetchRequest handling, database lifecycle              |
+| Data           | Engine-specific adapters (Postgres, MySQL, SQL Server), query building |
+| Authentication | Optional OIDC/JWT bearer authentication middleware                     |
+| Config         | Runtime JSON config with env-var interpolation, deep-frozen singleton  |
+| Filters        | Global exception filter with structured error responses                |
+| Middleware     | Request logging, rate limiting                                         |
 
 ---
 
@@ -61,7 +61,7 @@ src/
 │   ├─ postgres/              ← PostgresDatabase adapter
 │   ├─ mysql/                 ← MysqlDatabase adapter
 │   └─ sqlserver/             ← SqlServerDatabase adapter
-├─ auth/                      ← AuthMiddleware, OidcAuthService, RequestContext
+├─ authentication/            ← AuthenticationMiddleware, OidcAuthenticationService, RequestContext
 ├─ config/                    ← RuntimeConfigService (JSON + env-var interpolation)
 ├─ errors/                    ← Structured error builders (badRequest, notFound, …)
 ├─ filters/                   ← ApiExceptionFilter (global catch-all)
@@ -88,6 +88,36 @@ src/
 Every method and field in **every** class **must** have an explicit access
 modifier (`public`, `protected`, or `private`). Never rely on TypeScript's
 implicit `public`. This applies to constructors as well.
+
+---
+
+## Naming — No Abbreviations
+
+**Never abbreviate words in identifiers, config keys, file names, or
+documentation.** Use the full, unambiguous word at all times.
+
+Whitelisted exceptions — universally understood acronyms that are never
+ambiguous:
+
+`API`, `CLI`, `CORS`, `CPU`, `CRUD`, `CSS`, `CSV`, `DNS`, `DTO`, `HTML`,
+`HTTP`, `HTTPS`, `ID`, `IO`, `IP`, `JSON`, `JWT`, `JWKS`, `OIDC`, `OS`,
+`PID`, `REST`, `SQL`, `SSL`, `TCP`, `TLS`, `UI`, `URI`, `URL`, `UUID`,
+`XML`, `YAML`
+
+Common violations to watch for:
+
+| Wrong            | Correct                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`           | `authentication` or `authorization`                                                                                               |
+| `config`         | `configuration` — **except** in file names like `runtime-config.ts` where the full word is unreasonably long, and in casual prose |
+| `env`            | `environment`                                                                                                                     |
+| `msg`            | `message`                                                                                                                         |
+| `req` / `res`    | `request` / `response`                                                                                                            |
+| `err`            | `error`                                                                                                                           |
+| `srv`            | `service` or `server`                                                                                                             |
+| `util` / `utils` | use a descriptive name instead                                                                                                    |
+
+> When in doubt, spell it out.
 
 ---
 
@@ -129,8 +159,8 @@ Methods:
 /**
  * Returns the configured authentication settings.
  */
-public getAuth(): RuntimeAuthConfig {
-  return this.config.auth;
+public getAuthentication(): RuntimeAuthenticationConfig {
+  return this.config.authentication;
 }
 ```
 
@@ -162,8 +192,8 @@ export interface AuthenticatedPrincipal {
 **Wrong** — single-line cramped form (never do this):
 
 ```ts
-/** Returns the auth config. */
-public getAuth(): RuntimeAuthConfig { … }
+/** Returns the authentication config. */
+public getAuthentication(): RuntimeAuthenticationConfig { … }
 ```
 
 ---
@@ -229,18 +259,20 @@ with a stack trace via `LoggerService`.
 - Config is loaded from the path in the `FETCHLANE_CONFIG` env var.
 - The JSON file supports `${ENV_VAR}` interpolation.
 - The config object is validated and **deep-frozen** at startup (singleton).
-- Sections: `server`, `database`, `limits`, `auth`.
+- Sections: `server`, `database`, `limits`, `authentication`, plus top-level `enableSchemaFeatures`.
 - See `config/fetchlane.example.json` for the full schema and defaults.
 
 ---
 
 ## Authentication
 
-- **Optional** — disabled by default in config.
-- When enabled, `AuthMiddleware` validates bearer tokens via `OidcAuthService`
+- **Optional** — enabled by default in the example config.
+- When enabled, `AuthenticationMiddleware` validates bearer tokens via `OidcAuthenticationService`
   (OIDC/JWT).
 - Authenticated principal (subject + roles) is attached to the request context
   via `setAuthenticatedPrincipal()`.
+- When authentication is enabled, the `authorization` section is **required** and defines
+  per-channel, per-table role access control.
 
 ---
 
@@ -320,8 +352,26 @@ files automatically.
 
 - **Commit messages:** conventional commits — `feat:`, `fix:`, `chore:`,
   `refactor:`, `test:`, `docs:`
-- **Scope:** optional, matches feature area — `feat(auth):`, `fix(postgres):`
+- **Scope:** optional, matches feature area — `feat(authentication):`, `fix(postgres):`
 - **Branches:** feature branches (e.g. `feature/rate-limiting`)
+
+---
+
+## Documentation Sync
+
+Whenever a piece of code is added, removed, or updated, **all related
+documentation must be verified for correctness and updated if it no longer
+matches**. This includes:
+
+- JSDoc comments on the changed symbol and its callers
+- README sections that reference the changed behaviour
+- Deployment docs (`docs/deployment.md`)
+- AGENTS.md itself (this file)
+- Swagger DTO descriptions
+- Config examples (`config/fetchlane.example.json`)
+- Inline comments that describe the changed logic
+
+Stale or contradictory documentation is treated as a bug.
 
 ---
 

@@ -1,18 +1,20 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { createApiErrorBody } from '../errors/api-error';
-import { OidcAuthService } from './oidc-auth.service';
+import { OidcAuthenticationService } from './oidc-authentication.service';
 import { setAuthenticatedPrincipal } from './request-context';
 
 /**
  * Applies optional bearer authentication to protected Fetchlane routes.
  */
 @Injectable()
-export class AuthMiddleware implements NestMiddleware {
+export class AuthenticationMiddleware implements NestMiddleware {
   /**
-   * Creates the auth middleware.
+   * Creates the authentication middleware.
    */
-  public constructor(private readonly authService: OidcAuthService) {}
+  public constructor(
+    private readonly authenticationService: OidcAuthenticationService,
+  ) {}
 
   /**
    * Authenticates protected requests and attaches the verified principal.
@@ -23,7 +25,7 @@ export class AuthMiddleware implements NestMiddleware {
     next: NextFunction,
   ): Promise<void> {
     if (
-      !this.authService.isEnabled() ||
+      !this.authenticationService.isEnabled() ||
       !this.requiresAuthentication(request)
     ) {
       next();
@@ -31,10 +33,10 @@ export class AuthMiddleware implements NestMiddleware {
     }
 
     try {
-      const principal = await this.authService.authenticateAuthorizationHeader(
-        request.header('authorization'),
-      );
-      this.authService.authorizePrincipal(principal);
+      const principal =
+        await this.authenticationService.authenticateAuthorizationHeader(
+          request.header('authorization'),
+        );
       setAuthenticatedPrincipal(request, principal);
       next();
     } catch (error) {

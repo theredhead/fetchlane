@@ -36,7 +36,7 @@ export class FetchRequestHandlerService {
       (index) => adapter.parameter(index),
       (baseQuery, limit, offset, orderByClause) =>
         adapter.paginateQuery(baseQuery, limit, offset, orderByClause),
-      limits.fetch_max_page_size,
+      limits.fetchMaxPageSize,
     );
   }
 
@@ -55,17 +55,17 @@ export class FetchRequestHandlerService {
   private validateLimits(request: FetchRequest): void {
     const limits = this.runtimeConfig.getLimits();
     const predicateCount = this.countPredicates(request.predicates);
-    if (predicateCount > limits.fetch_max_predicates) {
+    if (predicateCount > limits.fetchMaxPredicates) {
       throw badRequest(
-        `FetchRequest contains ${predicateCount} predicate clause(s), which exceeds the configured limit of ${limits.fetch_max_predicates}.`,
-        `Reduce the number of predicate clauses, or increase limits.fetch_max_predicates in the runtime config.`,
+        `FetchRequest contains ${predicateCount} predicate clause(s), which exceeds the configured limit of ${limits.fetchMaxPredicates}.`,
+        `Reduce the number of predicate clauses, or increase limits.fetchMaxPredicates in the runtime config.`,
       );
     }
 
-    if (request.sort.length > limits.fetch_max_sort_fields) {
+    if (request.sort.length > limits.fetchMaxSortFields) {
       throw badRequest(
-        `FetchRequest contains ${request.sort.length} sort field(s), which exceeds the configured limit of ${limits.fetch_max_sort_fields}.`,
-        `Reduce the number of sort fields, or increase limits.fetch_max_sort_fields in the runtime config.`,
+        `FetchRequest contains ${request.sort.length} sort field(s), which exceeds the configured limit of ${limits.fetchMaxSortFields}.`,
+        `Reduce the number of sort fields, or increase limits.fetchMaxSortFields in the runtime config.`,
       );
     }
   }

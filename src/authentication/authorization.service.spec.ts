@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthorizationService } from './authorization.service';
 import { RuntimeConfigService } from '../config/runtime-config';
-import { AuthError } from './oidc-auth.service';
+import { AuthenticationError } from './oidc-authentication.service';
 import { Request } from 'express';
 import { setAuthenticatedPrincipal } from './request-context';
 
@@ -29,7 +29,7 @@ function buildRuntimeConfigService(
 
 const fullAuthorization = {
   schema: ['admin', 'schema-viewer'],
-  create_table: ['admin'],
+  createTable: ['admin'],
   crud: {
     default: {
       create: ['admin', 'editor'],
@@ -98,7 +98,9 @@ describe('AuthorizationService', () => {
 
     it('denies when principal lacks all required roles', () => {
       const request = createAuthenticatedRequest(['editor']);
-      expect(() => service.authorizeSchemaAccess(request)).toThrow(AuthError);
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        AuthenticationError,
+      );
       expect(() => service.authorizeSchemaAccess(request)).toThrow(
         /lacks a required role/,
       );
@@ -106,7 +108,9 @@ describe('AuthorizationService', () => {
 
     it('denies when there is no authenticated principal', () => {
       const request = createMockRequest();
-      expect(() => service.authorizeSchemaAccess(request)).toThrow(AuthError);
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        AuthenticationError,
+      );
       expect(() => service.authorizeSchemaAccess(request)).toThrow(
         /no authenticated principal/,
       );
@@ -129,12 +133,16 @@ describe('AuthorizationService', () => {
 
     it('denies when principal lacks the required role', () => {
       const request = createAuthenticatedRequest(['editor']);
-      expect(() => service.authorizeCreateTable(request)).toThrow(AuthError);
+      expect(() => service.authorizeCreateTable(request)).toThrow(
+        AuthenticationError,
+      );
     });
 
     it('denies when there is no authenticated principal', () => {
       const request = createMockRequest();
-      expect(() => service.authorizeCreateTable(request)).toThrow(AuthError);
+      expect(() => service.authorizeCreateTable(request)).toThrow(
+        AuthenticationError,
+      );
     });
   });
 
@@ -178,21 +186,21 @@ describe('AuthorizationService', () => {
     it('denies create when principal lacks matching role', () => {
       const request = createAuthenticatedRequest(['viewer']);
       expect(() => service.authorizeCrud(request, 'member', 'create')).toThrow(
-        AuthError,
+        AuthenticationError,
       );
     });
 
     it('denies delete when principal lacks matching role', () => {
       const request = createAuthenticatedRequest(['editor']);
       expect(() => service.authorizeCrud(request, 'member', 'delete')).toThrow(
-        AuthError,
+        AuthenticationError,
       );
     });
 
     it('denies when there is no authenticated principal', () => {
       const request = createMockRequest();
       expect(() => service.authorizeCrud(request, 'member', 'read')).toThrow(
-        AuthError,
+        AuthenticationError,
       );
     });
   });
@@ -216,7 +224,7 @@ describe('AuthorizationService', () => {
     it('denies audit_log read when principal has only default read roles', () => {
       const request = createAuthenticatedRequest(['viewer']);
       expect(() => service.authorizeCrud(request, 'audit_log', 'read')).toThrow(
-        AuthError,
+        AuthenticationError,
       );
     });
 
@@ -224,7 +232,7 @@ describe('AuthorizationService', () => {
       const request = createAuthenticatedRequest(['admin']);
       expect(() =>
         service.authorizeCrud(request, 'audit_log', 'create'),
-      ).toThrow(AuthError);
+      ).toThrow(AuthenticationError);
       expect(() =>
         service.authorizeCrud(request, 'audit_log', 'create'),
       ).toThrow(/locked/);
@@ -299,7 +307,7 @@ describe('AuthorizationService', () => {
       service = new AuthorizationService(
         buildRuntimeConfigService({
           schema: [],
-          create_table: [],
+          createTable: [],
           crud: {
             default: {
               create: [],
@@ -340,7 +348,7 @@ describe('AuthorizationService', () => {
     });
   });
 
-  describe('AuthError details', () => {
+  describe('AuthenticationError details', () => {
     let service: AuthorizationService;
 
     beforeEach(() => {
@@ -353,11 +361,11 @@ describe('AuthorizationService', () => {
       const request = createAuthenticatedRequest(['nobody']);
       try {
         service.authorizeSchemaAccess(request);
-        expect.fail('Expected AuthError');
+        expect.fail('Expected AuthenticationError');
       } catch (error) {
-        expect(error).toBeInstanceOf(AuthError);
-        expect((error as AuthError).message).toContain('schema');
-        expect((error as AuthError).statusCode).toBe(403);
+        expect(error).toBeInstanceOf(AuthenticationError);
+        expect((error as AuthenticationError).message).toContain('schema');
+        expect((error as AuthenticationError).statusCode).toBe(403);
       }
     });
 
@@ -365,11 +373,11 @@ describe('AuthorizationService', () => {
       const request = createAuthenticatedRequest(['viewer']);
       try {
         service.authorizeCrud(request, 'member', 'delete');
-        expect.fail('Expected AuthError');
+        expect.fail('Expected AuthenticationError');
       } catch (error) {
-        expect(error).toBeInstanceOf(AuthError);
-        expect((error as AuthError).message).toContain('crud:delete');
-        expect((error as AuthError).message).toContain('"member"');
+        expect(error).toBeInstanceOf(AuthenticationError);
+        expect((error as AuthenticationError).message).toContain('crud:delete');
+        expect((error as AuthenticationError).message).toContain('"member"');
       }
     });
 
@@ -377,10 +385,10 @@ describe('AuthorizationService', () => {
       const request = createAuthenticatedRequest(['viewer']);
       try {
         service.authorizeCreateTable(request);
-        expect.fail('Expected AuthError');
+        expect.fail('Expected AuthenticationError');
       } catch (error) {
-        expect(error).toBeInstanceOf(AuthError);
-        expect((error as AuthError).hint).toContain('admin');
+        expect(error).toBeInstanceOf(AuthenticationError);
+        expect((error as AuthenticationError).hint).toContain('admin');
       }
     });
   });

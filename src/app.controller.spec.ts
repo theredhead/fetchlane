@@ -25,6 +25,9 @@ describe('DataAccessController', () => {
     authorizeCreateTable: vi.fn(),
     authorizeCrud: vi.fn(),
   };
+  const runtimeConfigService = {
+    isSchemaFeaturesEnabled: vi.fn().mockReturnValue(true),
+  };
   const mockRequest = {} as Request;
 
   beforeEach(() => {
@@ -33,6 +36,7 @@ describe('DataAccessController', () => {
       dataAccessService as any,
       fetchRequestHandler as any,
       authorizationService as any,
+      runtimeConfigService as any,
     );
   });
 

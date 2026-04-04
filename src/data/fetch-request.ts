@@ -220,7 +220,7 @@ export class FetchRequestSQLWriter {
     if (!Number.isInteger(limit) || limit <= 0 || limit > this.maxPageSize) {
       throw badRequest(
         `FetchRequest pagination.size must be an integer between 1 and ${this.maxPageSize}.`,
-        `Choose a page size from 1 to ${this.maxPageSize}, or increase limits.fetch_max_page_size in the runtime config if larger pages are required.`,
+        `Choose a page size from 1 to ${this.maxPageSize}, or increase limits.fetchMaxPageSize in the runtime config if larger pages are required.`,
       );
     }
 

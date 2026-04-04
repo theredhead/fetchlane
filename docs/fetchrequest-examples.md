@@ -9,7 +9,7 @@ POST /api/data-access/fetch
 Content-Type: application/json
 ```
 
-If auth is enabled, this route also requires:
+If authentication is enabled, this route also requires:
 
 ```http
 Authorization: Bearer <JWT>
@@ -45,9 +45,9 @@ Response overview:
 
 Limit notes:
 
-- `pagination.size` is capped by `limits.fetch_max_page_size`
-- total predicate clauses are capped by `limits.fetch_max_predicates`
-- sort fields are capped by `limits.fetch_max_sort_fields`
+- `pagination.size` is capped by `limits.fetchMaxPageSize`
+- total predicate clauses are capped by `limits.fetchMaxPredicates`
+- sort fields are capped by `limits.fetchMaxSortFields`
 
 ## Parameter modes
 

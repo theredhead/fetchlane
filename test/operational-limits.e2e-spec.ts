@@ -80,7 +80,7 @@ describe('Operational limits (e2e)', () => {
   const originalFetchlaneConfig = process.env.FETCHLANE_CONFIG;
 
   async function bootApp(options: {
-    authEnabled: boolean;
+    authenticationEnabled: boolean;
     rateLimitMax: number;
     bodyLimitBytes?: number;
     fetchMaxPageSize?: number;
@@ -88,7 +88,7 @@ describe('Operational limits (e2e)', () => {
     fetchMaxSortFields?: number;
   }): Promise<void> {
     tempDir = mkdtempSync(join(tmpdir(), 'fetchlane-limits-e2e-'));
-    if (options.authEnabled) {
+    if (options.authenticationEnabled) {
       oidcServer = await createOidcServer();
     }
 
@@ -108,24 +108,40 @@ describe('Operational limits (e2e)', () => {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
         limits: {
-          request_body_bytes: options.bodyLimitBytes || 1048576,
-          fetch_max_page_size: options.fetchMaxPageSize || 1000,
-          fetch_max_predicates: options.fetchMaxPredicates || 25,
-          fetch_max_sort_fields: options.fetchMaxSortFields || 8,
-          rate_limit_window_ms: 60000,
-          rate_limit_max: options.rateLimitMax,
+          requestBodyBytes: options.bodyLimitBytes || 1048576,
+          fetchMaxPageSize: options.fetchMaxPageSize || 1000,
+          fetchMaxPredicates: options.fetchMaxPredicates || 25,
+          fetchMaxSortFields: options.fetchMaxSortFields || 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: options.rateLimitMax,
         },
-        auth: {
-          enabled: options.authEnabled,
+        authentication: {
+          enabled: options.authenticationEnabled,
           mode: 'oidc-jwt',
-          issuer_url: oidcServer?.issuer || '',
-          audience: options.authEnabled ? 'fetchlane-api' : '',
-          jwks_url: '',
-          allowed_roles: options.authEnabled ? ['reader'] : [],
-          claim_mappings: {
+          issuerUrl: oidcServer?.issuer || '',
+          audience: options.authenticationEnabled ? 'fetchlane-api' : '',
+          jwksUrl: '',
+          claimMappings: {
             subject: 'sub',
             roles: 'realm_access.roles',
           },
+          ...(options.authenticationEnabled
+            ? {
+                authorization: {
+                  schema: ['*'],
+                  createTable: ['*'],
+                  crud: {
+                    default: {
+                      create: ['*'],
+                      read: ['*'],
+                      update: ['*'],
+                      delete: ['*'],
+                    },
+                    tables: {},
+                  },
+                },
+              }
+            : {}),
         },
       }),
       'utf8',
@@ -205,7 +221,7 @@ describe('Operational limits (e2e)', () => {
 
   it('rate limits anonymous requests by client IP', async () => {
     await bootApp({
-      authEnabled: false,
+      authenticationEnabled: false,
       rateLimitMax: 1,
     });
 
@@ -214,13 +230,13 @@ describe('Operational limits (e2e)', () => {
       .get('/api/status')
       .expect(429)
       .expect((response) => {
-        expect(response.body.hint).toMatch(/rate_limit_max/);
+        expect(response.body.hint).toMatch(/rateLimitMax/);
       });
   });
 
   it('rate limits authenticated requests by subject claim', async () => {
     await bootApp({
-      authEnabled: true,
+      authenticationEnabled: true,
       rateLimitMax: 1,
     });
 
@@ -245,7 +261,7 @@ describe('Operational limits (e2e)', () => {
 
   it('returns a structured error when the request body exceeds the configured limit', async () => {
     await bootApp({
-      authEnabled: false,
+      authenticationEnabled: false,
       rateLimitMax: 100,
       bodyLimitBytes: 120,
     });
@@ -269,13 +285,13 @@ describe('Operational limits (e2e)', () => {
         expect(response.body.message).toBe(
           'The request body exceeds the configured size limit.',
         );
-        expect(response.body.hint).toMatch(/request_body_bytes/);
+        expect(response.body.hint).toMatch(/requestBodyBytes/);
       });
   });
 
   it('enforces fetch request limits from runtime config', async () => {
     await bootApp({
-      authEnabled: false,
+      authenticationEnabled: false,
       rateLimitMax: 100,
       fetchMaxPageSize: 2,
       fetchMaxPredicates: 1,
@@ -295,7 +311,7 @@ describe('Operational limits (e2e)', () => {
       })
       .expect(400)
       .expect((response) => {
-        expect(response.body.hint).toMatch(/fetch_max_page_size/);
+        expect(response.body.hint).toMatch(/fetchMaxPageSize/);
       });
 
     await request(app!.getHttpServer())
@@ -310,7 +326,7 @@ describe('Operational limits (e2e)', () => {
       })
       .expect(400)
       .expect((response) => {
-        expect(response.body.hint).toMatch(/fetch_max_predicates/);
+        expect(response.body.hint).toMatch(/fetchMaxPredicates/);
       });
 
     await request(app!.getHttpServer())
@@ -325,7 +341,7 @@ describe('Operational limits (e2e)', () => {
       })
       .expect(400)
       .expect((response) => {
-        expect(response.body.hint).toMatch(/fetch_max_sort_fields/);
+        expect(response.body.hint).toMatch(/fetchMaxSortFields/);
       });
   });
 });

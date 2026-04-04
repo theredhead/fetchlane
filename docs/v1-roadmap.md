@@ -18,19 +18,19 @@ Status values:
 
 ## Branch Plan
 
-| Track | Branch | Status | Scope |
-| --- | --- | --- | --- |
-| Runtime config | `feature/runtime-config` | `done` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
-| Auth | `feature/optional-auth` | `done` | Optional auth module, OIDC JWT validation, Keycloak-compatible config, route protection strategy |
-| Operational limits | `feature/operational-limits` | `done` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure |
-| Deployment readiness | `feature/deployment-readiness` | `done` | Container config examples, README updates, example config files, operator docs, release readiness pass |
+| Track                | Branch                         | Status | Scope                                                                                                            |
+| -------------------- | ------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------- |
+| Runtime config       | `feature/runtime-config`       | `done` | Typed config file loader, schema validation, config service, `database.url`, host/port, CORS, bootstrap refactor |
+| Authentication       | `feature/optional-auth`        | `done` | Optional authentication module, OIDC JWT validation, Keycloak-compatible config, route protection strategy       |
+| Operational limits   | `feature/operational-limits`   | `done` | Rate limiting, body size limits, fetch/query guardrails, config-driven limits, status exposure                   |
+| Deployment readiness | `feature/deployment-readiness` | `done` | Container config examples, README updates, example config files, operator docs, release readiness pass           |
 
 ## Delivery Order
 
 ### 1. Runtime config
 
 Why first:
-This becomes the foundation for auth, limits, and deployment settings.
+This becomes the foundation for authentication, limits, and deployment settings.
 
 Checklist:
 
@@ -42,25 +42,25 @@ Checklist:
 - [x] Fail fast with developer-friendly startup errors and hints
 - [x] Update tests and docs
 
-### 2. Optional auth
+### 2. Optional authentication
 
 Why second:
 Authentication should consume the new config system instead of inventing its own.
 
 Checklist:
 
-- [x] Add auth config section with `enabled`, `mode`, `issuer_url`, `audience`, and claim settings
+- [x] Add authentication config section with `enabled`, `mode`, `issuerUrl`, `audience`, and claim settings
 - [x] Implement optional bearer token authentication
 - [x] Support OIDC discovery and JWT validation
 - [x] Ensure Keycloak-compatible behavior
-- [x] Keep auth provider-agnostic for similar OIDC products
+- [x] Keep authentication provider-agnostic for similar OIDC products
 - [x] Decide which routes remain public, especially `/api/status` and `/api/docs`
 - [x] Add tests and documentation
 
 ### 3. Operational limits
 
 Why third:
-This closes the biggest production-safety gaps once config and auth are in place.
+This closes the biggest production-safety gaps once config and authentication are in place.
 
 Checklist:
 
@@ -111,7 +111,7 @@ Checklist:
 - Added config-driven rate limiting, request body size enforcement, and FetchRequest page-size / predicate / sort guardrails
 - Merged `feature/operational-limits` back into `develop`
 - Started `feature/deployment-readiness`
-- Added tracked deployment examples for mounted config, Docker bind mounts, Kubernetes ConfigMap and Secret usage, and Keycloak-ready auth config
+- Added tracked deployment examples for mounted config, Docker bind mounts, Kubernetes ConfigMap and Secret usage, and Keycloak-ready authentication config
 - Completed final unit, e2e, build, and TypeDoc verification for the v1 production foundation tracks
 
 ## V1 Readiness Sweep
@@ -119,7 +119,7 @@ Checklist:
 Ready for `v1.0`:
 
 - Config-driven runtime bootstrapping is in place and validated at startup
-- Optional OIDC bearer auth protects docs and data routes while keeping status public
+- Optional OIDC bearer authentication protects docs and data routes while keeping status public
 - Request body limits, FetchRequest guardrails, and HTTP throttling are configurable
 - Example config, `.env`, Docker, Kubernetes, and OIDC deployment docs are tracked in the repo
 - Unit tests, e2e tests, build output, and TypeDoc generation have all been verified on the current branch

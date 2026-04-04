@@ -2,7 +2,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { RuntimeConfigService } from '../config/runtime-config';
 import { createApiErrorBody } from '../errors/api-error';
-import { getAuthenticatedPrincipal } from '../auth/request-context';
+import { getAuthenticatedPrincipal } from '../authentication/request-context';
 
 interface RateLimitBucket {
   count: number;
@@ -33,14 +33,14 @@ export class RateLimitMiddleware implements NestMiddleware {
     if (!currentBucket || currentBucket.resetAt <= now) {
       this.buckets.set(key, {
         count: 1,
-        resetAt: now + limits.rate_limit_window_ms,
+        resetAt: now + limits.rateLimitWindowMs,
       });
       next();
       return;
     }
 
     currentBucket.count += 1;
-    if (currentBucket.count <= limits.rate_limit_max) {
+    if (currentBucket.count <= limits.rateLimitMax) {
       next();
       return;
     }
@@ -50,7 +50,7 @@ export class RateLimitMiddleware implements NestMiddleware {
       error: 'Too Many Requests',
       ...createApiErrorBody(
         'The request rate limit has been exceeded.',
-        `Reduce request frequency or increase limits.rate_limit_max / limits.rate_limit_window_ms in the runtime config. Current limit: ${limits.rate_limit_max} requests per ${limits.rate_limit_window_ms}ms.`,
+        `Reduce request frequency or increase limits.rateLimitMax / limits.rateLimitWindowMs in the runtime config. Current limit: ${limits.rateLimitMax} requests per ${limits.rateLimitWindowMs}ms.`,
       ),
       path: request.originalUrl || request.url,
       timestamp: new Date().toISOString(),

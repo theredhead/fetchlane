@@ -25,10 +25,10 @@ export interface StatusSnapshot {
     environment: string;
   };
   runtime: {
-    started_at: string;
-    checked_at: string;
-    uptime_ms: number;
-    node_version: string;
+    startedAt: string;
+    checkedAt: string;
+    uptimeMs: number;
+    nodeVersion: string;
     platform: string;
     pid: number;
   };
@@ -36,19 +36,18 @@ export interface StatusSnapshot {
     server: {
       host: string;
       port: number;
-      cors_enabled: boolean;
+      corsEnabled: boolean;
     };
-    auth: {
+    authentication: {
       enabled: boolean;
-      allowed_roles: string[];
     };
     limits: {
-      request_body_bytes: number;
-      fetch_max_page_size: number;
-      fetch_max_predicates: number;
-      fetch_max_sort_fields: number;
-      rate_limit_window_ms: number;
-      rate_limit_max: number;
+      requestBodyBytes: number;
+      fetchMaxPageSize: number;
+      fetchMaxPredicates: number;
+      fetchMaxSortFields: number;
+      rateLimitWindowMs: number;
+      rateLimitMax: number;
     };
   };
   database: {
@@ -57,12 +56,12 @@ export interface StatusSnapshot {
     port: number | null;
     database: string;
     connected: boolean;
-    round_trip_ms: number | null;
+    roundTripMs: number | null;
     capabilities: {
-      table_listing: boolean;
-      table_info: boolean;
-      schema_description: boolean;
-      create_table_sql: boolean;
+      tableListing: boolean;
+      tableInfo: boolean;
+      schemaDescription: boolean;
+      createTableSql: boolean;
     };
     error: {
       message: string;
@@ -104,10 +103,10 @@ export class StatusService {
         environment: process.env.NODE_ENV || 'development',
       },
       runtime: {
-        started_at: APP_STARTED_AT.toISOString(),
-        checked_at: checkedAt.toISOString(),
-        uptime_ms: checkedAt.getTime() - APP_STARTED_AT.getTime(),
-        node_version: process.version,
+        startedAt: APP_STARTED_AT.toISOString(),
+        checkedAt: checkedAt.toISOString(),
+        uptimeMs: checkedAt.getTime() - APP_STARTED_AT.getTime(),
+        nodeVersion: process.version,
         platform: `${process.platform}/${process.arch}`,
         pid: process.pid,
       },
@@ -118,12 +117,12 @@ export class StatusService {
         port: databaseConfig.port ?? null,
         database: databaseConfig.database,
         connected: database.connected,
-        round_trip_ms: database.roundTripMs,
+        roundTripMs: database.roundTripMs,
         capabilities: {
-          table_listing: supportsTableListing(this.adapter),
-          table_info: supportsTableInfo(this.adapter),
-          schema_description: supportsSchemaDescription(this.adapter),
-          create_table_sql: supportsCreateTableSql(this.adapter),
+          tableListing: supportsTableListing(this.adapter),
+          tableInfo: supportsTableInfo(this.adapter),
+          schemaDescription: supportsSchemaDescription(this.adapter),
+          createTableSql: supportsCreateTableSql(this.adapter),
         },
         error: database.error,
       },

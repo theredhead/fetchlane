@@ -1,7 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { AuthorizationService } from './auth/authorization.service';
-import { AuthMiddleware } from './auth/auth.middleware';
-import { OidcAuthService } from './auth/oidc-auth.service';
+import { AuthorizationService } from './authentication/authorization.service';
+import { AuthenticationMiddleware } from './authentication/authentication.middleware';
+import { OidcAuthenticationService } from './authentication/oidc-authentication.service';
 import { DataAccessController } from './controllers/data-access.controller';
 import { runtimeConfigProviders } from './config/runtime-config';
 import { StatusController } from './controllers/status.controller';
@@ -22,9 +22,9 @@ import { StatusService } from './service/status.service';
   controllers: [DataAccessController, StatusController],
   providers: [
     LoggerService,
-    AuthMiddleware,
+    AuthenticationMiddleware,
     AuthorizationService,
-    OidcAuthService,
+    OidcAuthenticationService,
     RateLimitMiddleware,
     ...runtimeConfigProviders,
     ...databaseProviders,

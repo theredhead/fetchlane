@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { RuntimeConfigService } from '../config/runtime-config';
-import { OidcAuthService } from './oidc-auth.service';
+import { OidcAuthenticationService } from './oidc-authentication.service';
 
 async function createOidcServer() {
   const { generateKeyPair, exportJWK, SignJWT } = await import('jose');
@@ -93,21 +93,20 @@ function createRuntimeConfigService(
       url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
     },
     limits: {
-      request_body_bytes: 1048576,
-      fetch_max_page_size: 1000,
-      fetch_max_predicates: 25,
-      fetch_max_sort_fields: 8,
-      rate_limit_window_ms: 60000,
-      rate_limit_max: 120,
+      requestBodyBytes: 1048576,
+      fetchMaxPageSize: 1000,
+      fetchMaxPredicates: 25,
+      fetchMaxSortFields: 8,
+      rateLimitWindowMs: 60000,
+      rateLimitMax: 120,
     },
-    auth: {
+    authentication: {
       enabled: true,
       mode: 'oidc-jwt',
-      issuer_url: '',
+      issuerUrl: '',
       audience: 'fetchlane-api',
-      jwks_url: '',
-      allowed_roles: ['reader'],
-      claim_mappings: {
+      jwksUrl: '',
+      claimMappings: {
         subject: 'sub',
         roles: 'realm_access.roles',
       },
@@ -116,7 +115,7 @@ function createRuntimeConfigService(
   });
 }
 
-describe('OidcAuthService', () => {
+describe('OidcAuthenticationService', () => {
   let oidcServer: Awaited<ReturnType<typeof createOidcServer>>;
 
   beforeEach(async () => {
@@ -130,9 +129,9 @@ describe('OidcAuthService', () => {
   });
 
   it('validates a token through issuer discovery and maps claims', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
+        issuerUrl: oidcServer.issuer,
       }),
     );
     const token = await oidcServer.signToken();
@@ -146,10 +145,10 @@ describe('OidcAuthService', () => {
   });
 
   it('supports a direct JWKS URL override', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
-        jwks_url: oidcServer.jwksUrl,
+        issuerUrl: oidcServer.issuer,
+        jwksUrl: oidcServer.jwksUrl,
       }),
     );
     const token = await oidcServer.signToken();
@@ -164,9 +163,9 @@ describe('OidcAuthService', () => {
   });
 
   it('rejects expired tokens with a helpful hint', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
+        issuerUrl: oidcServer.issuer,
       }),
     );
     const token = await oidcServer.signToken({
@@ -184,9 +183,9 @@ describe('OidcAuthService', () => {
   });
 
   it('rejects tokens with the wrong issuer', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
+        issuerUrl: oidcServer.issuer,
       }),
     );
     const token = await oidcServer.signToken({
@@ -201,9 +200,9 @@ describe('OidcAuthService', () => {
   });
 
   it('rejects tokens with the wrong audience', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
+        issuerUrl: oidcServer.issuer,
       }),
     );
     const token = await oidcServer.signToken({
@@ -219,9 +218,9 @@ describe('OidcAuthService', () => {
   });
 
   it('rejects missing bearer headers', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
+        issuerUrl: oidcServer.issuer,
       }),
     );
 
@@ -234,9 +233,9 @@ describe('OidcAuthService', () => {
   });
 
   it('rejects malformed tokens with a helpful hint', async () => {
-    const service = new OidcAuthService(
+    const service = new OidcAuthenticationService(
       createRuntimeConfigService({
-        issuer_url: oidcServer.issuer,
+        issuerUrl: oidcServer.issuer,
       }),
     );
 
@@ -245,48 +244,6 @@ describe('OidcAuthService', () => {
     ).rejects.toMatchObject({
       message: 'The access token could not be verified.',
       hint: 'Use a valid JWT signed by the configured OIDC provider, and verify that the issuer and JWKS settings match.',
-    });
-  });
-
-  it('authorizes principals with a configured full-access role', () => {
-    const service = new OidcAuthService(
-      createRuntimeConfigService({
-        allowed_roles: ['writer', 'admin'],
-      }),
-    );
-
-    expect(() =>
-      service.authorizePrincipal({
-        subject: 'user-123',
-        roles: ['reader', 'writer'],
-        claims: {},
-      }),
-    ).not.toThrow();
-  });
-
-  it('rejects principals that do not have a configured full-access role', () => {
-    const service = new OidcAuthService(
-      createRuntimeConfigService({
-        allowed_roles: ['admin'],
-      }),
-    );
-
-    let thrownError: unknown;
-    try {
-      service.authorizePrincipal({
-        subject: 'user-123',
-        roles: ['reader', 'writer'],
-        claims: {},
-      });
-    } catch (error) {
-      thrownError = error;
-    }
-
-    expect(thrownError).toMatchObject({
-      statusCode: 403,
-      message:
-        'The authenticated principal does not have a role that is allowed to access Fetchlane.',
-      hint: 'Grant one of the configured roles (admin) to the caller, or update config.auth.allowed_roles if access should be broader.',
     });
   });
 });

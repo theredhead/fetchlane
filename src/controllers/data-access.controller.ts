@@ -29,9 +29,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { AuthorizationService } from 'src/auth/authorization.service';
+import { AuthorizationService } from 'src/authentication/authorization.service';
+import { RuntimeConfigService } from 'src/config/runtime-config';
 import { Record, RecordSet } from 'src/data/database';
-import { badRequest } from 'src/errors/api-error';
+import { badRequest, notFound } from 'src/errors/api-error';
 import { TableSchemaDescriptionDto } from 'src/swagger/models';
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
@@ -56,6 +57,7 @@ export class DataAccessController {
     private readonly db: DataAccessService,
     private readonly fetchRequestHandler: FetchRequestHandlerService,
     private readonly authz: AuthorizationService,
+    private readonly runtimeConfig: RuntimeConfigService,
   ) {}
 
   @ApiOperation({
@@ -166,6 +168,7 @@ export class DataAccessController {
    * Lists the tables visible to the active database connection.
    */
   public async tableNames(@Req() req: Request): Promise<Record[]> {
+    this.requireSchemaFeatures();
     this.authz.authorizeSchemaAccess(req);
     return await this.db.getTableNames();
   }
@@ -189,6 +192,7 @@ export class DataAccessController {
     @Req() req: Request,
     @Param('table') table: string,
   ): Promise<Record[]> {
+    this.requireSchemaFeatures();
     this.authz.authorizeSchemaAccess(req);
     return await this.db.tableInfo(this.validateIdentifier(table, 'table'));
   }
@@ -206,6 +210,7 @@ export class DataAccessController {
     @Req() req: Request,
     @Param('table') table: string,
   ): Promise<TableSchemaDescription | null> {
+    this.requireSchemaFeatures();
     this.authz.authorizeSchemaAccess(req);
     return await this.db.describeTable(this.validateIdentifier(table, 'table'));
   }
@@ -481,11 +486,21 @@ export class DataAccessController {
     @Param('table') table: string,
     @Body() columns: ColumnDescription[],
   ): Promise<string> {
+    this.requireSchemaFeatures();
     this.authz.authorizeCreateTable(req);
     return await this.db.createTable(
       this.validateIdentifier(table, 'table'),
       this.validateCreateTableColumns(columns),
     );
+  }
+
+  private requireSchemaFeatures(): void {
+    if (!this.runtimeConfig.isSchemaFeaturesEnabled()) {
+      throw notFound(
+        'Schema features are disabled.',
+        'Set enableSchemaFeatures to true in the runtime config to enable schema endpoints.',
+      );
+    }
   }
 
   private parsePageIndex(value: number | string): number {

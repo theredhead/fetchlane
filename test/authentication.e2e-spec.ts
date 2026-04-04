@@ -77,9 +77,8 @@ async function createOidcServer() {
 function writeConfig(
   tempDir: string,
   options: {
-    authEnabled: boolean;
+    authenticationEnabled: boolean;
     issuer?: string;
-    allowedRoles?: string[];
   },
 ) {
   const configPath = join(tempDir, 'fetchlane.json');
@@ -98,24 +97,40 @@ function writeConfig(
         url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
       },
       limits: {
-        request_body_bytes: 1048576,
-        fetch_max_page_size: 1000,
-        fetch_max_predicates: 25,
-        fetch_max_sort_fields: 8,
-        rate_limit_window_ms: 60000,
-        rate_limit_max: 120,
+        requestBodyBytes: 1048576,
+        fetchMaxPageSize: 1000,
+        fetchMaxPredicates: 25,
+        fetchMaxSortFields: 8,
+        rateLimitWindowMs: 60000,
+        rateLimitMax: 120,
       },
-      auth: {
-        enabled: options.authEnabled,
+      authentication: {
+        enabled: options.authenticationEnabled,
         mode: 'oidc-jwt',
-        issuer_url: options.issuer || '',
-        audience: options.authEnabled ? 'fetchlane-api' : '',
-        jwks_url: '',
-        allowed_roles: options.allowedRoles || [],
-        claim_mappings: {
+        issuerUrl: options.issuer || '',
+        audience: options.authenticationEnabled ? 'fetchlane-api' : '',
+        jwksUrl: '',
+        claimMappings: {
           subject: 'sub',
           roles: 'realm_access.roles',
         },
+        ...(options.authenticationEnabled
+          ? {
+              authorization: {
+                schema: ['*'],
+                createTable: ['*'],
+                crud: {
+                  default: {
+                    create: ['*'],
+                    read: ['*'],
+                    update: ['*'],
+                    delete: ['*'],
+                  },
+                  tables: {},
+                },
+              },
+            }
+          : {}),
       },
     }),
     'utf8',
@@ -123,25 +138,21 @@ function writeConfig(
   return configPath;
 }
 
-describe('Optional auth (e2e)', () => {
+describe('Optional authentication (e2e)', () => {
   let app: INestApplication;
   let tempDir: string | null = null;
   let oidcServer: Awaited<ReturnType<typeof createOidcServer>> | null = null;
   const originalFetchlaneConfig = process.env.FETCHLANE_CONFIG;
 
-  async function bootApp(
-    authEnabled: boolean,
-    allowedRoles: string[] = [],
-  ): Promise<void> {
-    tempDir = mkdtempSync(join(tmpdir(), 'fetchlane-auth-e2e-'));
-    if (authEnabled) {
+  async function bootApp(authenticationEnabled: boolean): Promise<void> {
+    tempDir = mkdtempSync(join(tmpdir(), 'fetchlane-authentication-e2e-'));
+    if (authenticationEnabled) {
       oidcServer = await createOidcServer();
     }
 
     process.env.FETCHLANE_CONFIG = writeConfig(tempDir, {
-      authEnabled,
+      authenticationEnabled,
       issuer: oidcServer?.issuer,
-      allowedRoles,
     });
     resetRuntimeConfigForTests();
 
@@ -214,7 +225,7 @@ describe('Optional auth (e2e)', () => {
     }
   });
 
-  it('leaves data routes open when auth is disabled', async () => {
+  it('leaves data routes open when authentication is disabled', async () => {
     await bootApp(false);
 
     await request(app.getHttpServer())
@@ -225,14 +236,14 @@ describe('Optional auth (e2e)', () => {
     await request(app.getHttpServer()).get('/api/docs').expect(200);
   });
 
-  it('keeps /api/status public when auth is enabled', async () => {
-    await bootApp(true, ['reader']);
+  it('keeps /api/status public when authentication is enabled', async () => {
+    await bootApp(true);
 
     await request(app.getHttpServer()).get('/api/status').expect(200);
   });
 
-  it('protects /api/data-access and /api/docs when auth is enabled', async () => {
-    await bootApp(true, ['reader']);
+  it('protects /api/data-access and /api/docs when authentication is enabled', async () => {
+    await bootApp(true);
 
     const token = await oidcServer!.signToken();
 
@@ -255,24 +266,5 @@ describe('Optional auth (e2e)', () => {
       .get('/api/docs')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-  });
-
-  it('rejects authenticated callers that do not have a configured full-access role', async () => {
-    await bootApp(true, ['admin']);
-
-    const token = await oidcServer!.signToken({
-      roles: ['reader'],
-    });
-
-    await request(app.getHttpServer())
-      .get('/api/data-access/table-names')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(403)
-      .expect((response) => {
-        expect(response.body.message).toBe(
-          'The authenticated principal does not have a role that is allowed to access Fetchlane.',
-        );
-        expect(response.body.hint).toMatch(/allowed_roles/);
-      });
   });
 });

@@ -42,21 +42,20 @@ describe('StatusService', () => {
         url: databaseUrl,
       },
       limits: {
-        request_body_bytes: 1048576,
-        fetch_max_page_size: 1000,
-        fetch_max_predicates: 25,
-        fetch_max_sort_fields: 8,
-        rate_limit_window_ms: 60000,
-        rate_limit_max: 120,
+        requestBodyBytes: 1048576,
+        fetchMaxPageSize: 1000,
+        fetchMaxPredicates: 25,
+        fetchMaxSortFields: 8,
+        rateLimitWindowMs: 60000,
+        rateLimitMax: 120,
       },
-      auth: {
+      authentication: {
         enabled: false,
         mode: 'oidc-jwt',
-        issuer_url: '',
+        issuerUrl: '',
         audience: '',
-        jwks_url: '',
-        allowed_roles: [],
-        claim_mappings: {
+        jwksUrl: '',
+        claimMappings: {
           subject: 'sub',
           roles: 'realm_access.roles',
         },
@@ -81,28 +80,27 @@ describe('StatusService', () => {
       server: {
         host: '0.0.0.0',
         port: 3000,
-        cors_enabled: true,
+        corsEnabled: true,
       },
-      auth: {
+      authentication: {
         enabled: false,
-        allowed_roles: [],
       },
       limits: {
-        request_body_bytes: 1048576,
-        fetch_max_page_size: 1000,
-        fetch_max_predicates: 25,
-        fetch_max_sort_fields: 8,
-        rate_limit_window_ms: 60000,
-        rate_limit_max: 120,
+        requestBodyBytes: 1048576,
+        fetchMaxPageSize: 1000,
+        fetchMaxPredicates: 25,
+        fetchMaxSortFields: 8,
+        rateLimitWindowMs: 60000,
+        rateLimitMax: 120,
       },
     });
     expect(result.database.engine).toBe('postgres');
     expect(result.database.connected).toBe(true);
     expect(result.database.capabilities).toEqual({
-      table_listing: true,
-      table_info: true,
-      schema_description: true,
-      create_table_sql: true,
+      tableListing: true,
+      tableInfo: true,
+      schemaDescription: true,
+      createTableSql: true,
     });
     expect(adapter.execute).toHaveBeenCalledWith(
       'SELECT 1 AS fetchlane_status_check',
