@@ -21,14 +21,6 @@
   },
   "enableSchemaFeatures": true,
   "authentication": {
-    "enabled": false,
-    "mode": "oidc-jwt",
-    "issuerUrl": "",
-    "audience": "",
-    "jwksUrl": "",
-    "claimMappings": {
-      "subject": "sub",
-      "roles": "realm_access.roles"
-    }
+    "enabled": false
   }
 }

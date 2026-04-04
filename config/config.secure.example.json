@@ -1,4 +1,5 @@
 {
+  "_template": "This config will NOT start until you provide the required environment variables: FETCHLANE_DATABASE_URL, FETCHLANE_OIDC_ISSUER_URL, and FETCHLANE_OIDC_AUDIENCE. Replace the CORS origin with your actual domain.",
   "server": {
     "host": "0.0.0.0",
     "port": 3000,

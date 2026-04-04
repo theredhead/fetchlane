@@ -70,6 +70,10 @@ That means health and readiness probes can still hit `/api/status` without ident
 
 ## Keycloak Example
 
+> **Template — not runnable as shown.** Replace the `issuerUrl`, `audience`,
+> and CORS `origins` values with your Keycloak realm's actual endpoints and
+> your application's domain before using this config.
+
 ```json
 {
   "server": {
@@ -91,6 +95,7 @@ That means health and readiness probes can still hit `/api/status` without ident
     "rateLimitWindowMs": 60000,
     "rateLimitMax": 120
   },
+  "enableSchemaFeatures": false,
   "authentication": {
     "enabled": true,
     "mode": "oidc-jwt",
@@ -100,6 +105,19 @@ That means health and readiness probes can still hit `/api/status` without ident
     "claimMappings": {
       "subject": "sub",
       "roles": "realm_access.roles"
+    },
+    "authorization": {
+      "schema": ["admin"],
+      "createTable": ["admin"],
+      "crud": {
+        "default": {
+          "create": ["admin", "editor"],
+          "read": ["admin", "editor", "viewer"],
+          "update": ["admin", "editor"],
+          "delete": ["admin"]
+        },
+        "tables": {}
+      }
     }
   }
 }
@@ -182,6 +200,10 @@ docker run --rm \
 
 ## Kubernetes ConfigMap and Secret
 
+> **Template — not runnable as shown.** Replace the `issuerUrl`, `audience`,
+> CORS `origins`, and `FETCHLANE_DATABASE_URL` secret value with your actual
+> provider and database details before applying.
+
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -209,6 +231,7 @@ data:
         "rateLimitWindowMs": 60000,
         "rateLimitMax": 120
       },
+      "enableSchemaFeatures": false,
       "authentication": {
         "enabled": true,
         "mode": "oidc-jwt",
@@ -218,6 +241,19 @@ data:
         "claimMappings": {
           "subject": "sub",
           "roles": "realm_access.roles"
+        },
+        "authorization": {
+          "schema": ["admin"],
+          "createTable": ["admin"],
+          "crud": {
+            "default": {
+              "create": ["admin", "editor"],
+              "read": ["admin", "editor", "viewer"],
+              "update": ["admin", "editor"],
+              "delete": ["admin"]
+            },
+            "tables": {}
+          }
         }
       }
     }
