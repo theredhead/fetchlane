@@ -95,25 +95,44 @@ export interface RuntimeAuthenticationClaimMappingsConfig {
 export type CrudOperation = 'create' | 'read' | 'update' | 'delete';
 
 /**
+ * A pair of allow and deny role lists for a single authorization gate.
+ *
+ * Deny always overrides allow: if a principal holds any denied role, access
+ * is rejected regardless of which allowed roles the principal also holds.
+ */
+export interface RoleGate {
+  /**
+   * Roles that grant access. `["*"]` means any authenticated principal.
+   * An empty array locks the gate completely.
+   */
+  allow: string[];
+  /**
+   * Roles that explicitly revoke access, overriding any allow match.
+   * An empty array means no deny rules are configured.
+   */
+  deny: string[];
+}
+
+/**
  * Role requirements for each CRUD operation.
  */
 export interface CrudOperationRoles {
   /**
-   * Roles allowed to create records.
+   * Gate controlling record creation.
    */
-  create: string[];
+  create: RoleGate;
   /**
-   * Roles allowed to read records.
+   * Gate controlling record reads.
    */
-  read: string[];
+  read: RoleGate;
   /**
-   * Roles allowed to update records.
+   * Gate controlling record updates.
    */
-  update: string[];
+  update: RoleGate;
   /**
-   * Roles allowed to delete records.
+   * Gate controlling record deletion.
    */
-  delete: string[];
+  delete: RoleGate;
 }
 
 /**
@@ -121,21 +140,21 @@ export interface CrudOperationRoles {
  */
 export interface TableCrudOverride {
   /**
-   * Roles allowed to create records in this table.
+   * Gate controlling record creation in this table.
    */
-  create?: string[];
+  create?: RoleGate;
   /**
-   * Roles allowed to read records in this table.
+   * Gate controlling record reads in this table.
    */
-  read?: string[];
+  read?: RoleGate;
   /**
-   * Roles allowed to update records in this table.
+   * Gate controlling record updates in this table.
    */
-  update?: string[];
+  update?: RoleGate;
   /**
-   * Roles allowed to delete records in this table.
+   * Gate controlling record deletion in this table.
    */
-  delete?: string[];
+  delete?: RoleGate;
 }
 
 /**
@@ -143,13 +162,13 @@ export interface TableCrudOverride {
  */
 export interface RuntimeAuthorizationConfig {
   /**
-   * Roles allowed to access schema info (table-names, table info, describe).
+   * Gate controlling access to schema endpoints (table-names, table info, describe).
    */
-  schema: string[];
+  schema: RoleGate;
   /**
-   * Roles allowed to create tables.
+   * Gate controlling table creation.
    */
-  createTable: string[];
+  createTable: RoleGate;
   /**
    * CRUD authorization with a default and optional per-table overrides.
    */
@@ -776,13 +795,13 @@ function readOptionalAuthorization(
     configPath,
   );
 
-  const schema = readStringArray(
+  const schema = readRoleGate(
     authz.schema,
     'config.authentication.authorization.schema',
     configPath,
   );
 
-  const createTable = readStringArray(
+  const createTable = readRoleGate(
     authz.createTable,
     'config.authentication.authorization.createTable',
     configPath,
@@ -801,22 +820,22 @@ function readOptionalAuthorization(
   );
 
   const defaultRoles: CrudOperationRoles = {
-    create: readStringArray(
+    create: readRoleGate(
       crudDefault.create,
       'config.authentication.authorization.crud.default.create',
       configPath,
     ),
-    read: readStringArray(
+    read: readRoleGate(
       crudDefault.read,
       'config.authentication.authorization.crud.default.read',
       configPath,
     ),
-    update: readStringArray(
+    update: readRoleGate(
       crudDefault.update,
       'config.authentication.authorization.crud.default.update',
       configPath,
     ),
-    delete: readStringArray(
+    delete: readRoleGate(
       crudDefault.delete,
       'config.authentication.authorization.crud.default.delete',
       configPath,
@@ -841,7 +860,7 @@ function readOptionalAuthorization(
     const override: TableCrudOverride = {};
 
     if (tableOverride.create !== undefined) {
-      override.create = readStringArray(
+      override.create = readRoleGate(
         tableOverride.create,
         `config.authentication.authorization.crud.tables.${tableName}.create`,
         configPath,
@@ -849,7 +868,7 @@ function readOptionalAuthorization(
     }
 
     if (tableOverride.read !== undefined) {
-      override.read = readStringArray(
+      override.read = readRoleGate(
         tableOverride.read,
         `config.authentication.authorization.crud.tables.${tableName}.read`,
         configPath,
@@ -857,7 +876,7 @@ function readOptionalAuthorization(
     }
 
     if (tableOverride.update !== undefined) {
-      override.update = readStringArray(
+      override.update = readRoleGate(
         tableOverride.update,
         `config.authentication.authorization.crud.tables.${tableName}.update`,
         configPath,
@@ -865,7 +884,7 @@ function readOptionalAuthorization(
     }
 
     if (tableOverride.delete !== undefined) {
-      override.delete = readStringArray(
+      override.delete = readRoleGate(
         tableOverride.delete,
         `config.authentication.authorization.crud.tables.${tableName}.delete`,
         configPath,
@@ -883,6 +902,43 @@ function readOptionalAuthorization(
       tables,
     },
   };
+}
+
+/**
+ * Reads a role gate value which can be either a plain string array (shorthand
+ * for allow-only with no deny rules) or an object with explicit `allow` and
+ * `deny` arrays.
+ */
+function readRoleGate(
+  value: unknown,
+  path: string,
+  configPath: string,
+): RoleGate {
+  if (Array.isArray(value)) {
+    return {
+      allow: readStringArray(value, path, configPath),
+      deny: [],
+    };
+  }
+
+  if (isPlainObject(value)) {
+    const gate = value as globalThis.Record<string, unknown>;
+
+    return {
+      allow: readStringArray(gate.allow, `${path}.allow`, configPath),
+      deny:
+        gate.deny !== undefined
+          ? readStringArray(gate.deny, `${path}.deny`, configPath)
+          : [],
+    };
+  }
+
+  throw new Error(
+    formatDeveloperError(
+      `Invalid runtime config: ${path} must be a string array or an object with "allow" and optional "deny" arrays.`,
+      `Provide either a JSON string array like ["admin"] or an object like {"allow": ["admin"], "deny": ["intern"]} at ${path} in "${configPath}".`,
+    ),
+  );
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

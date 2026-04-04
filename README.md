@@ -112,6 +112,18 @@ FETCHLANE_CONFIG=/path/to/fetchlane.json
 
 That JSON file becomes the primary runtime interface for server settings, database connectivity, limits, and authentication. String values may use full-string environment placeholders such as `${FETCHLANE_DATABASE_URL}`.
 
+Placeholders are optional — you can write literal values directly in the JSON file. This is convenient for local development:
+
+```json
+{
+  "database": {
+    "url": "postgres://postgres:password@127.0.0.1:5432/northwind"
+  }
+}
+```
+
+However, hardcoding secrets in the config file is discouraged for any shared, committed, or network-reachable environment. Prefer environment variable placeholders for credentials and connection strings outside of trusted local setups.
+
 The database connection URL still uses this format:
 
 Expected format:
@@ -190,11 +202,18 @@ CRUD is further divided into four operations — `create`, `read`, `update`,
 
 ### Role semantics
 
-| Value                | Meaning                                                  |
-| -------------------- | -------------------------------------------------------- |
-| `["role1", "role2"]` | Principal must hold **at least one** of the listed roles |
-| `["*"]`              | Any authenticated principal is allowed (wildcard)        |
-| `[]`                 | Nobody is allowed — the channel is completely locked     |
+Each channel's role configuration can be either a **simple array** (shorthand
+for allow-only) or an **object** with explicit `allow` and `deny` lists.
+
+| Value                                       | Meaning                                                                             |
+| ------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `["role1", "role2"]`                        | Shorthand: principal must hold **at least one** listed role (no deny rules)         |
+| `{ "allow": ["role1"], "deny": ["role2"] }` | Explicit: principal must hold an allowed role **and** must not hold any denied role |
+| `["*"]`                                     | Any authenticated principal is allowed (wildcard)                                   |
+| `[]`                                        | Nobody is allowed — the channel is completely locked                                |
+
+**Deny always overrides allow.** If a principal holds any denied role, access is
+rejected regardless of which allowed roles the principal also holds.
 
 ### CRUD defaults and table overrides
 
@@ -218,7 +237,7 @@ Operations not listed in a table override fall back to the default.
     },
     "authorization": {
       "schema": ["admin", "schema-viewer"],
-      "createTable": ["admin"],
+      "createTable": { "allow": ["admin"], "deny": ["intern"] },
       "crud": {
         "default": {
           "create": ["admin", "editor"],
@@ -235,6 +254,9 @@ Operations not listed in a table override fall back to the default.
           },
           "public_data": {
             "read": ["*"]
+          },
+          "sensitive": {
+            "read": { "allow": ["admin"], "deny": ["contractor"] }
           }
         }
       }
@@ -246,10 +268,11 @@ Operations not listed in a table override fall back to the default.
 In this example:
 
 - Only `admin` and `schema-viewer` can inspect table schemas
-- Only `admin` can create new tables
+- Only `admin` can create new tables; anyone holding the `intern` role is explicitly denied
 - All tables default to editor/viewer-style access
 - `audit_log` restricts reads to `admin` and `auditor`, and locks all writes
 - `public_data` is readable by any authenticated user
+- `sensitive` is readable only by `admin`, and anyone holding `contractor` is blocked even if they are also `admin`
 - Missing operations in table overrides (e.g. `public_data.delete`) fall back to the default
 
 When `authorization` is configured, the fine-grained channels define all
@@ -413,6 +436,7 @@ Fetchlane returns structured API errors with a developer hint:
   "error": "Bad Request",
   "message": "Query parameter \"pageSize\" must be an integer between 1 and 1000.",
   "hint": "Choose a page size from 1 to 1000 so the API can paginate safely.",
+  "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "path": "/api/data-access/member?pageSize=5000",
   "timestamp": "2026-04-02T00:00:00.000Z"
 }

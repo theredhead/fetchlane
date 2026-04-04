@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { getRequestId } from '../authentication/request-context';
 import {
   ApiErrorBody,
   createApiErrorBody,
@@ -48,6 +49,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       message: error.message,
       hint: error.hint,
       ...(error.details ? { details: error.details } : {}),
+      requestId: getRequestId(request),
       path: request.url,
       timestamp: new Date().toISOString(),
     });

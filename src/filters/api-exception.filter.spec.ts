@@ -14,7 +14,11 @@ function createHost(url = '/api/data-access/member'): {
   const status = vi.fn().mockReturnValue({ json });
   const host = {
     switchToHttp: () => ({
-      getRequest: () => ({ method: 'GET', url }),
+      getRequest: () => ({
+        method: 'GET',
+        url,
+        fetchlaneContext: { requestId: 'test-request-id', principal: null },
+      }),
       getResponse: () => ({ status }),
     }),
   } as ArgumentsHost;
@@ -41,6 +45,7 @@ describe('ApiExceptionFilter', () => {
         statusCode: 404,
         message: 'Record 7 was not found.',
         hint: 'Use a valid record id.',
+        requestId: 'test-request-id',
         path: '/api/data-access/member',
       }),
     );
@@ -57,6 +62,7 @@ describe('ApiExceptionFilter', () => {
         statusCode: 400,
         message: 'Validation failed',
         hint: 'Check the request shape, route parameters, and JSON payload for invalid or missing values.',
+        requestId: 'test-request-id',
       }),
     );
   });
@@ -80,6 +86,7 @@ describe('ApiExceptionFilter', () => {
         message:
           'The database rejected the write because it violates a constraint.',
         hint: 'Check unique keys, foreign keys, and required column values before retrying the request.',
+        requestId: 'test-request-id',
       }),
     );
   });

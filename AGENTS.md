@@ -61,7 +61,8 @@ src/
 │   ├─ postgres/              ← PostgresDatabase adapter
 │   ├─ mysql/                 ← MysqlDatabase adapter
 │   └─ sqlserver/             ← SqlServerDatabase adapter
-├─ authentication/            ← AuthenticationMiddleware, OidcAuthenticationService, RequestContext
+├─ authentication/            ← AuthenticationMiddleware, OidcAuthenticationService,
+│                                AuthorizationService, RequestContext
 ├─ config/                    ← RuntimeConfigService (JSON + env-var interpolation)
 ├─ errors/                    ← Structured error builders (badRequest, notFound, …)
 ├─ filters/                   ← ApiExceptionFilter (global catch-all)
@@ -228,6 +229,7 @@ All API errors follow a consistent shape:
   "message": "Invalid predicate syntax",
   "hint": "Ensure predicates match FetchRequest schema",
   "details": "optional technical details",
+  "requestId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "path": "/api/data-access/table",
   "timestamp": "2026-04-02T00:00:00.000Z"
 }
@@ -271,8 +273,14 @@ with a stack trace via `LoggerService`.
   (OIDC/JWT).
 - Authenticated principal (subject + roles) is attached to the request context
   via `setAuthenticatedPrincipal()`.
+- Every incoming request is assigned a unique UUID (`requestId`) via the
+  request context. The request logger and the authorization audit logger both
+  include this identifier for end-to-end tracing.
 - When authentication is enabled, the `authorization` section is **required** and defines
   per-channel, per-table role access control.
+- Role gates support both allow and deny lists. Deny always overrides allow.
+  Each gate can be a simple array (shorthand for allow-only) or an object with
+  explicit `allow` and `deny` arrays.
 
 ---
 

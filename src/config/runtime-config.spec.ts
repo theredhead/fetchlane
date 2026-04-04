@@ -280,11 +280,18 @@ describe('runtime-config', () => {
     const result = getRuntimeConfig();
 
     expect(result.authentication.authorization).toBeDefined();
-    expect(result.authentication.authorization!.schema).toEqual(['admin']);
-    expect(result.authentication.authorization!.createTable).toEqual(['admin']);
-    expect(result.authentication.authorization!.crud.default.read).toEqual([
-      'admin',
-    ]);
+    expect(result.authentication.authorization!.schema).toEqual({
+      allow: ['admin'],
+      deny: [],
+    });
+    expect(result.authentication.authorization!.createTable).toEqual({
+      allow: ['admin'],
+      deny: [],
+    });
+    expect(result.authentication.authorization!.crud.default.read).toEqual({
+      allow: ['admin'],
+      deny: [],
+    });
   });
 
   it('loads authorization config with table overrides', () => {
@@ -349,13 +356,13 @@ describe('runtime-config', () => {
     const result = getRuntimeConfig();
 
     expect(result.authentication.authorization!.crud.tables.audit_log).toEqual({
-      read: ['auditor'],
-      create: [],
+      read: { allow: ['auditor'], deny: [] },
+      create: { allow: [], deny: [] },
     });
     expect(
       result.authentication.authorization!.crud.tables.public_data,
     ).toEqual({
-      read: ['*'],
+      read: { allow: ['*'], deny: [] },
     });
   });
 
@@ -371,7 +378,7 @@ describe('runtime-config', () => {
     expect(result.authentication.authorization).toBeUndefined();
   });
 
-  it('fails when authorization.schema is not an array', () => {
+  it('fails when authorization.schema is not an array or role gate object', () => {
     const configFile = createConfigFile(
       JSON.stringify({
         server: {
@@ -425,7 +432,9 @@ describe('runtime-config', () => {
     expect(() => getRuntimeConfig()).toThrow(
       /config.authentication.authorization.schema/,
     );
-    expect(() => getRuntimeConfig()).toThrow(/array of non-empty strings/);
+    expect(() => getRuntimeConfig()).toThrow(
+      /string array or an object with "allow"/,
+    );
   });
 
   it('fails when authorization.crud.default is missing a required operation', () => {
@@ -480,5 +489,83 @@ describe('runtime-config', () => {
     expect(() => getRuntimeConfig()).toThrow(
       /config.authentication.authorization.crud.default.update/,
     );
+  });
+
+  it('parses explicit role gate objects with allow and deny arrays', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: {
+            enabled: true,
+            origins: ['*'],
+          },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: true,
+          mode: 'oidc-jwt',
+          issuerUrl: 'https://issuer.example.com',
+          audience: 'fetchlane-api',
+          jwksUrl: '',
+          claimMappings: {
+            subject: 'sub',
+            roles: 'realm_access.roles',
+          },
+          authorization: {
+            schema: { allow: ['admin'], deny: ['blocked'] },
+            createTable: { allow: ['admin'], deny: [] },
+            crud: {
+              default: {
+                create: ['editor'],
+                read: { allow: ['*'], deny: ['banned'] },
+                update: ['editor'],
+                delete: ['admin'],
+              },
+              tables: {
+                sensitive: {
+                  read: { allow: ['admin'], deny: ['intern'] },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.authentication.authorization!.schema).toEqual({
+      allow: ['admin'],
+      deny: ['blocked'],
+    });
+    expect(result.authentication.authorization!.createTable).toEqual({
+      allow: ['admin'],
+      deny: [],
+    });
+    expect(result.authentication.authorization!.crud.default.read).toEqual({
+      allow: ['*'],
+      deny: ['banned'],
+    });
+    expect(result.authentication.authorization!.crud.default.create).toEqual({
+      allow: ['editor'],
+      deny: [],
+    });
+    expect(result.authentication.authorization!.crud.tables.sensitive).toEqual({
+      read: { allow: ['admin'], deny: ['intern'] },
+    });
   });
 });

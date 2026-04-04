@@ -31,7 +31,7 @@
     },
     "authorization": {
       "schema": ["admin", "schema-viewer"],
-      "createTable": ["admin"],
+      "createTable": { "allow": ["admin"], "deny": ["intern"] },
       "crud": {
         "default": {
           "create": ["admin", "editor"],

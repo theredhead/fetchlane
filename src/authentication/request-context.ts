@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Request } from 'express';
 import { JWTPayload } from 'jose';
 
@@ -24,6 +25,10 @@ export interface AuthenticatedPrincipal {
  */
 export interface FetchlaneRequestContext {
   /**
+   * Unique identifier for the current request, used for tracing and audit logging.
+   */
+  requestId: string;
+  /**
    * Authenticated principal for the current request, or `null` when absent.
    */
   principal: AuthenticatedPrincipal | null;
@@ -46,11 +51,19 @@ export function getRequestContext(request: Request): FetchlaneRequestContext {
   const target = request as FetchlaneRequest;
   if (!target.fetchlaneContext) {
     target.fetchlaneContext = {
+      requestId: randomUUID(),
       principal: null,
     };
   }
 
   return target.fetchlaneContext;
+}
+
+/**
+ * Returns the unique request identifier for the current request.
+ */
+export function getRequestId(request: Request): string {
+  return getRequestContext(request).requestId;
 }
 
 /**

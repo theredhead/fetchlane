@@ -1,7 +1,7 @@
 import { RequestLoggerMiddleware } from './request-logger.middleware';
 
 describe('RequestLoggerMiddleware', () => {
-  it('logs the request line for every request', () => {
+  it('logs the request line with request id for every request', () => {
     const logger = { log: vi.fn() };
     const middleware = new RequestLoggerMiddleware(logger as any);
     const next = vi.fn();
@@ -12,13 +12,14 @@ describe('RequestLoggerMiddleware', () => {
         method: 'GET',
         url: '/api/data-access/member',
         body: {},
+        fetchlaneContext: { requestId: 'req-1', principal: null },
       } as any,
       {} as any,
       next,
     );
 
     expect(logger.log).toHaveBeenCalledWith(
-      '[127.0.0.1] GET /api/data-access/member',
+      '[req-1] [127.0.0.1] GET /api/data-access/member',
     );
     expect(next).toHaveBeenCalled();
   });
@@ -33,6 +34,7 @@ describe('RequestLoggerMiddleware', () => {
         method: 'POST',
         url: '/api/data-access/member',
         body: { name: 'Alice' },
+        fetchlaneContext: { requestId: 'req-2', principal: null },
       } as any,
       {} as any,
       vi.fn(),
@@ -40,7 +42,7 @@ describe('RequestLoggerMiddleware', () => {
 
     expect(logger.log).toHaveBeenCalledTimes(1);
     expect(logger.log).toHaveBeenCalledWith(
-      '[127.0.0.1] POST /api/data-access/member',
+      '[req-2] [127.0.0.1] POST /api/data-access/member',
     );
   });
 });

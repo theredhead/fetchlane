@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthorizationService } from './authorization.service';
-import { RuntimeConfigService } from '../config/runtime-config';
+import { RoleGate, RuntimeConfigService } from '../config/runtime-config';
 import { AuthenticationError } from './oidc-authentication.service';
+import { LoggerService } from '../service/logger.service';
 import { Request } from 'express';
 import { setAuthenticatedPrincipal } from './request-context';
 
+function gate(allow: string[], deny: string[] = []): RoleGate {
+  return { allow, deny };
+}
+
 function createMockRequest(): Request {
-  return { fetchlaneContext: { principal: null } } as unknown as Request;
+  return {
+    fetchlaneContext: {
+      requestId: 'test-request-id',
+      principal: null,
+    },
+  } as unknown as Request;
 }
 
 function createAuthenticatedRequest(roles: string[]): Request {
@@ -27,36 +37,49 @@ function buildRuntimeConfigService(
   } as unknown as RuntimeConfigService;
 }
 
+function createMockLogger(): LoggerService {
+  return { log: vi.fn() } as unknown as LoggerService;
+}
+
 const fullAuthorization = {
-  schema: ['admin', 'schema-viewer'],
-  createTable: ['admin'],
+  schema: gate(['admin', 'schema-viewer']),
+  createTable: gate(['admin']),
   crud: {
     default: {
-      create: ['admin', 'editor'],
-      read: ['admin', 'editor', 'viewer'],
-      update: ['admin', 'editor'],
-      delete: ['admin'],
+      create: gate(['admin', 'editor']),
+      read: gate(['admin', 'editor', 'viewer']),
+      update: gate(['admin', 'editor']),
+      delete: gate(['admin']),
     },
     tables: {
       audit_log: {
-        read: ['admin', 'auditor'],
-        create: [],
-        update: [],
-        delete: [],
+        read: gate(['admin', 'auditor']),
+        create: gate([]),
+        update: gate([]),
+        delete: gate([]),
       },
       public_data: {
-        read: ['*'],
+        read: gate(['*']),
       },
     },
   },
 };
 
 describe('AuthorizationService', () => {
+  let mockLogger: LoggerService;
+
+  beforeEach(() => {
+    mockLogger = createMockLogger();
+  });
+
   describe('when authorization is not configured', () => {
     let service: AuthorizationService;
 
     beforeEach(() => {
-      service = new AuthorizationService(buildRuntimeConfigService(undefined));
+      service = new AuthorizationService(
+        buildRuntimeConfigService(undefined),
+        mockLogger,
+      );
     });
 
     it('allows schema access without any checks', () => {
@@ -83,6 +106,7 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
       );
     });
 
@@ -123,6 +147,7 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
       );
     });
 
@@ -152,6 +177,7 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
       );
     });
 
@@ -211,6 +237,7 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
       );
     });
 
@@ -274,6 +301,7 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
       );
     });
 
@@ -306,18 +334,19 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService({
-          schema: [],
-          createTable: [],
+          schema: gate([]),
+          createTable: gate([]),
           crud: {
             default: {
-              create: [],
-              read: [],
-              update: [],
-              delete: [],
+              create: gate([]),
+              read: gate([]),
+              update: gate([]),
+              delete: gate([]),
             },
             tables: {},
           },
         }),
+        mockLogger,
       );
     });
 
@@ -354,6 +383,7 @@ describe('AuthorizationService', () => {
     beforeEach(() => {
       service = new AuthorizationService(
         buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
       );
     });
 
@@ -390,6 +420,184 @@ describe('AuthorizationService', () => {
         expect(error).toBeInstanceOf(AuthenticationError);
         expect((error as AuthenticationError).hint).toContain('admin');
       }
+    });
+  });
+
+  describe('deny overrides allow', () => {
+    const denyAuthorization = {
+      schema: gate(['admin', 'viewer'], ['blocked']),
+      createTable: gate(['admin'], ['intern']),
+      crud: {
+        default: {
+          create: gate(['admin', 'editor'], ['readonly']),
+          read: gate(['*'], ['banned']),
+          update: gate(['admin', 'editor']),
+          delete: gate(['admin']),
+        },
+        tables: {
+          sensitive: {
+            read: gate(['admin'], ['intern']),
+          },
+        },
+      },
+    };
+
+    let service: AuthorizationService;
+
+    beforeEach(() => {
+      service = new AuthorizationService(
+        buildRuntimeConfigService(denyAuthorization),
+        mockLogger,
+      );
+    });
+
+    it('denies schema access when principal holds a denied role', () => {
+      const request = createAuthenticatedRequest(['admin', 'blocked']);
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        AuthenticationError,
+      );
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        /denied role/,
+      );
+    });
+
+    it('allows schema access when principal has allowed role and no denied role', () => {
+      const request = createAuthenticatedRequest(['admin']);
+      expect(() => service.authorizeSchemaAccess(request)).not.toThrow();
+    });
+
+    it('denies create table when principal holds a denied role despite being admin', () => {
+      const request = createAuthenticatedRequest(['admin', 'intern']);
+      expect(() => service.authorizeCreateTable(request)).toThrow(
+        /denied role/,
+      );
+    });
+
+    it('denies CRUD create when principal holds a denied role', () => {
+      const request = createAuthenticatedRequest(['editor', 'readonly']);
+      expect(() => service.authorizeCrud(request, 'member', 'create')).toThrow(
+        /denied role/,
+      );
+    });
+
+    it('allows CRUD create when principal has allowed role without denied role', () => {
+      const request = createAuthenticatedRequest(['editor']);
+      expect(() =>
+        service.authorizeCrud(request, 'member', 'create'),
+      ).not.toThrow();
+    });
+
+    it('denies wildcard read when principal holds a denied role', () => {
+      const request = createAuthenticatedRequest(['banned']);
+      expect(() => service.authorizeCrud(request, 'member', 'read')).toThrow(
+        /denied role/,
+      );
+    });
+
+    it('allows wildcard read when principal does not hold a denied role', () => {
+      const request = createAuthenticatedRequest(['any-role']);
+      expect(() =>
+        service.authorizeCrud(request, 'member', 'read'),
+      ).not.toThrow();
+    });
+
+    it('denies table-specific override when principal holds a denied role', () => {
+      const request = createAuthenticatedRequest(['admin', 'intern']);
+      expect(() => service.authorizeCrud(request, 'sensitive', 'read')).toThrow(
+        /denied role/,
+      );
+    });
+
+    it('allows table-specific override when principal has no denied role', () => {
+      const request = createAuthenticatedRequest(['admin']);
+      expect(() =>
+        service.authorizeCrud(request, 'sensitive', 'read'),
+      ).not.toThrow();
+    });
+
+    it('falls back to default when table override has no deny for the operation', () => {
+      const request = createAuthenticatedRequest(['admin']);
+      expect(() =>
+        service.authorizeCrud(request, 'sensitive', 'delete'),
+      ).not.toThrow();
+    });
+  });
+
+  describe('audit logging', () => {
+    let service: AuthorizationService;
+
+    beforeEach(() => {
+      service = new AuthorizationService(
+        buildRuntimeConfigService(fullAuthorization),
+        mockLogger,
+      );
+    });
+
+    it('logs allowed decisions with request id and subject', () => {
+      const request = createAuthenticatedRequest(['admin']);
+      service.authorizeSchemaAccess(request);
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('[test-request-id]'),
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('allowed'),
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('"test-user"'),
+      );
+    });
+
+    it('logs denied decisions before throwing', () => {
+      const request = createAuthenticatedRequest(['nobody']);
+
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        AuthenticationError,
+      );
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('[test-request-id]'),
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('denied'),
+      );
+    });
+
+    it('logs wildcard allow without principal lookup', () => {
+      const request = createMockRequest();
+      service.authorizeCrud(request, 'public_data', 'read');
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('Wildcard allow'),
+      );
+    });
+
+    it('logs deny-overrides-allow decisions', () => {
+      const denyService = new AuthorizationService(
+        buildRuntimeConfigService({
+          schema: gate(['admin'], ['blocked']),
+          createTable: gate(['admin']),
+          crud: {
+            default: {
+              create: gate(['admin']),
+              read: gate(['admin']),
+              update: gate(['admin']),
+              delete: gate(['admin']),
+            },
+            tables: {},
+          },
+        }),
+        mockLogger,
+      );
+
+      const request = createAuthenticatedRequest(['admin', 'blocked']);
+      expect(() => denyService.authorizeSchemaAccess(request)).toThrow(
+        AuthenticationError,
+      );
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('denied role'),
+      );
     });
   });
 });

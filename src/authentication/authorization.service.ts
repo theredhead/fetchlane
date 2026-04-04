@@ -2,11 +2,18 @@ import { Injectable } from '@nestjs/common';
 import { Request } from 'express';
 import {
   CrudOperation,
+  RoleGate,
   RuntimeAuthorizationConfig,
   RuntimeConfigService,
 } from '../config/runtime-config';
+import { LoggerService } from '../service/logger.service';
 import { AuthenticationError } from './oidc-authentication.service';
-import { getAuthenticatedPrincipal } from './request-context';
+import { getAuthenticatedPrincipal, getRequestId } from './request-context';
+
+/**
+ * Outcome of a single authorization decision.
+ */
+type AuthorizationVerdict = 'allowed' | 'denied';
 
 /**
  * Fine-grained authorization service that enforces per-channel role
@@ -16,9 +23,11 @@ import { getAuthenticatedPrincipal } from './request-context';
  * authenticated user has unrestricted access (backward-compatible).
  *
  * Role semantics:
- *  - `["*"]` — any authenticated principal is allowed (wildcard).
- *  - `[]`    — nobody is allowed (channel is completely locked).
- *  - `["role1", "role2"]` — principal must hold at least one listed role.
+ *  - `allow: ["*"]` — any authenticated principal is allowed (wildcard).
+ *  - `allow: []`    — nobody is allowed (channel is completely locked).
+ *  - `allow: ["role1", "role2"]` — principal must hold at least one listed role.
+ *  - `deny: ["role3"]` — any principal holding a denied role is rejected,
+ *    regardless of allow matches. Deny always overrides allow.
  */
 @Injectable()
 export class AuthorizationService {
@@ -27,7 +36,10 @@ export class AuthorizationService {
   /**
    * Creates the authorization service from runtime config.
    */
-  public constructor(private readonly runtimeConfig: RuntimeConfigService) {
+  public constructor(
+    private readonly runtimeConfig: RuntimeConfigService,
+    private readonly logger: LoggerService,
+  ) {
     this.authorization = this.runtimeConfig.getAuthorization();
   }
 
@@ -40,7 +52,7 @@ export class AuthorizationService {
       return;
     }
 
-    this.requireRole(request, this.authorization.schema, 'schema');
+    this.evaluateGate(request, this.authorization.schema, 'schema');
   }
 
   /**
@@ -51,7 +63,7 @@ export class AuthorizationService {
       return;
     }
 
-    this.requireRole(request, this.authorization.createTable, 'createTable');
+    this.evaluateGate(request, this.authorization.createTable, 'createTable');
   }
 
   /**
@@ -71,49 +83,121 @@ export class AuthorizationService {
     }
 
     const tableOverride = this.authorization.crud.tables[table];
-    const allowedRoles =
+    const gate =
       tableOverride?.[operation] ?? this.authorization.crud.default[operation];
 
-    this.requireRole(request, allowedRoles, `crud:${operation} on "${table}"`);
+    this.evaluateGate(request, gate, `crud:${operation} on "${table}"`);
   }
 
   /**
-   * Checks whether the principal on the request holds at least one of the
-   * required roles. Throws a 403 `AuthError` when the check fails.
+   * Evaluates a role gate against the current request principal.
+   *
+   * Deny always takes priority: if the principal holds any denied role, access
+   * is rejected even if the principal also matches an allowed role.
+   *
+   * Every decision is logged with the request identifier, channel, verdict,
+   * principal subject, and the specific reason for the outcome.
    */
-  private requireRole(
+  private evaluateGate(
     request: Request,
-    allowedRoles: string[],
+    gate: RoleGate,
     channel: string,
   ): void {
-    if (allowedRoles.includes('*')) {
+    const requestId = getRequestId(request);
+    const principal = getAuthenticatedPrincipal(request);
+    const subject = principal?.subject ?? 'anonymous';
+
+    const deny = (
+      verdict: AuthorizationVerdict,
+      reason: string,
+      hint: string,
+    ): never => {
+      this.logDecision(requestId, subject, channel, verdict, reason);
+      throw new AuthenticationError(403, reason, hint);
+    };
+
+    if (gate.allow.includes('*') && gate.deny.length === 0) {
+      this.logDecision(
+        requestId,
+        subject,
+        channel,
+        'allowed',
+        'Wildcard allow with no deny rules.',
+      );
       return;
     }
 
-    const principal = getAuthenticatedPrincipal(request);
-
     if (!principal) {
-      throw new AuthenticationError(
-        403,
+      deny(
+        'denied',
         `Authorization denied for ${channel}: no authenticated principal on request.`,
         'Ensure authentication is enabled and the request carries a valid bearer token.',
       );
     }
 
-    if (allowedRoles.length === 0) {
-      throw new AuthenticationError(
-        403,
+    if (gate.deny.length > 0) {
+      const matchedDenyRole = principal.roles.find((role) =>
+        gate.deny.includes(role),
+      );
+
+      if (matchedDenyRole) {
+        deny(
+          'denied',
+          `Authorization denied for ${channel}: principal holds denied role "${matchedDenyRole}".`,
+          `Remove the denied role from the caller or update config.authentication.authorization to adjust the deny list.`,
+        );
+      }
+    }
+
+    if (gate.allow.length === 0) {
+      deny(
+        'denied',
         `Authorization denied for ${channel}: this channel is locked.`,
         'No roles are configured for this channel. Update config.authentication.authorization to allow access.',
       );
     }
 
-    if (!principal.roles.some((role) => allowedRoles.includes(role))) {
-      throw new AuthenticationError(
-        403,
+    if (gate.allow.includes('*')) {
+      this.logDecision(
+        requestId,
+        subject,
+        channel,
+        'allowed',
+        'Wildcard allow and principal is not denied.',
+      );
+      return;
+    }
+
+    if (!principal.roles.some((role) => gate.allow.includes(role))) {
+      deny(
+        'denied',
         `Authorization denied for ${channel}: principal lacks a required role.`,
-        `Grant one of the following roles to the caller: ${allowedRoles.join(', ')}.`,
+        `Grant one of the following roles to the caller: ${gate.allow.join(', ')}.`,
       );
     }
+
+    const matchedRoles = principal.roles.filter((role) =>
+      gate.allow.includes(role),
+    );
+
+    this.logDecision(
+      requestId,
+      subject,
+      channel,
+      'allowed',
+      `Principal holds allowed role(s): ${matchedRoles.join(', ')}.`,
+    );
+  }
+
+  private logDecision(
+    requestId: string,
+    subject: string,
+    channel: string,
+    verdict: AuthorizationVerdict,
+    reason: string,
+  ): void {
+    this.logger.log(
+      `[${requestId}] authorization ${verdict} for "${subject}" on ${channel}: ${reason}`,
+    );
   }
 }

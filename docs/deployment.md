@@ -20,6 +20,18 @@ That file is JSON and may reference secrets through full-string environment plac
 }
 ```
 
+Placeholders are optional. You can also write literal values directly in the JSON:
+
+```json
+{
+  "database": {
+    "url": "postgres://postgres:password@127.0.0.1:5432/northwind"
+  }
+}
+```
+
+This is convenient for local development, but hardcoding secrets in the config file is discouraged for any shared, committed, or network-reachable environment.
+
 The tracked baseline config lives at `config/fetchlane.example.json`.
 
 Recommended secret handling for `v1.0`:
@@ -27,6 +39,7 @@ Recommended secret handling for `v1.0`:
 - keep non-secret operational settings in the mounted JSON file
 - inject secrets such as `FETCHLANE_DATABASE_URL` through environment variables or secret stores
 - reference those secrets from JSON with full-string placeholders like `${FETCHLANE_DATABASE_URL}`
+- never commit config files that contain real credentials
 
 ## Route Exposure
 
@@ -103,9 +116,16 @@ authentication is enabled.
 
 ### Role values
 
-- `["role1", "role2"]` — principal needs at least one listed role
+Each role configuration can be a **simple array** (shorthand for allow-only) or
+an **object** with explicit `allow` and `deny` lists:
+
+- `["role1", "role2"]` — principal needs at least one listed role (no deny rules)
+- `{ "allow": ["role1"], "deny": ["role2"] }` — principal must hold an allowed role and must not hold any denied role
 - `["*"]` — any authenticated principal passes
 - `[]` — channel is locked (nobody allowed)
+
+**Deny always overrides allow.** If a principal holds any denied role, access is
+rejected regardless of which allowed roles the principal also holds.
 
 ### CRUD structure
 
@@ -113,7 +133,7 @@ authentication is enabled.
 {
   "authorization": {
     "schema": ["admin", "schema-viewer"],
-    "createTable": ["admin"],
+    "createTable": { "allow": ["admin"], "deny": ["intern"] },
     "crud": {
       "default": {
         "create": ["admin", "editor"],
@@ -127,6 +147,9 @@ authentication is enabled.
           "create": [],
           "update": [],
           "delete": []
+        },
+        "sensitive": {
+          "read": { "allow": ["admin"], "deny": ["contractor"] }
         }
       }
     }

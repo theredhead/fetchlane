@@ -1,5 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
+import { getRequestId } from '../authentication/request-context';
 import { LoggerService } from '../service/logger.service';
 
 @Injectable()
@@ -13,10 +14,11 @@ export class RequestLoggerMiddleware implements NestMiddleware {
   public constructor(private readonly logger: LoggerService) {}
 
   /**
-   * Logs the incoming request line.
+   * Logs the incoming request line with its unique request identifier.
    */
   public use(req: Request, res: Response, next: NextFunction): void {
-    this.logger.log(`[${req.ip}] ${req.method} ${req.url}`);
+    const requestId = getRequestId(req);
+    this.logger.log(`[${requestId}] [${req.ip}] ${req.method} ${req.url}`);
     next();
   }
 }
