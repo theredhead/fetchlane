@@ -343,6 +343,183 @@ describe('DataAccessController', () => {
         controller.getRecord(createMockRequest(), 'member', ''),
       ).rejects.toBeInstanceOf(BadRequestException);
     });
+
+    it('resolves a non-id primary key name', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'employee_number', dataType: 'integer', isGenerated: true },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({
+        employee_number: 1001,
+        name: 'Alice',
+      });
+
+      await controller.getRecord(createMockRequest(), 'employee', '1001');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('employee', {
+        employee_number: 1001,
+      });
+    });
+
+    it('resolves a string primary key without coercion', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'slug', dataType: 'varchar', isGenerated: false },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({
+        slug: 'hello-world',
+        title: 'Hello',
+      });
+
+      await controller.getRecord(createMockRequest(), 'article', 'hello-world');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('article', {
+        slug: 'hello-world',
+      });
+    });
+
+    it('resolves a UUID primary key without coercion', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'id', dataType: 'uuid', isGenerated: false },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+      });
+
+      await controller.getRecord(
+        createMockRequest(),
+        'account',
+        '550e8400-e29b-41d4-a716-446655440000',
+      );
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('account', {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+      });
+    });
+
+    it('coerces serial type to integer', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'id', dataType: 'serial', isGenerated: true },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({ id: 5 });
+
+      await controller.getRecord(createMockRequest(), 'member', '5');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('member', {
+        id: 5,
+      });
+    });
+
+    it('coerces bigserial type to integer', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'id', dataType: 'bigserial', isGenerated: true },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({ id: 999 });
+
+      await controller.getRecord(createMockRequest(), 'member', '999');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('member', {
+        id: 999,
+      });
+    });
+
+    it('coerces smallint type to integer', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'rank', dataType: 'smallint', isGenerated: false },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({ rank: 3 });
+
+      await controller.getRecord(createMockRequest(), 'leaderboard', '3');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('leaderboard', {
+        rank: 3,
+      });
+    });
+
+    it('coerces tinyint type to integer', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'level', dataType: 'tinyint', isGenerated: false },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({ level: 1 });
+
+      await controller.getRecord(createMockRequest(), 'permission', '1');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('permission', {
+        level: 1,
+      });
+    });
+
+    it('resolves composite key with mixed types', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'tenantId', dataType: 'uuid', isGenerated: false },
+        { column: 'seqNum', dataType: 'integer', isGenerated: false },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({
+        tenantId: 'abc-def',
+        seqNum: 42,
+      });
+
+      await controller.getRecord(createMockRequest(), 'event', 'abc-def,42');
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('event', {
+        tenantId: 'abc-def',
+        seqNum: 42,
+      });
+    });
+
+    it('decodes percent-encoded composite key segments', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'category', dataType: 'varchar', isGenerated: false },
+        { column: 'name', dataType: 'varchar', isGenerated: false },
+      ]);
+      db.selectSingleByPrimaryKey.mockResolvedValueOnce({
+        category: 'food & drink',
+        name: 'coffee,tea',
+      });
+
+      await controller.getRecord(
+        createMockRequest(),
+        'product',
+        'food%20%26%20drink,coffee%2Ctea',
+      );
+
+      expect(db.selectSingleByPrimaryKey).toHaveBeenCalledWith('product', {
+        category: 'food & drink',
+        name: 'coffee,tea',
+      });
+    });
+
+    it('deletes by non-id primary key name', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'slug', dataType: 'varchar', isGenerated: false },
+      ]);
+      db.delete.mockResolvedValueOnce({ slug: 'old-post', title: 'Gone' });
+
+      await controller.deleteRecord(createMockRequest(), 'article', 'old-post');
+
+      expect(db.delete).toHaveBeenCalledWith('article', { slug: 'old-post' });
+    });
+
+    it('updates by UUID primary key', async () => {
+      db.getPrimaryKeyColumns.mockResolvedValueOnce([
+        { column: 'id', dataType: 'uuid', isGenerated: false },
+      ]);
+      db.update.mockResolvedValueOnce({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        name: 'Updated',
+      });
+
+      await controller.updateRecord(
+        createMockRequest(),
+        'account',
+        '550e8400-e29b-41d4-a716-446655440000',
+        { name: 'Updated' },
+      );
+
+      expect(db.update).toHaveBeenCalledWith(
+        'account',
+        { id: '550e8400-e29b-41d4-a716-446655440000' },
+        { name: 'Updated' },
+      );
+    });
   });
 
   describe('getColumnFromRecord', () => {

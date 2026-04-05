@@ -500,6 +500,315 @@ describe('DataAccessService', () => {
     });
   });
 
+  describe('primary key scenarios', () => {
+    it('handles a non-id primary key name', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'employee_number', dataType: 'integer', isGenerated: true },
+      ]);
+      vi.mocked(adapter.insert).mockResolvedValueOnce({
+        employee_number: 1001,
+        name: 'Alice',
+      });
+
+      await expect(
+        service.insert('employee', { name: 'Alice' }),
+      ).resolves.toEqual({ employee_number: 1001, name: 'Alice' });
+
+      expect(adapter.insert).toHaveBeenCalledWith('employee', {
+        name: 'Alice',
+      });
+    });
+
+    it('selects by a non-id primary key name', async () => {
+      vi.mocked(adapter.selectSingle).mockResolvedValueOnce({
+        employee_number: 1001,
+        name: 'Alice',
+      });
+
+      await service.selectSingleByPrimaryKey('employee', {
+        employee_number: 1001,
+      });
+
+      expect(adapter.selectSingle).toHaveBeenCalledWith(
+        'employee',
+        'WHERE "employee_number"=$1',
+        [1001],
+      );
+    });
+
+    it('inserts with a string primary key', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'slug', dataType: 'varchar', isGenerated: false },
+      ]);
+      vi.mocked(adapter.insert).mockResolvedValueOnce({
+        slug: 'hello-world',
+        title: 'Hello World',
+      });
+
+      await expect(
+        service.insert('article', {
+          slug: 'hello-world',
+          title: 'Hello World',
+        }),
+      ).resolves.toEqual({ slug: 'hello-world', title: 'Hello World' });
+
+      expect(adapter.insert).toHaveBeenCalledWith('article', {
+        slug: 'hello-world',
+        title: 'Hello World',
+      });
+    });
+
+    it('inserts with a UUID primary key', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'uuid', isGenerated: false },
+      ]);
+      vi.mocked(adapter.insert).mockResolvedValueOnce({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        email: 'alice@example.com',
+      });
+
+      await expect(
+        service.insert('account', {
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          email: 'alice@example.com',
+        }),
+      ).resolves.toEqual({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        email: 'alice@example.com',
+      });
+    });
+
+    it('updates by composite primary key', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'tenantId', dataType: 'uuid', isGenerated: false },
+        { column: 'userId', dataType: 'uuid', isGenerated: false },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        tenantId: 'a',
+        userId: 'b',
+        role: 'editor',
+      });
+
+      await expect(
+        service.update(
+          'tenantUser',
+          { tenantId: 'a', userId: 'b' },
+          { role: 'editor' },
+        ),
+      ).resolves.toEqual({ tenantId: 'a', userId: 'b', role: 'editor' });
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'tenantUser',
+        { tenantId: 'a', userId: 'b' },
+        { role: 'editor' },
+      );
+    });
+
+    it('deletes by composite primary key', async () => {
+      vi.mocked(adapter.delete).mockResolvedValueOnce({
+        tenantId: 'a',
+        userId: 'b',
+        role: 'admin',
+      });
+
+      await expect(
+        service.delete('tenantUser', { tenantId: 'a', userId: 'b' }),
+      ).resolves.toEqual({ tenantId: 'a', userId: 'b', role: 'admin' });
+
+      expect(adapter.delete).toHaveBeenCalledWith('tenantUser', {
+        tenantId: 'a',
+        userId: 'b',
+      });
+    });
+
+    it('handles tables with no primary key for all operations', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValue([]);
+
+      vi.mocked(adapter.insert).mockResolvedValueOnce({ message: 'logged' });
+      await expect(
+        service.insert('auditLog', { message: 'logged' }),
+      ).resolves.toEqual({ message: 'logged' });
+
+      vi.mocked(adapter.update).mockResolvedValueOnce({ message: 'updated' });
+      await expect(
+        service.update('auditLog', { rowId: 1 }, { message: 'updated' }),
+      ).resolves.toEqual({ message: 'updated' });
+    });
+
+    it('uses config override when adapter PK discovery fails', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockRejectedValueOnce(
+        new Error('metadata query failed'),
+      );
+      vi.mocked(runtimeConfig.getPrimaryKeyOverride).mockReturnValueOnce([
+        { column: 'legacyId', dataType: 'varchar', isGenerated: false },
+      ]);
+      vi.mocked(adapter.insert).mockResolvedValueOnce({
+        legacyId: 'X-100',
+        label: 'legacy',
+      });
+
+      await expect(
+        service.insert('legacyTable', { legacyId: 'X-100', label: 'legacy' }),
+      ).resolves.toEqual({ legacyId: 'X-100', label: 'legacy' });
+
+      expect(adapter.getPrimaryKeyColumns).not.toHaveBeenCalled();
+    });
+
+    it('uses config override so adapter is never queried', async () => {
+      vi.mocked(runtimeConfig.getPrimaryKeyOverride).mockReturnValueOnce([
+        { column: 'code', dataType: 'varchar', isGenerated: false },
+      ]);
+
+      vi.mocked(adapter.insert).mockResolvedValueOnce({
+        code: 'ABC',
+        name: 'test',
+      });
+
+      await service.insert('product', { code: 'ABC', name: 'test' });
+
+      expect(adapter.getPrimaryKeyColumns).not.toHaveBeenCalled();
+      expect(adapter.insert).toHaveBeenCalledWith('product', {
+        code: 'ABC',
+        name: 'test',
+      });
+    });
+  });
+
+  describe('identity/auto-generated column handling', () => {
+    it('rejects insert when caller sends generated identity value', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+      ]);
+
+      await expect(
+        service.insert('member', { id: 99, name: 'test' }),
+      ).rejects.toThrow(/auto-generated primary key/);
+      expect(adapter.insert).not.toHaveBeenCalled();
+    });
+
+    it('rejects insert when caller sends generated serial value', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'employee_number', dataType: 'serial', isGenerated: true },
+      ]);
+
+      await expect(
+        service.insert('employee', { employee_number: 42, name: 'Bob' }),
+      ).rejects.toThrow(/auto-generated primary key/);
+      expect(adapter.insert).not.toHaveBeenCalled();
+    });
+
+    it('rejects insert when caller sends generated bigserial value', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'bigserial', isGenerated: true },
+      ]);
+
+      await expect(
+        service.insert('bigTable', { id: 1, data: 'test' }),
+      ).rejects.toThrow(/auto-generated primary key/);
+    });
+
+    it('rejects insert listing multiple generated columns by name', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+        { column: 'revision', dataType: 'integer', isGenerated: true },
+      ]);
+
+      await expect(
+        service.insert('versionedEntity', {
+          id: 1,
+          revision: 1,
+          content: 'test',
+        }),
+      ).rejects.toThrow(/id, revision/);
+    });
+
+    it('strips generated identity column from update payload', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        id: 7,
+        name: 'updated',
+      });
+
+      await service.update('member', { id: 7 }, { id: 7, name: 'updated' });
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'member',
+        { id: 7 },
+        { name: 'updated' },
+      );
+    });
+
+    it('strips generated column even when PK is named differently', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'employee_number', dataType: 'serial', isGenerated: true },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        employee_number: 42,
+        name: 'updated',
+      });
+
+      await service.update(
+        'employee',
+        { employee_number: 42 },
+        { employee_number: 42, name: 'updated', department: 'engineering' },
+      );
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'employee',
+        { employee_number: 42 },
+        { name: 'updated', department: 'engineering' },
+      );
+    });
+
+    it('strips multiple generated columns from composite key update', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+        { column: 'revision', dataType: 'integer', isGenerated: true },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        id: 1,
+        revision: 3,
+        content: 'new',
+      });
+
+      await service.update(
+        'versionedEntity',
+        { id: 1, revision: 3 },
+        { id: 1, revision: 3, content: 'new' },
+      );
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'versionedEntity',
+        { id: 1, revision: 3 },
+        { content: 'new' },
+      );
+    });
+
+    it('does not strip non-generated primary key columns from update', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'slug', dataType: 'varchar', isGenerated: false },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        slug: 'new-slug',
+        title: 'Updated',
+      });
+
+      await service.update(
+        'article',
+        { slug: 'old-slug' },
+        { slug: 'new-slug', title: 'Updated' },
+      );
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'article',
+        { slug: 'old-slug' },
+        { slug: 'new-slug', title: 'Updated' },
+      );
+    });
+  });
+
   it('returns not found errors for missing tables and records', async () => {
     vi.mocked(adapter.tableExists).mockResolvedValueOnce(false);
 
