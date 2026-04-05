@@ -3,8 +3,7 @@
   "version": "0.0.1",
   "description": "Fetchlane is a multi-engine REST API for table access, schema discovery, and FetchRequest-based querying.",
   "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "To be determined",
   "scripts": {
     "prebuild": "rm -rf dist",
     "build": "nest build",
