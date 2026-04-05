@@ -1,7 +1,11 @@
 import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
+import { errors } from 'jose';
 import { RuntimeConfigService } from '../config/runtime-config';
-import { OidcAuthenticationService } from './oidc-authentication.service';
+import {
+  AuthenticationError,
+  OidcAuthenticationService,
+} from './oidc-authentication.service';
 
 async function createOidcServer() {
   const { generateKeyPair, exportJWK, SignJWT } = await import('jose');
@@ -246,6 +250,221 @@ describe('OidcAuthenticationService', () => {
     ).rejects.toMatchObject({
       message: 'The access token could not be verified.',
       hint: 'Use a valid JWT signed by the configured OIDC provider, and verify that the issuer and JWKS settings match.',
+    });
+  });
+
+  describe('OIDC discovery error handling', () => {
+    it('rejects when issuerUrl is empty and no jwksUrl is configured', async () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: '  ',
+          jwksUrl: '',
+        }),
+      );
+
+      await expect(
+        service.authenticateAuthorizationHeader('Bearer fake-token'),
+      ).rejects.toMatchObject({
+        statusCode: 503,
+        message: expect.stringContaining(
+          'no issuer metadata source is configured',
+        ),
+      });
+    });
+
+    it('rejects when the discovery endpoint is unreachable', async () => {
+      const fetchSpy = vi
+        .spyOn(global, 'fetch')
+        .mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: 'https://unreachable.example.com',
+          jwksUrl: '',
+        }),
+      );
+
+      try {
+        await expect(
+          service.authenticateAuthorizationHeader('Bearer fake-token'),
+        ).rejects.toMatchObject({
+          statusCode: 503,
+          message: expect.stringContaining(
+            'could not reach the configured OIDC issuer',
+          ),
+          details: 'ECONNREFUSED',
+        });
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('rejects when the discovery endpoint returns a non-OK response', async () => {
+      const fetchSpy = vi
+        .spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response('', { status: 500 }));
+
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: 'https://example.com',
+          jwksUrl: '',
+        }),
+      );
+
+      try {
+        await expect(
+          service.authenticateAuthorizationHeader('Bearer fake-token'),
+        ).rejects.toMatchObject({
+          statusCode: 503,
+          message: expect.stringContaining(
+            'could not load the OIDC discovery document',
+          ),
+          details: expect.stringContaining('HTTP 500'),
+        });
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('rejects when the discovery document does not expose jwks_uri', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ issuer: 'https://example.com' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: 'https://example.com',
+          jwksUrl: '',
+        }),
+      );
+
+      try {
+        await expect(
+          service.authenticateAuthorizationHeader('Bearer fake-token'),
+        ).rejects.toMatchObject({
+          statusCode: 503,
+          message: expect.stringContaining('does not expose a JWKS endpoint'),
+        });
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+  });
+
+  describe('claim mapping', () => {
+    it('returns empty roles when the roles claim path resolves to null', async () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: oidcServer.issuer,
+        }),
+      );
+
+      const token = await oidcServer.signToken({
+        claims: { realm_access: undefined },
+      });
+
+      const principal = await service.authenticateAuthorizationHeader(
+        `Bearer ${token}`,
+      );
+
+      expect(principal.roles).toEqual([]);
+    });
+
+    it('rejects when the configured subject claim path is missing', async () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: oidcServer.issuer,
+          claimMappings: {
+            subject: 'custom.nonexistent',
+            roles: 'realm_access.roles',
+          },
+        }),
+      );
+
+      const token = await oidcServer.signToken();
+
+      await expect(
+        service.authenticateAuthorizationHeader(`Bearer ${token}`),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: expect.stringContaining(
+          'missing the configured subject claim',
+        ),
+      });
+    });
+
+    it('rejects when the roles claim resolves to a non-array value', async () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({
+          issuerUrl: oidcServer.issuer,
+          claimMappings: {
+            subject: 'sub',
+            roles: 'sub',
+          },
+        }),
+      );
+
+      const token = await oidcServer.signToken();
+
+      await expect(
+        service.authenticateAuthorizationHeader(`Bearer ${token}`),
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: expect.stringContaining('does not expose roles'),
+      });
+    });
+  });
+
+  describe('JWT error translation', () => {
+    it('passes through AuthenticationError unchanged', () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({ issuerUrl: 'https://example.com' }),
+      );
+
+      const original = new AuthenticationError(401, 'test', 'hint');
+      const translated = (service as any).translateJwtError(original);
+
+      expect(translated).toBe(original);
+    });
+
+    it('translates JWSSignatureVerificationFailed with details', () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({ issuerUrl: 'https://example.com' }),
+      );
+
+      const joseError = new errors.JWSSignatureVerificationFailed();
+      const translated = (service as any).translateJwtError(joseError);
+
+      expect(translated.message).toBe(
+        'The access token could not be verified.',
+      );
+      expect(translated.details).toBe(joseError.message);
+    });
+
+    it('returns a generic error for non-jose exceptions', () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({ issuerUrl: 'https://example.com' }),
+      );
+
+      const error = new TypeError('something unexpected');
+      const translated = (service as any).translateJwtError(error);
+
+      expect(translated.message).toBe('The access token is invalid.');
+      expect(translated.details).toBe('something unexpected');
+    });
+
+    it('stringifies non-Error values thrown during verification', () => {
+      const service = new OidcAuthenticationService(
+        createRuntimeConfigService({ issuerUrl: 'https://example.com' }),
+      );
+
+      const translated = (service as any).translateJwtError('raw-string');
+
+      expect(translated.message).toBe('The access token is invalid.');
+      expect(translated.details).toBe('raw-string');
     });
   });
 });

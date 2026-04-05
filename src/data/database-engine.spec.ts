@@ -8,13 +8,17 @@ describe('createDatabaseAdapterRegistry', () => {
     class PostgresAdapter {
       public static readonly adapterName = 'postgres';
       public static readonly engines = ['postgres', 'postgresql'];
-      public constructor(_config: unknown) {}
+      public constructor(config: unknown) {
+        void config;
+      }
     }
 
     class MySqlAdapter {
       public static readonly adapterName = 'mysql';
       public static readonly engines = ['mysql'];
-      public constructor(_config: unknown) {}
+      public constructor(config: unknown) {
+        void config;
+      }
     }
 
     const registry = createDatabaseAdapterRegistry([
@@ -31,13 +35,17 @@ describe('createDatabaseAdapterRegistry', () => {
     class FirstAdapter {
       public static readonly adapterName = 'first';
       public static readonly engines = ['shared'];
-      public constructor(_config: unknown) {}
+      public constructor(config: unknown) {
+        void config;
+      }
     }
 
     class SecondAdapter {
       public static readonly adapterName = 'second';
       public static readonly engines = ['shared'];
-      public constructor(_config: unknown) {}
+      public constructor(config: unknown) {
+        void config;
+      }
     }
 
     const registry = createDatabaseAdapterRegistry([

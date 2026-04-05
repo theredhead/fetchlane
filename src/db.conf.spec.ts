@@ -116,4 +116,48 @@ describe('db.conf', () => {
     expect(result.user).toBe('us@er');
     expect(result.password).toBe('p@ss');
   });
+
+  it('rejects a URL whose protocol normalizes to an empty engine', async () => {
+    const { parseDatabaseUrl } = await import('./db.conf');
+    const OriginalURL = globalThis.URL;
+    globalThis.URL = class extends OriginalURL {
+      constructor(input: string | URL, base?: string | URL) {
+        super(input, base);
+        Object.defineProperty(this, 'protocol', {
+          value: '',
+          writable: true,
+        });
+      }
+    } as typeof URL;
+
+    try {
+      expect(() => parseDatabaseUrl('postgres://user:pass@host/db')).toThrow(
+        /missing database engine/,
+      );
+    } finally {
+      globalThis.URL = OriginalURL;
+    }
+  });
+
+  it('rejects a URL whose hostname is empty after parsing', async () => {
+    const { parseDatabaseUrl } = await import('./db.conf');
+    const OriginalURL = globalThis.URL;
+    globalThis.URL = class extends OriginalURL {
+      constructor(input: string | URL, base?: string | URL) {
+        super(input, base);
+        Object.defineProperty(this, 'hostname', {
+          value: '',
+          writable: true,
+        });
+      }
+    } as typeof URL;
+
+    try {
+      expect(() => parseDatabaseUrl('postgres://user:pass@host/db')).toThrow(
+        /missing host/,
+      );
+    } finally {
+      globalThis.URL = OriginalURL;
+    }
+  });
 });
