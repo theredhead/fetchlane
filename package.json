@@ -1,6 +1,6 @@
 {
   "name": "fetchlane",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Fetchlane is a multi-engine REST API for table access, schema discovery, and FetchRequest-based querying.",
   "author": "",
   "license": "To be determined",
