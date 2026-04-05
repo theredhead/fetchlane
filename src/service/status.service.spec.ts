@@ -21,7 +21,7 @@ function createAdapterMock(): DatabaseAdapter {
     getTableNames: vi.fn(),
     getTableInfo: vi.fn(),
     describeTable: vi.fn(),
-    createTableSql: vi.fn(),
+    getPrimaryKeyColumns: vi.fn(),
   } as DatabaseAdapter;
 }
 
@@ -59,7 +59,9 @@ describe('StatusService', () => {
           subject: 'sub',
           roles: 'realm_access.roles',
         },
+        authorization: undefined as any,
       },
+      enableSchemaFeatures: false,
     });
 
   it('returns an ok status when the database health check succeeds', async () => {
@@ -100,7 +102,6 @@ describe('StatusService', () => {
       tableListing: true,
       tableInfo: true,
       schemaDescription: true,
-      createTableSql: true,
     });
     expect(adapter.execute).toHaveBeenCalledWith(
       'SELECT 1 AS fetchlane_status_check',
@@ -110,10 +111,10 @@ describe('StatusService', () => {
 
   it('returns a degraded status when the database health check fails', async () => {
     const adapter = createAdapterMock();
+    Object.defineProperty(adapter, 'name', { value: 'mysql', writable: false });
     const runtimeConfig = createRuntimeConfigService(
       'mysql://root:password@127.0.0.1:3306/northwind',
     );
-    adapter.name = 'mysql';
     vi.mocked(adapter.execute).mockRejectedValueOnce(
       new Error('connect ECONNREFUSED'),
     );

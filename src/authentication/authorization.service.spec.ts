@@ -1,4 +1,3 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthorizationService } from './authorization.service';
 import { RoleGate, RuntimeConfigService } from '../config/runtime-config';
 import { AuthenticationError } from './oidc-authentication.service';
@@ -43,7 +42,6 @@ function createMockLogger(): LoggerService {
 
 const fullAuthorization = {
   schema: gate(['admin', 'schema-viewer']),
-  createTable: gate(['admin']),
   crud: {
     default: {
       create: gate(['admin', 'editor']),
@@ -85,11 +83,6 @@ describe('AuthorizationService', () => {
     it('allows schema access without any checks', () => {
       const request = createMockRequest();
       expect(() => service.authorizeSchemaAccess(request)).not.toThrow();
-    });
-
-    it('allows create table without any checks', () => {
-      const request = createMockRequest();
-      expect(() => service.authorizeCreateTable(request)).not.toThrow();
     });
 
     it('allows CRUD operations without any checks', () => {
@@ -137,36 +130,6 @@ describe('AuthorizationService', () => {
       );
       expect(() => service.authorizeSchemaAccess(request)).toThrow(
         /no authenticated principal/,
-      );
-    });
-  });
-
-  describe('create table access', () => {
-    let service: AuthorizationService;
-
-    beforeEach(() => {
-      service = new AuthorizationService(
-        buildRuntimeConfigService(fullAuthorization),
-        mockLogger,
-      );
-    });
-
-    it('allows when principal has the admin role', () => {
-      const request = createAuthenticatedRequest(['admin']);
-      expect(() => service.authorizeCreateTable(request)).not.toThrow();
-    });
-
-    it('denies when principal lacks the required role', () => {
-      const request = createAuthenticatedRequest(['editor']);
-      expect(() => service.authorizeCreateTable(request)).toThrow(
-        AuthenticationError,
-      );
-    });
-
-    it('denies when there is no authenticated principal', () => {
-      const request = createMockRequest();
-      expect(() => service.authorizeCreateTable(request)).toThrow(
-        AuthenticationError,
       );
     });
   });
@@ -335,7 +298,6 @@ describe('AuthorizationService', () => {
       service = new AuthorizationService(
         buildRuntimeConfigService({
           schema: gate([]),
-          createTable: gate([]),
           crud: {
             default: {
               create: gate([]),
@@ -353,11 +315,6 @@ describe('AuthorizationService', () => {
     it('denies schema access even for admin', () => {
       const request = createAuthenticatedRequest(['admin']);
       expect(() => service.authorizeSchemaAccess(request)).toThrow(/locked/);
-    });
-
-    it('denies create table even for admin', () => {
-      const request = createAuthenticatedRequest(['admin']);
-      expect(() => service.authorizeCreateTable(request)).toThrow(/locked/);
     });
 
     it('denies all CRUD operations', () => {
@@ -410,23 +367,11 @@ describe('AuthorizationService', () => {
         expect((error as AuthenticationError).message).toContain('"member"');
       }
     });
-
-    it('includes allowed roles in the hint', () => {
-      const request = createAuthenticatedRequest(['viewer']);
-      try {
-        service.authorizeCreateTable(request);
-        expect.fail('Expected AuthenticationError');
-      } catch (error) {
-        expect(error).toBeInstanceOf(AuthenticationError);
-        expect((error as AuthenticationError).hint).toContain('admin');
-      }
-    });
   });
 
   describe('deny overrides allow', () => {
     const denyAuthorization = {
       schema: gate(['admin', 'viewer'], ['blocked']),
-      createTable: gate(['admin'], ['intern']),
       crud: {
         default: {
           create: gate(['admin', 'editor'], ['readonly']),
@@ -464,13 +409,6 @@ describe('AuthorizationService', () => {
     it('allows schema access when principal has allowed role and no denied role', () => {
       const request = createAuthenticatedRequest(['admin']);
       expect(() => service.authorizeSchemaAccess(request)).not.toThrow();
-    });
-
-    it('denies create table when principal holds a denied role despite being admin', () => {
-      const request = createAuthenticatedRequest(['admin', 'intern']);
-      expect(() => service.authorizeCreateTable(request)).toThrow(
-        /denied role/,
-      );
     });
 
     it('denies CRUD create when principal holds a denied role', () => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,7 +30,9 @@ vi.mock('@nestjs/core', () => ({
 }));
 
 vi.mock('@nestjs/swagger', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@nestjs/swagger')>();
+  const actual = (await (
+    importOriginal as Function
+  )()) as typeof import('@nestjs/swagger');
 
   return {
     ...actual,

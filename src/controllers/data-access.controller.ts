@@ -1,6 +1,5 @@
 import { FetchRequest } from './../data/fetch-predicate.types';
 import {
-  ColumnDescription,
   DataAccessService,
   TableSchemaDescription,
 } from './../service/data-access.service';
@@ -12,7 +11,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Put,
@@ -31,8 +29,13 @@ import {
 import { Request } from 'express';
 import { AuthorizationService } from 'src/authentication/authorization.service';
 import { RuntimeConfigService } from 'src/config/runtime-config';
-import { Record, RecordSet } from 'src/data/database';
-import { badRequest, notFound } from 'src/errors/api-error';
+import {
+  Record,
+  RecordSet,
+  PrimaryKeyValue,
+  PrimaryKeyColumn,
+} from 'src/data/database';
+import { badRequest, notFound, serviceUnavailable } from 'src/errors/api-error';
 import { TableSchemaDescriptionDto } from 'src/swagger/models';
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
@@ -241,8 +244,8 @@ export class DataAccessController {
   public async index(
     @Req() req: Request,
     @Param('table') table: string,
-    @Query('pageIndex') pageIndex = 0,
-    @Query('pageSize') pageSize = DEFAULT_QUERY_PAGE_SIZE,
+    @Query('pageIndex') pageIndex: number | string = 0,
+    @Query('pageSize') pageSize: number | string = DEFAULT_QUERY_PAGE_SIZE,
   ): Promise<Record[]> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'read');
@@ -288,32 +291,46 @@ export class DataAccessController {
     );
   }
 
-  @ApiOperation({ summary: 'Get a single record by id' })
+  @ApiOperation({ summary: 'Get a single record by primary key' })
   @ApiParam({ name: 'table', example: 'member' })
-  @ApiParam({ name: 'id', example: 1 })
+  @ApiParam({
+    name: 'primaryKey',
+    example: '42',
+    description:
+      'Primary key value. For composite keys, use comma-separated values matching the column order (e.g. "42,2023-01-15").',
+  })
   @ApiOkResponse({
     schema: {
       type: 'object',
       additionalProperties: true,
     },
   })
-  @Get(':table/record/:id')
+  @Get(':table/record/:primaryKey')
   /**
-   * Returns a single record by numeric `id`.
+   * Returns a single record by primary key.
    */
-  public async getRecordbyId(
+  public async getRecord(
     @Req() req: Request,
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('primaryKey') primaryKeyPath: string,
   ): Promise<Record> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'read');
-    return await this.db.selectSingleById(validatedTable, id);
+    const primaryKey = await this.resolvePrimaryKey(
+      validatedTable,
+      primaryKeyPath,
+    );
+    return await this.db.selectSingleByPrimaryKey(validatedTable, primaryKey);
   }
 
-  @ApiOperation({ summary: 'Get a single column value from a record by id' })
+  @ApiOperation({ summary: 'Get a single column value from a record' })
   @ApiParam({ name: 'table', example: 'member' })
-  @ApiParam({ name: 'id', example: 1 })
+  @ApiParam({
+    name: 'primaryKey',
+    example: '42',
+    description:
+      'Primary key value. For composite keys, use comma-separated values.',
+  })
   @ApiParam({ name: 'column', example: 'email' })
   @ApiOkResponse({
     schema: {
@@ -322,28 +339,37 @@ export class DataAccessController {
       nullable: true,
     },
   })
-  @Get(':table/record/:id/column/:column')
+  @Get(':table/record/:primaryKey/column/:column')
   /**
-   * Returns a single column value from a record identified by numeric `id`.
+   * Returns a single column value from a record identified by primary key.
    */
-  public async getColumnFromRecordbyId(
+  public async getColumnFromRecord(
     @Req() req: Request,
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('primaryKey') primaryKeyPath: string,
     @Param('column') column: string,
   ): Promise<string | null> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'read');
-    return await this.db.getColumnFromRecordbyId(
+    const primaryKey = await this.resolvePrimaryKey(
       validatedTable,
-      id,
+      primaryKeyPath,
+    );
+    return await this.db.getColumnFromRecord(
+      validatedTable,
+      primaryKey,
       this.validateIdentifier(column, 'column'),
     );
   }
 
-  @ApiOperation({ summary: 'Update a single column value for a record by id' })
+  @ApiOperation({ summary: 'Update a single column value for a record' })
   @ApiParam({ name: 'table', example: 'member' })
-  @ApiParam({ name: 'id', example: 1 })
+  @ApiParam({
+    name: 'primaryKey',
+    example: '42',
+    description:
+      'Primary key value. For composite keys, use comma-separated values.',
+  })
   @ApiParam({ name: 'column', example: 'email' })
   @ApiBody({
     schema: {
@@ -357,30 +383,39 @@ export class DataAccessController {
       additionalProperties: true,
     },
   })
-  @Patch(':table/record/:id/column/:column')
+  @Patch(':table/record/:primaryKey/column/:column')
   /**
-   * Updates a single column on a record identified by numeric `id`.
+   * Updates a single column on a record identified by primary key.
    */
-  public async updateColumnForRecordById(
+  public async updateColumnForRecord(
     @Req() req: Request,
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('primaryKey') primaryKeyPath: string,
     @Param('column') column: string,
     @Body() value: unknown,
   ): Promise<Record> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'update');
-    return await this.db.updateColumnForRecordById(
+    const primaryKey = await this.resolvePrimaryKey(
       validatedTable,
-      id,
+      primaryKeyPath,
+    );
+    return await this.db.updateColumnForRecord(
+      validatedTable,
+      primaryKey,
       this.validateIdentifier(column, 'column'),
       value,
     );
   }
 
-  @ApiOperation({ summary: 'Replace a record by id' })
+  @ApiOperation({ summary: 'Replace a record by primary key' })
   @ApiParam({ name: 'table', example: 'member' })
-  @ApiParam({ name: 'id', example: 1 })
+  @ApiParam({
+    name: 'primaryKey',
+    example: '42',
+    description:
+      'Primary key value. For composite keys, use comma-separated values.',
+  })
   @ApiBody({
     schema: {
       type: 'object',
@@ -397,107 +432,133 @@ export class DataAccessController {
       additionalProperties: true,
     },
   })
-  @Put(':table/record/:id')
+  @Put(':table/record/:primaryKey')
   /**
-   * Replaces a record by numeric `id`.
+   * Replaces a record by primary key.
    */
   public async updateRecord(
     @Req() req: Request,
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('primaryKey') primaryKeyPath: string,
     @Body() record: Record,
   ): Promise<Record> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'update');
+    const primaryKey = await this.resolvePrimaryKey(
+      validatedTable,
+      primaryKeyPath,
+    );
     return await this.db.update(
       validatedTable,
-      id,
+      primaryKey,
       this.validateRecordBody(record, 'update'),
     );
   }
 
-  @ApiOperation({ summary: 'Delete a record by id' })
+  @ApiOperation({ summary: 'Delete a record by primary key' })
   @ApiParam({ name: 'table', example: 'member' })
-  @ApiParam({ name: 'id', example: 1 })
+  @ApiParam({
+    name: 'primaryKey',
+    example: '42',
+    description:
+      'Primary key value. For composite keys, use comma-separated values.',
+  })
   @ApiOkResponse({
     schema: {
       type: 'object',
       additionalProperties: true,
     },
   })
-  @Delete(':table/record/:id')
+  @Delete(':table/record/:primaryKey')
   /**
-   * Deletes a record by numeric `id`.
+   * Deletes a record by primary key.
    */
   public async deleteRecord(
     @Req() req: Request,
     @Param('table') table: string,
-    @Param('id', ParseIntPipe) id: number,
+    @Param('primaryKey') primaryKeyPath: string,
   ): Promise<Record> {
     const validatedTable = this.validateIdentifier(table, 'table');
     this.authz.authorizeCrud(req, validatedTable, 'delete');
-    return await this.db.delete(validatedTable, id);
+    const primaryKey = await this.resolvePrimaryKey(
+      validatedTable,
+      primaryKeyPath,
+    );
+    return await this.db.delete(validatedTable, primaryKey);
   }
 
-  @ApiOperation({ summary: 'Generate a CREATE TABLE script for a new table' })
-  @ApiParam({ name: 'table', example: 'customer_notes' })
-  @ApiBody({
-    schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        required: ['name', 'type', 'nullable'],
-        properties: {
-          name: {
-            type: 'string',
-            example: 'note',
-          },
-          type: {
-            type: 'string',
-            example: 'text',
-          },
-          nullable: {
-            type: 'boolean',
-            example: false,
-          },
-        },
-      },
-      example: [
-        {
-          name: 'note',
-          type: 'text',
-          nullable: false,
-        },
-        {
-          name: 'created_at',
-          type: 'timestamp',
-          nullable: false,
-        },
-      ],
-    },
-  })
-  @ApiOkResponse({
-    schema: {
-      type: 'string',
-      example:
-        'CREATE TABLE customer_notes (\n id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n note text NOT NULL\n)',
-    },
-  })
-  @Post('tables/:table')
-  /**
-   * Generates engine-specific SQL for creating a table.
-   */
-  public async createTable(
-    @Req() req: Request,
-    @Param('table') table: string,
-    @Body() columns: ColumnDescription[],
-  ): Promise<string> {
-    this.requireSchemaFeatures();
-    this.authz.authorizeCreateTable(req);
-    return await this.db.createTable(
-      this.validateIdentifier(table, 'table'),
-      this.validateCreateTableColumns(columns),
-    );
+  private async resolvePrimaryKey(
+    table: string,
+    primaryKeyPath: string,
+  ): Promise<PrimaryKeyValue> {
+    const segments = primaryKeyPath
+      .split(',')
+      .map((segment) => decodeURIComponent(segment.trim()))
+      .filter(Boolean);
+
+    if (segments.length === 0) {
+      throw badRequest(
+        'Primary key path must contain at least one value.',
+        'Provide one or more comma-separated primary key values in the URL, for example /record/42 or /record/42,2023-01-15.',
+      );
+    }
+
+    const primaryKeyColumns = await this.db.getPrimaryKeyColumns(table);
+
+    if (primaryKeyColumns.length === 0) {
+      throw serviceUnavailable(
+        `No primary key metadata is available for table "${table}".`,
+        'Ensure the table has a primary key constraint, or configure a primaryKeys override in the runtime config.',
+      );
+    }
+
+    if (segments.length !== primaryKeyColumns.length) {
+      const columnNames = primaryKeyColumns
+        .map((column) => column.column)
+        .join(', ');
+      throw badRequest(
+        `Expected ${primaryKeyColumns.length} primary key value(s) (${columnNames}) but received ${segments.length}.`,
+        `Provide exactly ${primaryKeyColumns.length} comma-separated value(s) matching the primary key columns: ${columnNames}.`,
+      );
+    }
+
+    const primaryKey: PrimaryKeyValue = {};
+    for (let index = 0; index < primaryKeyColumns.length; index++) {
+      primaryKey[primaryKeyColumns[index].column] = this.coercePrimaryKeyValue(
+        segments[index],
+        primaryKeyColumns[index],
+      );
+    }
+
+    return primaryKey;
+  }
+
+  private coercePrimaryKeyValue(
+    rawValue: string,
+    column: PrimaryKeyColumn,
+  ): unknown {
+    const integerTypes = [
+      'integer',
+      'int',
+      'smallint',
+      'bigint',
+      'tinyint',
+      'serial',
+      'bigserial',
+    ];
+
+    if (integerTypes.includes(column.dataType.toLowerCase())) {
+      const parsed = Number(rawValue);
+      if (!Number.isFinite(parsed)) {
+        throw badRequest(
+          `Primary key column "${column.column}" expects an integer but received "${rawValue}".`,
+          `Provide a valid integer value for the "${column.column}" column.`,
+        );
+      }
+      return parsed;
+    }
+
+    return rawValue;
   }
 
   private requireSchemaFeatures(): void {
@@ -598,71 +659,6 @@ export class DataAccessController {
     }
 
     return record as Record;
-  }
-
-  private validateCreateTableColumns(columns: unknown): ColumnDescription[] {
-    if (!Array.isArray(columns) || columns.length === 0) {
-      throw badRequest(
-        'CREATE TABLE input must be a non-empty array of column definitions.',
-        'Send at least one column definition with name, type, and nullable fields.',
-      );
-    }
-
-    const names = new Set<string>();
-
-    for (const [index, column] of columns.entries()) {
-      if (!column || typeof column !== 'object' || Array.isArray(column)) {
-        throw badRequest(
-          `Column definition at index ${index} must be an object.`,
-          'Each column entry should be a JSON object with name, type, and nullable fields.',
-        );
-      }
-
-      const candidate = column as Partial<ColumnDescription>;
-      const name =
-        typeof candidate.name === 'string' ? candidate.name.trim() : '';
-      const type =
-        typeof candidate.type === 'string' ? candidate.type.trim() : '';
-
-      if (!name) {
-        throw badRequest(
-          `Column definition at index ${index} is missing a valid "name".`,
-          'Provide a non-empty column name for every proposed table column.',
-        );
-      }
-
-      if (!IDENTIFIER_PATTERN.test(name)) {
-        throw badRequest(
-          `Column definition "${name}" contains unsupported characters.`,
-          'Use only letters, numbers, underscores, dots, and dollar signs in column names, starting with a letter or underscore.',
-        );
-      }
-
-      if (!type) {
-        throw badRequest(
-          `Column definition "${name}" is missing a valid "type".`,
-          'Provide a non-empty database type such as text, integer, or timestamp.',
-        );
-      }
-
-      if (typeof candidate.nullable !== 'boolean') {
-        throw badRequest(
-          `Column definition "${name}" must define "nullable" as a boolean.`,
-          'Set nullable to either true or false for every column definition.',
-        );
-      }
-
-      if (names.has(name)) {
-        throw badRequest(
-          `Column definition "${name}" is duplicated.`,
-          'Use unique column names within a single CREATE TABLE request.',
-        );
-      }
-
-      names.add(name);
-    }
-
-    return columns as ColumnDescription[];
   }
 
   private validateFetchRequestEnvelope(request: unknown): void {

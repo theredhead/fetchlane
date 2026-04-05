@@ -78,7 +78,7 @@ async function createOidcServer() {
 }
 
 function createRuntimeConfigService(
-  authOverrides: Partial<ReturnType<RuntimeConfigService['getAuth']>>,
+  authOverrides: Partial<ReturnType<RuntimeConfigService['getAuthentication']>>,
 ): RuntimeConfigService {
   return new RuntimeConfigService({
     server: {
@@ -110,8 +110,10 @@ function createRuntimeConfigService(
         subject: 'sub',
         roles: 'realm_access.roles',
       },
+      authorization: undefined as any,
       ...authOverrides,
     },
+    enableSchemaFeatures: false,
   });
 }
 

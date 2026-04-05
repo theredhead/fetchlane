@@ -183,12 +183,6 @@ export class StatusDatabaseCapabilitiesDto {
    */
   @ApiProperty({ example: true })
   public schemaDescription: boolean;
-
-  /**
-   * Whether the adapter supports generating CREATE TABLE SQL.
-   */
-  @ApiProperty({ example: true })
-  public createTableSql: boolean;
 }
 
 /**

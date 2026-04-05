@@ -10,19 +10,18 @@ describe('DataAccessController', () => {
     tableInfo: vi.fn(),
     describeTable: vi.fn(),
     insert: vi.fn(),
-    selectSingleById: vi.fn(),
-    getColumnFromRecordbyId: vi.fn(),
-    updateColumnForRecordById: vi.fn(),
+    selectSingleByPrimaryKey: vi.fn(),
+    getColumnFromRecord: vi.fn(),
+    updateColumnForRecord: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
-    createTable: vi.fn(),
+    getPrimaryKeyColumns: vi.fn(),
   };
   const fetchRequestHandler = {
     handleRequest: vi.fn(),
   };
   const authorizationService = {
     authorizeSchemaAccess: vi.fn(),
-    authorizeCreateTable: vi.fn(),
     authorizeCrud: vi.fn(),
   };
   const runtimeConfigService = {
@@ -33,6 +32,9 @@ describe('DataAccessController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    dataAccessService.getPrimaryKeyColumns.mockResolvedValue([
+      { column: 'id', dataType: 'integer' },
+    ]);
     controller = new DataAccessController(
       dataAccessService as any,
       fetchRequestHandler as any,
@@ -137,76 +139,63 @@ describe('DataAccessController', () => {
       controller.createRecord(mockRequest, 'member', [] as any),
     ).rejects.toBeInstanceOf(BadRequestException);
     await expect(
-      controller.updateRecord(mockRequest, 'member', 7, null as any),
+      controller.updateRecord(mockRequest, 'member', '7', null as any),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('delegates id-based record lookup to the data access service', async () => {
-    dataAccessService.selectSingleById.mockResolvedValueOnce({ id: 7 });
+  it('delegates primary-key-based record lookup to the data access service', async () => {
+    dataAccessService.selectSingleByPrimaryKey.mockResolvedValueOnce({
+      id: 7,
+    });
 
-    await controller.getRecordbyId(mockRequest, 'member', 7);
+    await controller.getRecord(mockRequest, 'member', '7');
 
-    expect(dataAccessService.selectSingleById).toHaveBeenCalledWith(
+    expect(dataAccessService.selectSingleByPrimaryKey).toHaveBeenCalledWith(
       'member',
-      7,
+      { id: 7 },
     );
   });
 
   it('delegates single-column lookup to the data access service', async () => {
-    dataAccessService.getColumnFromRecordbyId.mockResolvedValueOnce(
+    dataAccessService.getColumnFromRecord.mockResolvedValueOnce(
       'alice@example.com',
     );
 
-    await controller.getColumnFromRecordbyId(mockRequest, 'member', 7, 'email');
+    await controller.getColumnFromRecord(mockRequest, 'member', '7', 'email');
 
-    expect(dataAccessService.getColumnFromRecordbyId).toHaveBeenCalledWith(
+    expect(dataAccessService.getColumnFromRecord).toHaveBeenCalledWith(
       'member',
-      7,
+      { id: 7 },
       'email',
     );
   });
 
-  it('delegates column updates, record updates, deletes, and create table requests', async () => {
-    await controller.updateColumnForRecordById(
+  it('delegates column updates, record updates, and deletes', async () => {
+    await controller.updateColumnForRecord(
       mockRequest,
       'member',
-      7,
+      '7',
       'email',
       {
         value: 'alice@example.com',
       },
     );
-    await controller.updateRecord(mockRequest, 'member', 7, {
+    await controller.updateRecord(mockRequest, 'member', '7', {
       name: 'Alice',
     } as any);
-    await controller.deleteRecord(mockRequest, 'member', 7);
-    await controller.createTable(mockRequest, 'member', [
-      { name: 'name', type: 'text', nullable: false },
-    ]);
+    await controller.deleteRecord(mockRequest, 'member', '7');
 
-    expect(dataAccessService.updateColumnForRecordById).toHaveBeenCalledWith(
+    expect(dataAccessService.updateColumnForRecord).toHaveBeenCalledWith(
       'member',
-      7,
+      { id: 7 },
       'email',
       { value: 'alice@example.com' },
     );
-    expect(dataAccessService.update).toHaveBeenCalledWith('member', 7, {
-      name: 'Alice',
-    });
-    expect(dataAccessService.delete).toHaveBeenCalledWith('member', 7);
-    expect(dataAccessService.createTable).toHaveBeenCalledWith('member', [
-      { name: 'name', type: 'text', nullable: false },
-    ]);
-  });
-
-  it('rejects malformed create table input', async () => {
-    await expect(
-      controller.createTable(mockRequest, 'member', [] as any),
-    ).rejects.toBeInstanceOf(BadRequestException);
-    await expect(
-      controller.createTable(mockRequest, 'member', [
-        { name: 'name', type: '', nullable: false },
-      ] as any),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(dataAccessService.update).toHaveBeenCalledWith(
+      'member',
+      { id: 7 },
+      { name: 'Alice' },
+    );
+    expect(dataAccessService.delete).toHaveBeenCalledWith('member', { id: 7 });
   });
 });

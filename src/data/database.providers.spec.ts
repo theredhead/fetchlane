@@ -50,7 +50,9 @@ describe('databaseProviders', () => {
           subject: 'sub',
           roles: 'realm_access.roles',
         },
+        authorization: undefined as any,
       },
+      enableSchemaFeatures: false,
     });
 
   it('builds a registry with the supported database adapters', () => {
@@ -81,14 +83,14 @@ describe('databaseProviders', () => {
         {
           adapterName: 'postgres',
           engines: ['postgres'],
-        } as DatabaseAdapterConstructor,
+        } as unknown as DatabaseAdapterConstructor,
       ],
       [
         'mysql',
         {
           adapterName: 'mysql',
           engines: ['mysql'],
-        } as DatabaseAdapterConstructor,
+        } as unknown as DatabaseAdapterConstructor,
       ],
     ]);
     const runtimeConfig = createRuntimeConfigService(

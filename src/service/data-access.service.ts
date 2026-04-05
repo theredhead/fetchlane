@@ -1,16 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   DatabaseAdapter,
+  PrimaryKeyColumn,
+  PrimaryKeyValue,
   Record,
-  supportsCreateTableSql,
   supportsSchemaDescription,
   supportsTableInfo,
   supportsTableListing,
 } from 'src/data/database';
-import {
-  ColumnDescription,
-  TableSchemaDescription,
-} from '../data/database-metadata';
+import { TableSchemaDescription } from '../data/database-metadata';
 import { DATABASE_CONNECTION } from '../data/database.providers';
 import { badRequest, notFound, notImplemented } from '../errors/api-error';
 import { RuntimeConfigService } from 'src/config/runtime-config';
@@ -83,6 +81,21 @@ export class DataAccessService {
   }
 
   /**
+   * Returns the primary key columns for a table, using database metadata
+   * or a config override when available.
+   */
+  public async getPrimaryKeyColumns(
+    table: string,
+  ): Promise<PrimaryKeyColumn[]> {
+    const configOverride = this.runtimeConfig.getPrimaryKeyOverride(table);
+    if (configOverride) {
+      return configOverride;
+    }
+
+    return await this.adapter.getPrimaryKeyColumns(table);
+  }
+
+  /**
    * Returns a paginated list of rows from a table.
    */
   public async index(
@@ -108,68 +121,92 @@ export class DataAccessService {
   }
 
   /**
-   * Looks up a single row by numeric `id`.
+   * Looks up a single row by primary key.
    */
-  public async selectSingleById(table: string, id: number): Promise<Record> {
+  public async selectSingleByPrimaryKey(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+  ): Promise<Record> {
     await this.ensureTableExists(table);
 
+    const { whereClause, values } = this.buildWhereClause(primaryKey);
     const record = await this.adapter.selectSingle(
       table,
-      `WHERE id=${this.adapter.parameter(1)}`,
-      [id],
+      `WHERE ${whereClause}`,
+      values,
     );
 
-    return this.ensureRecordExists(table, id, record);
+    return this.ensureRecordExists(table, primaryKey, record);
   }
 
   /**
    * Inserts a row into a table.
+   *
+   * Rejects the request before touching the database when the record
+   * contains values for auto-generated primary key columns.
    */
   public async insert(table: string, record: Record): Promise<Record> {
     await this.ensureTableExists(table);
+    await this.rejectGeneratedPrimaryKeyValues(table, record);
     return await this.adapter.insert(table, record);
   }
 
   /**
-   * Replaces a row in a table by numeric `id`.
+   * Replaces a row in a table by primary key.
+   *
+   * Auto-generated primary key columns are silently excluded from the
+   * update payload because database engines reject SET on identity /
+   * serial / auto-increment columns.
    */
   public async update(
     table: string,
-    id: number,
+    primaryKey: PrimaryKeyValue,
     record: Record,
   ): Promise<Record> {
     await this.ensureTableExists(table);
 
-    const updated = await this.adapter.update(table, { ...record, id });
-    return this.ensureRecordExists(table, id, updated);
+    const sanitizedRecord = await this.stripGeneratedPrimaryKeyColumns(
+      table,
+      record,
+    );
+    const updated = await this.adapter.update(
+      table,
+      primaryKey,
+      sanitizedRecord,
+    );
+    return this.ensureRecordExists(table, primaryKey, updated);
   }
 
   /**
-   * Deletes a row from a table by numeric `id`.
+   * Deletes a row from a table by primary key.
    */
-  public async delete(table: string, id: number): Promise<Record> {
+  public async delete(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+  ): Promise<Record> {
     await this.ensureTableExists(table);
 
-    const deleted = await this.adapter.delete(table, id);
-    return this.ensureRecordExists(table, id, deleted);
+    const deleted = await this.adapter.delete(table, primaryKey);
+    return this.ensureRecordExists(table, primaryKey, deleted);
   }
 
   /**
-   * Returns a single column value from a row identified by numeric `id`.
+   * Returns a single column value from a row identified by primary key.
    */
-  public async getColumnFromRecordbyId(
+  public async getColumnFromRecord(
     table: string,
-    id: number,
+    primaryKey: PrimaryKeyValue,
     column: string,
   ): Promise<string | null> {
     await this.ensureTableExists(table);
 
+    const { whereClause, values } = this.buildWhereClause(primaryKey);
     const record = await this.adapter.selectSingle(
       table,
-      `WHERE id=${this.adapter.parameter(1)}`,
-      [id],
+      `WHERE ${whereClause}`,
+      values,
     );
-    const existingRecord = this.ensureRecordExists(table, id, record);
+    const existingRecord = this.ensureRecordExists(table, primaryKey, record);
 
     if (!Object.prototype.hasOwnProperty.call(existingRecord, column)) {
       throw badRequest(
@@ -182,36 +219,19 @@ export class DataAccessService {
   }
 
   /**
-   * Updates a single column on a row identified by numeric `id`.
+   * Updates a single column on a row identified by primary key.
    */
-  public async updateColumnForRecordById(
+  public async updateColumnForRecord(
     table: string,
-    id: number,
+    primaryKey: PrimaryKeyValue,
     column: string,
     value: unknown,
   ): Promise<Record> {
     await this.ensureTableExists(table);
 
     const record = { [column]: value };
-    const updated = await this.adapter.update(table, { ...record, id });
-    return this.ensureRecordExists(table, id, updated);
-  }
-
-  /**
-   * Generates engine-specific `CREATE TABLE` SQL for a proposed schema.
-   */
-  public async createTable(
-    table: string,
-    columns: ColumnDescription[],
-  ): Promise<string> {
-    if (!supportsCreateTableSql(this.adapter)) {
-      throw notImplemented(
-        `The active "${this.adapter.name}" adapter does not support CREATE TABLE SQL generation.`,
-        'Use an engine that implements CREATE TABLE SQL generation, or skip this endpoint for the current adapter.',
-      );
-    }
-
-    return this.adapter.createTableSql(table, columns);
+    const updated = await this.adapter.update(table, primaryKey, record);
+    return this.ensureRecordExists(table, primaryKey, updated);
   }
 
   /**
@@ -241,21 +261,80 @@ export class DataAccessService {
 
   private ensureRecordExists(
     table: string,
-    id: number,
+    primaryKey: PrimaryKeyValue,
     record: Record | undefined,
   ): Record {
     if (record) {
       return record;
     }
 
+    const keyDescription = Object.entries(primaryKey)
+      .map(([column, value]) => `${column}=${JSON.stringify(value)}`)
+      .join(', ');
+
     throw notFound(
-      `Record "${id}" was not found in table "${table}".`,
-      'Verify the record id, or query the table first to inspect which records are available.',
+      `Record (${keyDescription}) was not found in table "${table}".`,
+      'Verify the primary key values, or query the table first to inspect which records are available.',
     );
+  }
+
+  private buildWhereClause(primaryKey: PrimaryKeyValue): {
+    whereClause: string;
+    values: unknown[];
+  } {
+    const entries = Object.entries(primaryKey);
+    const whereClause = entries
+      .map(
+        ([column], index) =>
+          `${this.adapter.quoteIdentifier(column)}=${this.adapter.parameter(index + 1)}`,
+      )
+      .join(' AND ');
+    const values = entries.map(([, value]) => value);
+
+    return { whereClause, values };
+  }
+
+  private async rejectGeneratedPrimaryKeyValues(
+    table: string,
+    record: Record,
+  ): Promise<void> {
+    const primaryKeyColumns = await this.getPrimaryKeyColumns(table);
+    const generatedColumns = primaryKeyColumns
+      .filter((column) => column.isGenerated)
+      .filter((column) => column.column in record);
+
+    if (generatedColumns.length > 0) {
+      const names = generatedColumns.map((column) => column.column).join(', ');
+      throw badRequest(
+        `Cannot insert explicit values for auto-generated primary key columns: ${names}.`,
+        'Remove auto-generated primary key columns from the request body — the database assigns these values automatically.',
+      );
+    }
+  }
+
+  private async stripGeneratedPrimaryKeyColumns(
+    table: string,
+    record: Record,
+  ): Promise<Record> {
+    const primaryKeyColumns = await this.getPrimaryKeyColumns(table);
+    const generatedColumnNames = new Set(
+      primaryKeyColumns
+        .filter((column) => column.isGenerated)
+        .map((column) => column.column),
+    );
+
+    if (generatedColumnNames.size === 0) {
+      return record;
+    }
+
+    const filtered: Record = {};
+    for (const [key, value] of Object.entries(record)) {
+      if (!generatedColumnNames.has(key)) {
+        filtered[key] = value;
+      }
+    }
+    return filtered;
   }
 }
 
-export type {
-  ColumnDescription,
-  TableSchemaDescription,
-} from '../data/database-metadata';
+export type { TableSchemaDescription } from '../data/database-metadata';

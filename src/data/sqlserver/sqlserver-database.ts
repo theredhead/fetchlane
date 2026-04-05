@@ -3,17 +3,15 @@ import { ParsedDatabaseUrl } from '../../db.conf';
 import { formatDeveloperError } from '../../errors/api-error';
 import {
   DatabaseAdapter,
+  PrimaryKeyColumn,
+  PrimaryKeyValue,
   Record,
   RecordSet,
-  SupportsCreateTableSql,
   SupportsSchemaDescription,
   SupportsTableInfo,
   SupportsTableListing,
 } from '../database';
-import {
-  ColumnDescription,
-  TableSchemaDescription,
-} from '../database-metadata';
+import { TableSchemaDescription } from '../database-metadata';
 
 /**
  * SQL Server adapter implementation.
@@ -23,8 +21,7 @@ export class SqlServerDatabase
     DatabaseAdapter,
     SupportsTableListing,
     SupportsTableInfo,
-    SupportsSchemaDescription,
-    SupportsCreateTableSql
+    SupportsSchemaDescription
 {
   /**
    * Canonical adapter name used for registration and logging.
@@ -94,53 +91,76 @@ export class SqlServerDatabase
    */
   public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const data: Record = { ...record };
-    delete data.id;
-    const keys = Object.keys(data);
+    const keys = Object.keys(record);
     const columns = keys.map((key) => this.quoteIdentifier(key)).join(', ');
     const tokens = keys.map((_, index) => this.parameter(index + 1)).join(', ');
-    const values = keys.map((key) => data[key]);
+    const values = keys.map((key) => record[key]);
 
     const statement = `
       INSERT INTO ${quotedTableName} (${columns})
-      OUTPUT INSERTED.id
+      OUTPUT INSERTED.*
       VALUES (${tokens})
     `;
     const result = await this.execute(statement, values);
-    const insertedId = result.rows[0]?.id ?? result.info?.insertId;
-
-    return await this.selectSingle(table, 'WHERE id=@p1', [insertedId]);
+    return result.rows[0];
   }
 
   /**
    * @inheritdoc
    */
-  public async update(table: string, record: Record): Promise<Record> {
-    const id = record.id;
-    const data: Record = { ...record };
-    delete data.id;
+  public async update(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+    record: Record,
+  ): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const keys = Object.keys(data);
-    const snippets = keys
+    const dataKeys = Object.keys(record);
+    const setSnippets = dataKeys
       .map(
         (column, index) =>
           `${this.quoteIdentifier(column)}=${this.parameter(index + 1)}`,
       )
       .join(', ');
-    const statement = `UPDATE ${quotedTableName} SET ${snippets} WHERE id=${this.parameter(keys.length + 1)}`;
 
-    await this.execute(statement, [...Object.values(data), id]);
-    return await this.selectSingle(table, 'WHERE id=@p1', [id]);
+    const pkEntries = Object.entries(primaryKey);
+    const whereSnippets = pkEntries
+      .map(
+        ([column], index) =>
+          `${this.quoteIdentifier(column)}=${this.parameter(dataKeys.length + index + 1)}`,
+      )
+      .join(' AND ');
+
+    const statement = `UPDATE ${quotedTableName} SET ${setSnippets} OUTPUT INSERTED.* WHERE ${whereSnippets}`;
+    const values = [
+      ...dataKeys.map((key) => record[key]),
+      ...pkEntries.map(([, value]) => value),
+    ];
+
+    const result = await this.execute(statement, values);
+    return result.rows[0];
   }
 
   /**
    * @inheritdoc
    */
-  public async delete(table: string, id: number): Promise<Record> {
+  public async delete(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+  ): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const record = await this.selectSingle(table, 'WHERE id=@p1', [id]);
-    await this.execute(`DELETE FROM ${quotedTableName} WHERE id=@p1`, [id]);
-    return record;
+    const pkEntries = Object.entries(primaryKey);
+    const whereSnippets = pkEntries
+      .map(
+        ([column], index) =>
+          `${this.quoteIdentifier(column)}=${this.parameter(index + 1)}`,
+      )
+      .join(' AND ');
+
+    const statement = `DELETE FROM ${quotedTableName} OUTPUT DELETED.* WHERE ${whereSnippets}`;
+    const values = pkEntries.map(([, value]) => value);
+
+    const result = await this.execute(statement, values);
+    return result.rows[0];
   }
 
   /**
@@ -244,6 +264,48 @@ export class SqlServerDatabase
     );
 
     return Number(count) === 1;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async getPrimaryKeyColumns(
+    table: string,
+  ): Promise<PrimaryKeyColumn[]> {
+    const rows = (
+      await this.execute(
+        `
+        SELECT
+          kcu.COLUMN_NAME AS column_name,
+          c.DATA_TYPE AS data_type,
+          COLUMNPROPERTY(
+            OBJECT_ID(QUOTENAME(c.TABLE_SCHEMA) + '.' + QUOTENAME(c.TABLE_NAME)),
+            c.COLUMN_NAME,
+            'IsIdentity'
+          ) AS is_generated
+        FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+          ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+         AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+         AND tc.TABLE_NAME = kcu.TABLE_NAME
+        JOIN INFORMATION_SCHEMA.COLUMNS c
+          ON c.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+         AND c.TABLE_NAME = kcu.TABLE_NAME
+         AND c.COLUMN_NAME = kcu.COLUMN_NAME
+        WHERE tc.TABLE_SCHEMA = SCHEMA_NAME()
+          AND tc.TABLE_NAME = @p1
+          AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+        ORDER BY kcu.ORDINAL_POSITION ASC
+        `,
+        [table],
+      )
+    ).rows;
+
+    return rows.map((row) => ({
+      column: String(row.column_name),
+      dataType: String(row.data_type),
+      isGenerated: !!row.is_generated,
+    }));
   }
 
   /**
@@ -471,27 +533,6 @@ export class SqlServerDatabase
       constraints,
       indexes,
     };
-  }
-
-  /**
-   * Generates SQL Server `CREATE TABLE` SQL.
-   */
-  public createTableSql(table: string, columns: ColumnDescription[]): string {
-    const lines = [
-      `CREATE TABLE ${this.quoteIdentifier(table)} (`,
-      `  ${this.quoteIdentifier('id')} int IDENTITY(1,1) PRIMARY KEY,`,
-    ];
-
-    columns.forEach((column, index) => {
-      const nullable = column.nullable ? '' : ' NOT NULL';
-      const suffix = index === columns.length - 1 ? '' : ',';
-      lines.push(
-        `  ${this.quoteIdentifier(column.name)} ${column.type}${nullable}${suffix}`,
-      );
-    });
-
-    lines.push(')');
-    return lines.join('\n');
   }
 
   /**

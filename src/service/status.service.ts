@@ -5,7 +5,6 @@ import { RuntimeConfigService } from '../config/runtime-config';
 import { DATABASE_CONNECTION } from '../data/database.providers';
 import {
   DatabaseAdapter,
-  supportsCreateTableSql,
   supportsSchemaDescription,
   supportsTableInfo,
   supportsTableListing,
@@ -61,7 +60,6 @@ export interface StatusSnapshot {
       tableListing: boolean;
       tableInfo: boolean;
       schemaDescription: boolean;
-      createTableSql: boolean;
     };
     error: {
       message: string;
@@ -122,7 +120,6 @@ export class StatusService {
           tableListing: supportsTableListing(this.adapter),
           tableInfo: supportsTableInfo(this.adapter),
           schemaDescription: supportsSchemaDescription(this.adapter),
-          createTableSql: supportsCreateTableSql(this.adapter),
         },
         error: database.error,
       },

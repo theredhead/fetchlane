@@ -260,7 +260,6 @@ describe('runtime-config', () => {
           },
           authorization: {
             schema: ['admin'],
-            createTable: ['admin'],
             crud: {
               default: {
                 create: ['admin'],
@@ -281,10 +280,6 @@ describe('runtime-config', () => {
 
     expect(result.authentication.authorization).toBeDefined();
     expect(result.authentication.authorization!.schema).toEqual({
-      allow: ['admin'],
-      deny: [],
-    });
-    expect(result.authentication.authorization!.createTable).toEqual({
       allow: ['admin'],
       deny: [],
     });
@@ -328,7 +323,6 @@ describe('runtime-config', () => {
           },
           authorization: {
             schema: ['admin', 'viewer'],
-            createTable: ['admin'],
             crud: {
               default: {
                 create: ['editor'],
@@ -412,7 +406,6 @@ describe('runtime-config', () => {
           },
           authorization: {
             schema: 'not-an-array',
-            createTable: [],
             crud: {
               default: {
                 create: [],
@@ -471,7 +464,6 @@ describe('runtime-config', () => {
           },
           authorization: {
             schema: [],
-            createTable: [],
             crud: {
               default: {
                 create: [],
@@ -525,7 +517,6 @@ describe('runtime-config', () => {
           },
           authorization: {
             schema: { allow: ['admin'], deny: ['blocked'] },
-            createTable: { allow: ['admin'], deny: [] },
             crud: {
               default: {
                 create: ['editor'],
@@ -551,10 +542,6 @@ describe('runtime-config', () => {
     expect(result.authentication.authorization!.schema).toEqual({
       allow: ['admin'],
       deny: ['blocked'],
-    });
-    expect(result.authentication.authorization!.createTable).toEqual({
-      allow: ['admin'],
-      deny: [],
     });
     expect(result.authentication.authorization!.crud.default.read).toEqual({
       allow: ['*'],

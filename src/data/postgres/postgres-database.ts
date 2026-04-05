@@ -3,17 +3,15 @@ import { ParsedDatabaseUrl } from '../../db.conf';
 import { formatDeveloperError } from '../../errors/api-error';
 import {
   DatabaseAdapter,
+  PrimaryKeyColumn,
+  PrimaryKeyValue,
   Record,
   RecordSet,
-  SupportsCreateTableSql,
   SupportsSchemaDescription,
   SupportsTableInfo,
   SupportsTableListing,
 } from '../database';
-import {
-  ColumnDescription,
-  TableSchemaDescription,
-} from '../database-metadata';
+import { TableSchemaDescription } from '../database-metadata';
 
 /**
  * PostgreSQL adapter implementation.
@@ -23,8 +21,7 @@ export class PostgresDatabase
     DatabaseAdapter,
     SupportsTableListing,
     SupportsTableInfo,
-    SupportsSchemaDescription,
-    SupportsCreateTableSql
+    SupportsSchemaDescription
 {
   /**
    * Canonical adapter name used for registration and logging.
@@ -80,60 +77,72 @@ export class PostgresDatabase
    */
   public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const data: Record = { ...record };
-    delete data.id;
-    const keys = Object.keys(data);
+    const keys = Object.keys(record);
     const columns = keys.map((key) => this.quoteIdentifier(key)).join(', ');
     const tokens = keys.map((_, index) => this.parameter(index + 1)).join(', ');
-    const values = keys.map((key) => data[key]);
+    const values = keys.map((key) => record[key]);
 
-    const statement = `INSERT INTO ${quotedTableName} (${columns}) VALUES (${tokens}) RETURNING id`;
+    const statement = `INSERT INTO ${quotedTableName} (${columns}) VALUES (${tokens}) RETURNING *`;
     const result = await this.execute(statement, values);
-    const insertedId = result.rows[0]?.id ?? result.info?.insertId;
-
-    return await this.selectSingle(table, `WHERE id=${this.parameter(1)}`, [
-      insertedId,
-    ]);
+    return result.rows[0];
   }
 
   /**
    * @inheritdoc
    */
-  public async update(table: string, record: Record): Promise<Record> {
-    const id = record.id;
-    const data: Record = { ...record };
-    delete data.id;
+  public async update(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+    record: Record,
+  ): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const keys = Object.keys(data);
-    const snippets = keys
+    const dataKeys = Object.keys(record);
+    const setSnippets = dataKeys
       .map(
         (column, index) =>
           `${this.quoteIdentifier(column)}=${this.parameter(index + 1)}`,
       )
       .join(', ');
-    const statement = `UPDATE ${quotedTableName} SET ${snippets} WHERE id=${this.parameter(keys.length + 1)}`;
 
-    await this.execute(statement, [...Object.values(data), id]);
-    return await this.selectSingle(table, `WHERE id=${this.parameter(1)}`, [
-      id,
-    ]);
+    const pkEntries = Object.entries(primaryKey);
+    const whereSnippets = pkEntries
+      .map(
+        ([column], index) =>
+          `${this.quoteIdentifier(column)}=${this.parameter(dataKeys.length + index + 1)}`,
+      )
+      .join(' AND ');
+
+    const statement = `UPDATE ${quotedTableName} SET ${setSnippets} WHERE ${whereSnippets} RETURNING *`;
+    const values = [
+      ...dataKeys.map((key) => record[key]),
+      ...pkEntries.map(([, value]) => value),
+    ];
+
+    const result = await this.execute(statement, values);
+    return result.rows[0];
   }
 
   /**
    * @inheritdoc
    */
-  public async delete(table: string, id: number): Promise<Record> {
+  public async delete(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+  ): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const record = await this.selectSingle(
-      table,
-      `WHERE id=${this.parameter(1)}`,
-      [id],
-    );
-    await this.execute(
-      `DELETE FROM ${quotedTableName} WHERE id=${this.parameter(1)}`,
-      [id],
-    );
-    return record;
+    const pkEntries = Object.entries(primaryKey);
+    const whereSnippets = pkEntries
+      .map(
+        ([column], index) =>
+          `${this.quoteIdentifier(column)}=${this.parameter(index + 1)}`,
+      )
+      .join(' AND ');
+
+    const statement = `DELETE FROM ${quotedTableName} WHERE ${whereSnippets} RETURNING *`;
+    const values = pkEntries.map(([, value]) => value);
+
+    const result = await this.execute(statement, values);
+    return result.rows[0];
   }
 
   /**
@@ -240,6 +249,48 @@ export class PostgresDatabase
       [tableName],
     );
     return Number(count) === 1;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async getPrimaryKeyColumns(
+    table: string,
+  ): Promise<PrimaryKeyColumn[]> {
+    const rows = (
+      await this.execute(
+        `
+        SELECT
+          kcu.column_name,
+          c.data_type,
+          CASE
+            WHEN c.is_identity = 'YES' THEN true
+            WHEN c.column_default LIKE 'nextval(%' THEN true
+            ELSE false
+          END AS is_generated
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON tc.constraint_name = kcu.constraint_name
+         AND tc.table_schema = kcu.table_schema
+         AND tc.table_name = kcu.table_name
+        JOIN information_schema.columns c
+          ON c.table_schema = kcu.table_schema
+         AND c.table_name = kcu.table_name
+         AND c.column_name = kcu.column_name
+        WHERE tc.table_schema = 'public'
+          AND tc.table_name = $1
+          AND tc.constraint_type = 'PRIMARY KEY'
+        ORDER BY kcu.ordinal_position ASC
+        `,
+        [table],
+      )
+    ).rows;
+
+    return rows.map((row) => ({
+      column: String(row.column_name),
+      dataType: String(row.data_type),
+      isGenerated: !!row.is_generated,
+    }));
   }
 
   /**
@@ -476,27 +527,6 @@ export class PostgresDatabase
       constraints,
       indexes,
     };
-  }
-
-  /**
-   * Generates PostgreSQL `CREATE TABLE` SQL.
-   */
-  public createTableSql(table: string, columns: ColumnDescription[]): string {
-    const lines = [
-      `CREATE TABLE ${this.quoteIdentifier(table)} (`,
-      `  ${this.quoteIdentifier('id')} integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,`,
-    ];
-
-    columns.forEach((column, index) => {
-      const nullable = column.nullable ? '' : ' NOT NULL';
-      const suffix = index === columns.length - 1 ? '' : ',';
-      lines.push(
-        `  ${this.quoteIdentifier(column.name)} ${column.type}${nullable}${suffix}`,
-      );
-    });
-
-    lines.push(')');
-    return lines.join('\n');
   }
 
   /**

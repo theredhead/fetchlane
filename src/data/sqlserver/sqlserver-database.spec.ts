@@ -5,6 +5,7 @@ describe('SqlServerDatabase', () => {
 
   beforeEach(() => {
     database = new SqlServerDatabase({
+      engine: 'sqlserver',
       user: 'sa',
       password: 'password',
       host: 'localhost',

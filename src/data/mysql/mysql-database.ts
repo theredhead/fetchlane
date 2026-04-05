@@ -3,17 +3,15 @@ import { ParsedDatabaseUrl } from '../../db.conf';
 import { formatDeveloperError } from '../../errors/api-error';
 import {
   DatabaseAdapter,
+  PrimaryKeyColumn,
+  PrimaryKeyValue,
   Record,
   RecordSet,
-  SupportsCreateTableSql,
   SupportsSchemaDescription,
   SupportsTableInfo,
   SupportsTableListing,
 } from '../database';
-import {
-  ColumnDescription,
-  TableSchemaDescription,
-} from '../database-metadata';
+import { TableSchemaDescription } from '../database-metadata';
 
 /**
  * MySQL adapter implementation.
@@ -23,8 +21,7 @@ export class MySqlDatabase
     DatabaseAdapter,
     SupportsTableListing,
     SupportsTableInfo,
-    SupportsSchemaDescription,
-    SupportsCreateTableSql
+    SupportsSchemaDescription
 {
   /**
    * Canonical adapter name used for registration and logging.
@@ -81,44 +78,80 @@ export class MySqlDatabase
    */
   public async insert(table: string, record: Record): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const data: Record = { ...record };
-    delete data.id;
-    const keys = Object.keys(data);
+    const keys = Object.keys(record);
     const columns = keys.map((key) => this.quoteIdentifier(key)).join(', ');
     const tokens = keys.map(() => this.parameter(1)).join(', ');
-    const values = keys.map((key) => data[key]);
+    const values = keys.map((key) => record[key]);
 
     const statement = `INSERT INTO ${quotedTableName} (${columns}) VALUES (${tokens});`;
-    const result = await this.execute(statement, values);
-    return await this.selectSingle(table, 'WHERE id=?', [
-      result.info?.insertId,
-    ]);
+    await this.execute(statement, values);
+
+    const lastId = await this.executeScalar<number>(
+      'SELECT LAST_INSERT_ID() AS id',
+    );
+    if (lastId) {
+      return await this.selectSingle(table, 'WHERE id=?', [lastId]);
+    }
+
+    return record;
   }
 
   /**
    * @inheritdoc
    */
-  public async update(table: string, record: Record): Promise<Record> {
-    const id = record.id;
-    const data: Record = { ...record };
-    delete data.id;
+  public async update(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+    record: Record,
+  ): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const snippets = Object.keys(data)
+    const dataKeys = Object.keys(record);
+    const setSnippets = dataKeys
       .map((column) => `${this.quoteIdentifier(column)}=?`)
       .join(', ');
-    const statement = `UPDATE ${quotedTableName} SET ${snippets} WHERE id=?`;
 
-    await this.execute(statement, [...Object.values(data), id]);
-    return await this.selectSingle(table, 'WHERE id=?', [id]);
+    const pkEntries = Object.entries(primaryKey);
+    const whereSnippets = pkEntries
+      .map(([column]) => `${this.quoteIdentifier(column)}=?`)
+      .join(' AND ');
+
+    const statement = `UPDATE ${quotedTableName} SET ${setSnippets} WHERE ${whereSnippets}`;
+    const values = [
+      ...dataKeys.map((key) => record[key]),
+      ...pkEntries.map(([, value]) => value),
+    ];
+
+    await this.execute(statement, values);
+    return await this.selectSingle(
+      table,
+      `WHERE ${whereSnippets}`,
+      pkEntries.map(([, value]) => value),
+    );
   }
 
   /**
    * @inheritdoc
    */
-  public async delete(table: string, id: number): Promise<Record> {
+  public async delete(
+    table: string,
+    primaryKey: PrimaryKeyValue,
+  ): Promise<Record> {
     const quotedTableName = this.quoteIdentifier(table);
-    const record = await this.selectSingle(table, 'WHERE id=?', [id]);
-    await this.execute(`DELETE FROM ${quotedTableName} WHERE id=?`, [id]);
+    const pkEntries = Object.entries(primaryKey);
+    const whereSnippets = pkEntries
+      .map(([column]) => `${this.quoteIdentifier(column)}=?`)
+      .join(' AND ');
+    const values = pkEntries.map(([, value]) => value);
+
+    const record = await this.selectSingle(
+      table,
+      `WHERE ${whereSnippets}`,
+      values,
+    );
+    await this.execute(
+      `DELETE FROM ${quotedTableName} WHERE ${whereSnippets}`,
+      values,
+    );
     return record;
   }
 
@@ -260,6 +293,44 @@ export class MySqlDatabase
       [tableName],
     );
     return Number(count) === 1;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async getPrimaryKeyColumns(
+    table: string,
+  ): Promise<PrimaryKeyColumn[]> {
+    const rows = (
+      await this.execute(
+        `
+        SELECT
+          kcu.COLUMN_NAME AS column_name,
+          c.DATA_TYPE AS data_type,
+          CASE WHEN c.EXTRA LIKE '%auto_increment%' THEN 1 ELSE 0 END AS is_generated
+        FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc
+        JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+          ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+         AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+         AND tc.TABLE_NAME = kcu.TABLE_NAME
+        JOIN INFORMATION_SCHEMA.COLUMNS c
+          ON c.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+         AND c.TABLE_NAME = kcu.TABLE_NAME
+         AND c.COLUMN_NAME = kcu.COLUMN_NAME
+        WHERE tc.TABLE_SCHEMA = DATABASE()
+          AND tc.TABLE_NAME = ?
+          AND tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+        ORDER BY kcu.ORDINAL_POSITION ASC
+        `,
+        [table],
+      )
+    ).rows;
+
+    return rows.map((row) => ({
+      column: String(row.column_name),
+      dataType: String(row.data_type),
+      isGenerated: !!row.is_generated,
+    }));
   }
 
   /**
@@ -476,27 +547,6 @@ export class MySqlDatabase
       constraints,
       indexes,
     };
-  }
-
-  /**
-   * Generates MySQL `CREATE TABLE` SQL.
-   */
-  public createTableSql(table: string, columns: ColumnDescription[]): string {
-    const lines = [
-      `CREATE TABLE ${this.quoteIdentifier(table)} (`,
-      `  ${this.quoteIdentifier('id')} integer AUTO_INCREMENT PRIMARY KEY,`,
-    ];
-
-    columns.forEach((column, index) => {
-      const nullable = column.nullable ? '' : ' NOT NULL';
-      const suffix = index === columns.length - 1 ? '' : ',';
-      lines.push(
-        `  ${this.quoteIdentifier(column.name)} ${column.type}${nullable}${suffix}`,
-      );
-    });
-
-    lines.push(')');
-    return lines.join('\n');
   }
 
   /**

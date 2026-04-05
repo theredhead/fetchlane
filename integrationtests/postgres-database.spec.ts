@@ -28,6 +28,7 @@ describe('PostgresDatabase', () => {
     });
 
     database = new PostgresDatabase({
+      engine: 'postgres',
       user: 'postgres',
       password: 'password',
       host: container.host,
@@ -93,17 +94,22 @@ describe('PostgresDatabase', () => {
     const inserted = await database.insert(testTableName, testRecords[0]);
     await database.insert(testTableName, testRecords[1]);
 
-    const deleted = await database.delete(testTableName, Number(inserted.id));
+    const deleted = await database.delete(testTableName, {
+      id: Number(inserted.id),
+    });
     const remaining = await database.select(testTableName);
     expect(remaining.rows.length).toBe(testRecords.length - 1);
     expect(remaining.rows.find((row) => row.id === deleted.id)).toBeUndefined();
 
-    const reinserted = await database.insert(testTableName, deleted);
-    reinserted.foo = 'foo';
-    reinserted.bar = 'bar';
-    reinserted.baz = 'baz';
+    const { id, ...recordWithoutId } = deleted;
+    void id;
+    const reinserted = await database.insert(testTableName, recordWithoutId);
 
-    const updated = await database.update(testTableName, reinserted);
+    const updated = await database.update(
+      testTableName,
+      { id: reinserted.id },
+      { foo: 'foo', bar: 'bar', baz: 'baz' },
+    );
 
     expect(updated.id).toEqual(reinserted.id);
     expect(updated.foo).toEqual('foo');

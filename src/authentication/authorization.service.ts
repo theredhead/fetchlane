@@ -56,17 +56,6 @@ export class AuthorizationService {
   }
 
   /**
-   * Enforces that the authenticated principal may create tables.
-   */
-  public authorizeCreateTable(request: Request): void {
-    if (!this.authorization) {
-      return;
-    }
-
-    this.evaluateGate(request, this.authorization.createTable, 'createTable');
-  }
-
-  /**
    * Enforces that the authenticated principal may perform a CRUD operation
    * on the given table.
    *

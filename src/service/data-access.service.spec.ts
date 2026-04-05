@@ -7,17 +7,16 @@ import { DataAccessService } from './data-access.service';
 import {
   DatabaseAdapter,
   RecordSet,
-  SupportsCreateTableSql,
   SupportsSchemaDescription,
   SupportsTableInfo,
   SupportsTableListing,
 } from '../data/database';
+import { RuntimeConfigService } from '../config/runtime-config';
 
 function createAdapterMock(): DatabaseAdapter &
   SupportsTableListing &
   SupportsTableInfo &
-  SupportsSchemaDescription &
-  SupportsCreateTableSql {
+  SupportsSchemaDescription {
   return {
     name: 'test',
     quoteIdentifier: vi.fn((name: string) => `"${name}"`),
@@ -46,18 +45,27 @@ function createAdapterMock(): DatabaseAdapter &
     getTableNames: vi.fn(),
     getTableInfo: vi.fn(),
     describeTable: vi.fn(),
-    createTableSql: vi.fn(),
+    getPrimaryKeyColumns: vi.fn(),
   };
+}
+
+function createRuntimeConfigMock(): RuntimeConfigService {
+  return {
+    getPrimaryKeyOverride: vi.fn().mockReturnValue(undefined),
+    getLimits: vi.fn().mockReturnValue({ fetchMaxPageSize: 1000 }),
+  } as unknown as RuntimeConfigService;
 }
 
 describe('DataAccessService', () => {
   let adapter: ReturnType<typeof createAdapterMock>;
+  let runtimeConfig: RuntimeConfigService;
   let service: DataAccessService;
 
   beforeEach(() => {
     adapter = createAdapterMock();
+    runtimeConfig = createRuntimeConfigMock();
     vi.mocked(adapter.tableExists).mockResolvedValue(true);
-    service = new DataAccessService(adapter);
+    service = new DataAccessService(adapter, runtimeConfig);
   });
 
   it('delegates generic table metadata to the active adapter', async () => {
@@ -92,18 +100,20 @@ describe('DataAccessService', () => {
     });
   });
 
-  it('uses the adapter parameter syntax for id-based lookups', async () => {
+  it('uses the adapter parameter syntax for primary-key-based lookups', async () => {
     vi.mocked(adapter.selectSingle).mockResolvedValue({
       id: 7,
       email: 'museum@example.com',
     });
 
-    await expect(service.selectSingleById('member', 7)).resolves.toEqual({
+    await expect(
+      service.selectSingleByPrimaryKey('member', { id: 7 }),
+    ).resolves.toEqual({
       id: 7,
       email: 'museum@example.com',
     });
     await expect(
-      service.getColumnFromRecordbyId('member', 7, 'email'),
+      service.getColumnFromRecord('member', { id: 7 }, 'email'),
     ).resolves.toBe('museum@example.com');
 
     expect(adapter.parameter).toHaveBeenNthCalledWith(1, 1);
@@ -111,39 +121,15 @@ describe('DataAccessService', () => {
     expect(adapter.selectSingle).toHaveBeenNthCalledWith(
       1,
       'member',
-      'WHERE id=$1',
+      'WHERE "id"=$1',
       [7],
     );
     expect(adapter.selectSingle).toHaveBeenNthCalledWith(
       2,
       'member',
-      'WHERE id=$1',
+      'WHERE "id"=$1',
       [7],
     );
-  });
-
-  it('delegates create table SQL generation to the active adapter', async () => {
-    vi.mocked(adapter.createTableSql).mockReturnValueOnce(
-      'CREATE TABLE "member" ("id" integer PRIMARY KEY)',
-    );
-
-    await expect(
-      service.createTable('member', [
-        {
-          name: 'name',
-          type: 'text',
-          nullable: false,
-        },
-      ]),
-    ).resolves.toBe('CREATE TABLE "member" ("id" integer PRIMARY KEY)');
-
-    expect(adapter.createTableSql).toHaveBeenCalledWith('member', [
-      {
-        name: 'name',
-        type: 'text',
-        nullable: false,
-      },
-    ]);
   });
 
   it('uses the adapter pagination syntax for index queries', async () => {
@@ -173,6 +159,131 @@ describe('DataAccessService', () => {
     expect(adapter.execute).toHaveBeenCalledWith('SELECT 1', []);
   });
 
+  it('rejects inserts that include auto-generated primary key columns', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'id', dataType: 'integer', isGenerated: true },
+    ]);
+
+    await expect(
+      service.insert('member', { id: 99, name: 'test' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(adapter.insert).not.toHaveBeenCalled();
+  });
+
+  it('allows inserts when the record omits auto-generated primary key columns', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'id', dataType: 'integer', isGenerated: true },
+    ]);
+    vi.mocked(adapter.insert).mockResolvedValueOnce({
+      id: 1,
+      name: 'test',
+    });
+
+    await expect(service.insert('member', { name: 'test' })).resolves.toEqual({
+      id: 1,
+      name: 'test',
+    });
+
+    expect(adapter.insert).toHaveBeenCalledWith('member', { name: 'test' });
+  });
+
+  it('allows inserts when primary key columns are not auto-generated', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'id', dataType: 'uuid', isGenerated: false },
+    ]);
+    vi.mocked(adapter.insert).mockResolvedValueOnce({
+      id: 'abc-123',
+      name: 'test',
+    });
+
+    await expect(
+      service.insert('member', { id: 'abc-123', name: 'test' }),
+    ).resolves.toEqual({ id: 'abc-123', name: 'test' });
+  });
+
+  it('rejects composite inserts when only the generated column is supplied', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'orderId', dataType: 'integer', isGenerated: true },
+      { column: 'productCode', dataType: 'varchar', isGenerated: false },
+    ]);
+
+    await expect(
+      service.insert('orderItem', {
+        orderId: 42,
+        productCode: 'ABC',
+        quantity: 1,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(adapter.insert).not.toHaveBeenCalled();
+  });
+
+  it('allows composite inserts when generated columns are omitted', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'orderId', dataType: 'integer', isGenerated: true },
+      { column: 'productCode', dataType: 'varchar', isGenerated: false },
+    ]);
+    vi.mocked(adapter.insert).mockResolvedValueOnce({
+      orderId: 1,
+      productCode: 'ABC',
+      quantity: 1,
+    });
+
+    await expect(
+      service.insert('orderItem', { productCode: 'ABC', quantity: 1 }),
+    ).resolves.toEqual({ orderId: 1, productCode: 'ABC', quantity: 1 });
+
+    expect(adapter.insert).toHaveBeenCalledWith('orderItem', {
+      productCode: 'ABC',
+      quantity: 1,
+    });
+  });
+
+  it('allows composite inserts when no columns are auto-generated', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'tenantId', dataType: 'uuid', isGenerated: false },
+      { column: 'userId', dataType: 'uuid', isGenerated: false },
+    ]);
+    vi.mocked(adapter.insert).mockResolvedValueOnce({
+      tenantId: 'a',
+      userId: 'b',
+      role: 'admin',
+    });
+
+    await expect(
+      service.insert('tenantUser', {
+        tenantId: 'a',
+        userId: 'b',
+        role: 'admin',
+      }),
+    ).resolves.toEqual({ tenantId: 'a', userId: 'b', role: 'admin' });
+  });
+
+  it('rejects composite inserts naming multiple generated columns', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+      { column: 'id', dataType: 'integer', isGenerated: true },
+      { column: 'revision', dataType: 'integer', isGenerated: true },
+    ]);
+
+    await expect(
+      service.insert('auditLog', { id: 1, revision: 7, message: 'hello' }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(adapter.insert).not.toHaveBeenCalled();
+  });
+
+  it('allows inserts when the table has no primary key columns', async () => {
+    vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([]);
+    vi.mocked(adapter.insert).mockResolvedValueOnce({ name: 'test' });
+
+    await expect(
+      service.insert('logEntries', { name: 'test' }),
+    ).resolves.toEqual({ name: 'test' });
+
+    expect(adapter.insert).toHaveBeenCalledWith('logEntries', { name: 'test' });
+  });
+
   it('rejects non-array SQL args with a bad request error', async () => {
     await expect(
       service.execute('SELECT 1', { id: 1 } as any),
@@ -189,9 +300,9 @@ describe('DataAccessService', () => {
     vi.mocked(adapter.tableExists).mockResolvedValueOnce(true);
     vi.mocked(adapter.selectSingle).mockResolvedValueOnce(undefined as any);
 
-    await expect(service.selectSingleById('member', 7)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      service.selectSingleByPrimaryKey('member', { id: 7 }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('throws when an optional capability is not supported', async () => {
@@ -210,9 +321,10 @@ describe('DataAccessService', () => {
       executeScalar: vi.fn(),
       tableExists: vi.fn().mockResolvedValue(true),
       release: vi.fn(),
+      getPrimaryKeyColumns: vi.fn(),
     };
 
-    const limitedService = new DataAccessService(limitedAdapter);
+    const limitedService = new DataAccessService(limitedAdapter, runtimeConfig);
 
     await expect(limitedService.describeTable('member')).rejects.toBeInstanceOf(
       NotImplementedException,

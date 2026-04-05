@@ -1,22 +1,4 @@
 /**
- * Minimal column definition used when generating a `CREATE TABLE` statement.
- */
-export interface ColumnDescription {
-  /**
-   * Column name.
-   */
-  name: string;
-  /**
-   * Database-specific column type declaration.
-   */
-  type: string;
-  /**
-   * Whether the column accepts `NULL`.
-   */
-  nullable: boolean;
-}
-
-/**
  * Normalized metadata for a single table column.
  */
 export interface TableSchemaColumn {

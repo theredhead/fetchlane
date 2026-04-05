@@ -37,7 +37,9 @@ describe('FetchRequestHandlerService', () => {
           subject: 'sub',
           roles: 'realm_access.roles',
         },
+        authorization: undefined as any,
       },
+      enableSchemaFeatures: false,
     });
 
   it('writes and executes positional fetch requests using the active adapter rules', async () => {

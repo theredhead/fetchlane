@@ -1,6 +1,7 @@
 import { Inject, Injectable, Provider } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { parseDatabaseUrl, ParsedDatabaseUrl } from '../db.conf';
+import type { PrimaryKeyColumn } from '../data/database';
 import { formatDeveloperError } from '../errors/api-error';
 
 /**
@@ -166,10 +167,6 @@ export interface RuntimeAuthorizationConfig {
    */
   schema: RoleGate;
   /**
-   * Gate controlling table creation.
-   */
-  createTable: RoleGate;
-  /**
    * CRUD authorization with a default and optional per-table overrides.
    */
   crud: {
@@ -244,9 +241,17 @@ export interface RuntimeConfig {
    */
   authentication: RuntimeAuthenticationConfig;
   /**
-   * Whether schema-exposing features (table listing, column info, describe, create table) are enabled.
+   * Whether schema-exposing features (table listing, column info, describe) are enabled.
    */
   enableSchemaFeatures: boolean;
+  /**
+   * Optional per-table primary key overrides.
+   *
+   * When a table lacks discoverable primary key metadata (e.g. views, tables
+   * without constraints), operators can specify columns here so that
+   * single-record operations still work.
+   */
+  primaryKeys?: { [tableName: string]: PrimaryKeyColumn[] };
 }
 
 /**
@@ -374,6 +379,14 @@ export class RuntimeConfigService {
    */
   public getAuthorization(): RuntimeAuthorizationConfig | undefined {
     return this.config.authentication.authorization;
+  }
+
+  /**
+   * Returns the primary key column override for a table, or `undefined`
+   * when no override is configured.
+   */
+  public getPrimaryKeyOverride(table: string): PrimaryKeyColumn[] | undefined {
+    return this.config.primaryKeys?.[table];
   }
 
   /**
@@ -619,6 +632,7 @@ function validateRuntimeConfig(
       ),
     },
     enableSchemaFeatures: root.enableSchemaFeatures === true,
+    primaryKeys: readOptionalPrimaryKeys(root, configPath),
   };
 
   parseDatabaseUrl(config.database.url);
@@ -658,7 +672,7 @@ function validateRuntimeConfig(
     throw new Error(
       formatDeveloperError(
         'Invalid runtime config: config.authentication.authorization is required when authentication is enabled.',
-        'Add an authorization section with schema, createTable, and crud role definitions.',
+        'Add an authorization section with schema and crud role definitions.',
       ),
     );
   }
@@ -806,12 +820,6 @@ function readOptionalAuthorization(
     configPath,
   );
 
-  const createTable = readRoleGate(
-    authz.createTable,
-    'config.authentication.authorization.createTable',
-    configPath,
-  );
-
   const crud = readObject(
     authz.crud,
     'config.authentication.authorization.crud',
@@ -901,7 +909,6 @@ function readOptionalAuthorization(
 
   return {
     schema,
-    createTable: createTable,
     crud: {
       default: defaultRoles,
       tables,
@@ -948,6 +955,87 @@ function readRoleGate(
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads the optional `primaryKeys` config section.
+ *
+ * Expected shape:
+ * ```json
+ * {
+ *   "orderItem": [
+ *     { "column": "orderId", "dataType": "integer" },
+ *     { "column": "lineNumber", "dataType": "integer" }
+ *   ]
+ * }
+ * ```
+ *
+ * Each entry may include an optional `isGenerated` boolean (defaults to
+ * `false`) indicating that the column value is auto-assigned by the database.
+ */
+function readOptionalPrimaryKeys(
+  root: globalThis.Record<string, unknown>,
+  configPath: string,
+): { [tableName: string]: PrimaryKeyColumn[] } | undefined {
+  if (root.primaryKeys === undefined) {
+    return undefined;
+  }
+
+  const section = readObject(
+    root.primaryKeys,
+    'config.primaryKeys',
+    configPath,
+  );
+  const result: { [tableName: string]: PrimaryKeyColumn[] } = {};
+
+  for (const [tableName, tableValue] of Object.entries(section)) {
+    if (!Array.isArray(tableValue) || tableValue.length === 0) {
+      throw new Error(
+        formatDeveloperError(
+          `Invalid runtime config: config.primaryKeys.${tableName} must be a non-empty array of primary key column definitions.`,
+          `Provide at least one { "column": "...", "dataType": "..." } entry for "${tableName}" in "${configPath}".`,
+        ),
+      );
+    }
+
+    result[tableName] = tableValue.map((entry, index) => {
+      if (!isPlainObject(entry)) {
+        throw new Error(
+          formatDeveloperError(
+            `Invalid runtime config: config.primaryKeys.${tableName}[${index}] must be an object.`,
+            `Each primary key column entry should be a JSON object with "column" and "dataType" fields in "${configPath}".`,
+          ),
+        );
+      }
+
+      const column =
+        typeof entry.column === 'string' ? entry.column.trim() : '';
+      const dataType =
+        typeof entry.dataType === 'string' ? entry.dataType.trim() : '';
+
+      if (!column) {
+        throw new Error(
+          formatDeveloperError(
+            `Invalid runtime config: config.primaryKeys.${tableName}[${index}].column must be a non-empty string.`,
+            `Provide a column name for the primary key entry in "${configPath}".`,
+          ),
+        );
+      }
+
+      if (!dataType) {
+        throw new Error(
+          formatDeveloperError(
+            `Invalid runtime config: config.primaryKeys.${tableName}[${index}].dataType must be a non-empty string.`,
+            `Provide a data type (e.g. "integer", "uuid", "varchar") for the primary key entry in "${configPath}".`,
+          ),
+        );
+      }
+
+      return { column, dataType, isGenerated: entry.isGenerated === true };
+    });
+  }
+
+  return result;
 }
 
 function deepFreeze<T>(value: T): T {
