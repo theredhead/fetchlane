@@ -17,7 +17,8 @@
     "fetchMaxPredicates": 25,
     "fetchMaxSortFields": 8,
     "rateLimitWindowMs": 60000,
-    "rateLimitMax": 120
+    "rateLimitMax": 120,
+    "statusRateLimitMax": 600
   },
   "enableSchemaFeatures": false,
   "authentication": {

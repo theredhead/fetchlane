@@ -104,7 +104,7 @@ export class DataAccessService {
     pageSize?: number,
   ): Promise<Record[]> {
     if (pageSize === undefined) {
-      pageSize = Math.max(
+      pageSize = Math.min(
         DEFAULT_PAGE_SIZE,
         this.runtimeConfig.getLimits().fetchMaxPageSize,
       );

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Provider } from '@nestjs/common';
+import { Inject, Injectable, Logger, Provider } from '@nestjs/common';
 import { readFileSync } from 'node:fs';
 import { parseDatabaseUrl, ParsedDatabaseUrl } from '../db.conf';
 import type { PrimaryKeyColumn } from '../data/database';
@@ -527,6 +527,21 @@ function validateRuntimeConfig(
   configPath: string,
 ): RuntimeConfig {
   const root = readObject(value, 'config', configPath);
+
+  warnUnknownKeys(
+    root,
+    [
+      'server',
+      'database',
+      'limits',
+      'authentication',
+      'enableSchemaFeatures',
+      'primaryKeys',
+    ],
+    'config',
+    configPath,
+  );
+
   const server = readObject(root.server, 'config.server', configPath);
   const serverCors = readObject(server.cors, 'config.server.cors', configPath);
   const database = readObject(root.database, 'config.database', configPath);
@@ -696,6 +711,22 @@ function validateRuntimeConfig(
   }
 
   return config;
+}
+
+function warnUnknownKeys(
+  object: globalThis.Record<string, unknown>,
+  knownKeys: string[],
+  path: string,
+  configPath: string,
+): void {
+  const unknown = Object.keys(object).filter((key) => !knownKeys.includes(key));
+
+  if (unknown.length > 0) {
+    const logger = new Logger('RuntimeConfig');
+    logger.warn(
+      `Unknown key(s) in ${path} of "${configPath}": ${unknown.join(', ')}. These are ignored at runtime.`,
+    );
+  }
 }
 
 function readObject(

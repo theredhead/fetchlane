@@ -19,8 +19,9 @@ type AuthorizationVerdict = 'allowed' | 'denied';
  * Fine-grained authorization service that enforces per-channel role
  * requirements configured via `config.authentication.authorization`.
  *
- * When authorization is not configured, all checks are no-ops and every
- * authenticated user has unrestricted access (backward-compatible).
+ * Authorization is required when authentication is enabled. If the service
+ * is invoked without a configured authorization section, an internal server
+ * error is thrown to prevent accidental unrestricted access.
  *
  * Role semantics:
  *  - `allow: ["*"]` — any authenticated principal is allowed (wildcard).
@@ -32,6 +33,7 @@ type AuthorizationVerdict = 'allowed' | 'denied';
 @Injectable()
 export class AuthorizationService {
   private readonly authorization: RuntimeAuthorizationConfig | undefined;
+  private readonly authenticationEnabled: boolean;
 
   /**
    * Creates the authorization service from runtime config.
@@ -41,6 +43,7 @@ export class AuthorizationService {
     private readonly logger: LoggerService,
   ) {
     this.authorization = this.runtimeConfig.getAuthorization();
+    this.authenticationEnabled = this.runtimeConfig.getAuthentication().enabled;
   }
 
   /**
@@ -48,11 +51,11 @@ export class AuthorizationService {
    * (table-names, table info, describe).
    */
   public authorizeSchemaAccess(request: Request): void {
-    if (!this.authorization) {
+    if (!this.ensureAuthorizationConfigured()) {
       return;
     }
 
-    this.evaluateGate(request, this.authorization.schema, 'schema');
+    this.evaluateGate(request, this.authorization!.schema, 'schema');
   }
 
   /**
@@ -67,13 +70,13 @@ export class AuthorizationService {
     table: string,
     operation: CrudOperation,
   ): void {
-    if (!this.authorization) {
+    if (!this.ensureAuthorizationConfigured()) {
       return;
     }
 
-    const tableOverride = this.authorization.crud.tables[table];
+    const tableOverride = this.authorization!.crud.tables[table];
     const gate =
-      tableOverride?.[operation] ?? this.authorization.crud.default[operation];
+      tableOverride?.[operation] ?? this.authorization!.crud.default[operation];
 
     this.evaluateGate(request, gate, `crud:${operation} on "${table}"`);
   }
@@ -188,5 +191,33 @@ export class AuthorizationService {
     this.logger.log(
       `[${requestId}] authorization ${verdict} for "${subject}" on ${channel}: ${reason}`,
     );
+  }
+
+  /**
+   * Verifies the authorization section is present when authentication is
+   * enabled. When authentication is disabled, authorization checks are
+   * skipped entirely because all endpoints are public.
+   *
+   * Throws an internal server error when authentication is on but
+   * the authorization section is missing, preventing silent fallback to
+   * unrestricted access.
+   *
+   * @returns `true` when authorization should be evaluated, `false` when
+   *  authentication is disabled and checks should be skipped.
+   */
+  private ensureAuthorizationConfigured(): boolean {
+    if (!this.authenticationEnabled) {
+      return false;
+    }
+
+    if (!this.authorization) {
+      throw new AuthenticationError(
+        500,
+        'Authorization is not configured but was invoked.',
+        'Add an authorization section to the runtime config when authentication is enabled.',
+      );
+    }
+
+    return true;
   }
 }

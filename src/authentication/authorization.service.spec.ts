@@ -30,9 +30,13 @@ function createAuthenticatedRequest(roles: string[]): Request {
 
 function buildRuntimeConfigService(
   authorizationConfig: unknown,
+  authenticationEnabled = true,
 ): RuntimeConfigService {
   return {
     getAuthorization: vi.fn().mockReturnValue(authorizationConfig),
+    getAuthentication: vi
+      .fn()
+      .mockReturnValue({ enabled: authenticationEnabled }),
   } as unknown as RuntimeConfigService;
 }
 
@@ -70,26 +74,57 @@ describe('AuthorizationService', () => {
     mockLogger = createMockLogger();
   });
 
-  describe('when authorization is not configured', () => {
+  describe('when authentication is disabled', () => {
     let service: AuthorizationService;
 
     beforeEach(() => {
       service = new AuthorizationService(
-        buildRuntimeConfigService(undefined),
+        buildRuntimeConfigService(undefined, false),
         mockLogger,
       );
     });
 
-    it('allows schema access without any checks', () => {
+    it('skips schema access checks when authentication is off', () => {
       const request = createMockRequest();
       expect(() => service.authorizeSchemaAccess(request)).not.toThrow();
     });
 
-    it('allows CRUD operations without any checks', () => {
+    it('skips CRUD checks when authentication is off', () => {
       const request = createMockRequest();
       expect(() =>
         service.authorizeCrud(request, 'member', 'read'),
       ).not.toThrow();
+    });
+  });
+
+  describe('when authentication is enabled but authorization is missing', () => {
+    let service: AuthorizationService;
+
+    beforeEach(() => {
+      service = new AuthorizationService(
+        buildRuntimeConfigService(undefined, true),
+        mockLogger,
+      );
+    });
+
+    it('throws on schema access when authorization is missing', () => {
+      const request = createMockRequest();
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        AuthenticationError,
+      );
+      expect(() => service.authorizeSchemaAccess(request)).toThrow(
+        /not configured/,
+      );
+    });
+
+    it('throws on CRUD operations when authorization is missing', () => {
+      const request = createMockRequest();
+      expect(() => service.authorizeCrud(request, 'member', 'read')).toThrow(
+        AuthenticationError,
+      );
+      expect(() => service.authorizeCrud(request, 'member', 'read')).toThrow(
+        /not configured/,
+      );
     });
   });
 

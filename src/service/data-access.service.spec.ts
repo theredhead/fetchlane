@@ -151,6 +151,21 @@ describe('DataAccessService', () => {
     );
   });
 
+  it('defaults to the conservative page size when pageSize is omitted', async () => {
+    vi.mocked(adapter.execute).mockResolvedValueOnce({
+      rows: [],
+    } as unknown as RecordSet);
+
+    await service.index('member', 0);
+
+    expect(adapter.paginateQuery).toHaveBeenCalledWith(
+      'SELECT * FROM "member"',
+      100,
+      0,
+      null,
+    );
+  });
+
   it('passes raw SQL execution through to the active adapter', async () => {
     const result: RecordSet = { rows: [{ id: 1 }] };
     vi.mocked(adapter.execute).mockResolvedValueOnce(result);
