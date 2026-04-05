@@ -27,16 +27,16 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { AuthorizationService } from 'src/authentication/authorization.service';
-import { RuntimeConfigService } from 'src/config/runtime-config';
+import { AuthorizationService } from '../authentication/authorization.service';
+import { RuntimeConfigService } from '../config/runtime-config';
 import {
   Record,
   RecordSet,
   PrimaryKeyValue,
   PrimaryKeyColumn,
-} from 'src/data/database';
-import { badRequest, notFound, serviceUnavailable } from 'src/errors/api-error';
-import { TableSchemaDescriptionDto } from 'src/swagger/models';
+} from '../data/database';
+import { badRequest, notFound, serviceUnavailable } from '../errors/api-error';
+import { TableSchemaDescriptionDto } from '../swagger/models';
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_$.]*$/;
 

@@ -96,6 +96,7 @@ function writeConfig(
       database: {
         url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
       },
+      enableSchemaFeatures: true,
       limits: {
         requestBodyBytes: 1048576,
         fetchMaxPageSize: 1000,
@@ -189,6 +190,7 @@ describe('Optional authentication (e2e)', () => {
         getTableInfo: vi.fn(),
         describeTable: vi.fn(),
         createTableSql: vi.fn(),
+        getPrimaryKeyColumns: vi.fn().mockResolvedValue([]),
       })
       .compile();
 

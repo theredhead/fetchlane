@@ -7,11 +7,11 @@ import {
   supportsSchemaDescription,
   supportsTableInfo,
   supportsTableListing,
-} from 'src/data/database';
+} from '../data/database';
 import { TableSchemaDescription } from '../data/database-metadata';
 import { DATABASE_CONNECTION } from '../data/database.providers';
 import { badRequest, notFound, notImplemented } from '../errors/api-error';
-import { RuntimeConfigService } from 'src/config/runtime-config';
+import { RuntimeConfigService } from '../config/runtime-config';
 
 /**
  * Fallback page size used when the service is called without an explicit

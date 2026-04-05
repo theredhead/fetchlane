@@ -107,6 +107,7 @@ describe('Operational limits (e2e)', () => {
         database: {
           url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
         },
+        enableSchemaFeatures: true,
         limits: {
           requestBodyBytes: options.bodyLimitBytes || 1048576,
           fetchMaxPageSize: options.fetchMaxPageSize || 1000,
@@ -183,6 +184,7 @@ describe('Operational limits (e2e)', () => {
         getTableInfo: vi.fn(),
         describeTable: vi.fn(),
         createTableSql: vi.fn(),
+        getPrimaryKeyColumns: vi.fn().mockResolvedValue([]),
       })
       .compile();
 
