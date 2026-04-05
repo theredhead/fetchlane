@@ -16,9 +16,7 @@
 
 Fetchlane is a NestJS service that exposes a consistent HTTP interface across multiple database engines. It is built for browsing data, inspecting schemas, performing CRUD operations, and executing structured fetch requests without baking engine-specific logic into the API surface.
 
-> **Note:** Fetchlane is in early alpha. It is not ready for production use.
-> APIs, configuration, and behavior may change without notice. The open-source
-> license is still being determined — until then, all rights are reserved.
+> **Note:** Fetchlane is free to use for any purpose and available under the [MIT License](LICENSE).
 
 ## Why Fetchlane
 
@@ -513,6 +511,7 @@ Fetchlane ships with two documentation surfaces:
 
 | Docs                  | Purpose                                       | Location                         |
 | --------------------- | --------------------------------------------- | -------------------------------- |
+| Feature list          | Complete v1.0 feature inventory               | `FEATURES.md`                    |
 | Swagger UI            | Explore and test the HTTP API                 | `http://localhost:3000/api/docs` |
 | TypeDoc               | Browse the TypeScript API surface             | `docs/api`                       |
 | FetchRequest examples | Real request payloads from simple to advanced | `docs/fetchrequest-examples.md`  |
