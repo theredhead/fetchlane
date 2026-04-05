@@ -86,7 +86,7 @@ service for network-reachable environments.
 Every incoming request walks the same decision chain:
 
 1. **Is the endpoint family enabled?**
-   Schema endpoints (`table-names`, `info`, `schema`, `create-table`) only
+   Schema endpoints (`table-names`, `info`, `schema`) only
    exist when `enableSchemaFeatures` is `true`. Otherwise the route returns
    `404 Not Found`.
 
@@ -182,7 +182,7 @@ Startup fails fast with hint-rich errors when the config path is missing, the fi
 
 ## Schema Features
 
-Schema-exposing endpoints (`table-names`, `table-info`, `describe-table`, `create-table`) are disabled by default. To enable them, set `enableSchemaFeatures` to `true` in the runtime config:
+Schema-exposing endpoints (`table-names`, `info`, `schema`) are disabled by default. To enable them, set `enableSchemaFeatures` to `true` in the runtime config:
 
 ```json
 {
@@ -227,11 +227,10 @@ Authorization is required when authentication is enabled.
 
 ### Channels
 
-| Channel          | Protects                                                | Config key                  |
-| ---------------- | ------------------------------------------------------- | --------------------------- |
-| **Schema**       | `table-names`, `:table/info`, `:table/schema`           | `authorization.schema`      |
-| **Create table** | `tables/:table` (POST)                                  | `authorization.createTable` |
-| **CRUD**         | All record-level endpoints, per table and per operation | `authorization.crud`        |
+| Channel    | Protects                                                | Config key             |
+| ---------- | ------------------------------------------------------- | ---------------------- |
+| **Schema** | `table-names`, `:table/info`, `:table/schema`           | `authorization.schema` |
+| **CRUD**   | All record-level endpoints, per table and per operation | `authorization.crud`   |
 
 CRUD is further divided into four operations — `create`, `read`, `update`,
 `delete` — each with its own role list.
@@ -273,7 +272,6 @@ Operations not listed in a table override fall back to the default.
     },
     "authorization": {
       "schema": ["admin", "schema-viewer"],
-      "createTable": { "allow": ["admin"], "deny": ["intern"] },
       "crud": {
         "default": {
           "create": ["admin", "editor"],
@@ -304,7 +302,6 @@ Operations not listed in a table override fall back to the default.
 In this example:
 
 - Only `admin` and `schema-viewer` can inspect table schemas
-- Only `admin` can create new tables; anyone holding the `intern` role is explicitly denied
 - All tables default to editor/viewer-style access
 - `audit_log` restricts reads to `admin` and `auditor`, and locks all writes
 - `public_data` is readable by any authenticated user
@@ -347,7 +344,7 @@ are in [docs/deployment.md](docs/deployment.md).
 
 ## Operational Limits
 
-Fetchlane can now enforce a small set of production-safe limits entirely from runtime config:
+Fetchlane enforces a set of production-safe limits entirely from runtime config:
 
 - `limits.requestBodyBytes`
 - `limits.fetchMaxPageSize`
@@ -355,12 +352,11 @@ Fetchlane can now enforce a small set of production-safe limits entirely from ru
 - `limits.fetchMaxSortFields`
 - `limits.rateLimitWindowMs`
 - `limits.rateLimitMax`
+- `limits.statusRateLimitMax` (optional, defaults to `rateLimitMax` × 5)
 
-HTTP rate limiting is applied in memory. Anonymous callers are limited by client IP. Authenticated callers are limited by their mapped subject claim when available, and fall back to IP otherwise.
+HTTP rate limiting is applied in memory. Anonymous callers are limited by client IP. Authenticated callers are limited by their mapped subject claim when available, and fall back to IP otherwise. The `/api/status` endpoint is rate-limited separately with a more relaxed ceiling (`statusRateLimitMax`).
 
-The status endpoint exposes the active limit values so container operators can verify what is actually running without exposing secrets.
-
-These limits are runtime-config driven.
+Every response includes `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers. Expired rate-limit buckets are automatically pruned to prevent unbounded memory growth.
 
 ## Deployment
 
@@ -407,14 +403,13 @@ Real `.env` files are gitignored so local secrets do not end up in source contro
 - `GET /api/data-access/:table`
 - `GET /api/data-access/:table/info`
 - `GET /api/data-access/:table/schema`
-- `GET /api/data-access/:table/record/:id`
-- `GET /api/data-access/:table/record/:id/column/:column`
+- `GET /api/data-access/:table/record/:primaryKey`
+- `GET /api/data-access/:table/record/:primaryKey/column/:column`
 - `POST /api/data-access/fetch`
-- `POST /api/data-access/tables/:table`
 - `POST /api/data-access/:table`
-- `PATCH /api/data-access/:table/record/:id/column/:column`
-- `PUT /api/data-access/:table/record/:id`
-- `DELETE /api/data-access/:table/record/:id`
+- `PATCH /api/data-access/:table/record/:primaryKey/column/:column`
+- `PUT /api/data-access/:table/record/:primaryKey`
+- `DELETE /api/data-access/:table/record/:primaryKey`
 
 ### Platform
 

@@ -109,7 +109,6 @@ That means health and readiness probes can still hit `/api/status` without ident
     },
     "authorization": {
       "schema": ["admin"],
-      "createTable": ["admin"],
       "crud": {
         "default": {
           "create": ["admin", "editor"],
@@ -132,11 +131,10 @@ authentication is enabled.
 
 ### Channels
 
-| Channel      | Endpoints                                       | Config key                  |
-| ------------ | ----------------------------------------------- | --------------------------- |
-| Schema       | `table-names`, `:table/info`, `:table/schema`   | `authorization.schema`      |
-| Create table | `POST tables/:table`                            | `authorization.createTable` |
-| CRUD         | All record endpoints, per table × per operation | `authorization.crud`        |
+| Channel | Endpoints                                       | Config key             |
+| ------- | ----------------------------------------------- | ---------------------- |
+| Schema  | `table-names`, `:table/info`, `:table/schema`   | `authorization.schema` |
+| CRUD    | All record endpoints, per table × per operation | `authorization.crud`   |
 
 ### Role values
 
@@ -157,7 +155,6 @@ rejected regardless of which allowed roles the principal also holds.
 {
   "authorization": {
     "schema": ["admin", "schema-viewer"],
-    "createTable": { "allow": ["admin"], "deny": ["intern"] },
     "crud": {
       "default": {
         "create": ["admin", "editor"],
@@ -246,7 +243,6 @@ data:
         },
         "authorization": {
           "schema": ["admin"],
-          "createTable": ["admin"],
           "crud": {
             "default": {
               "create": ["admin", "editor"],

@@ -514,7 +514,6 @@ describe('AuthorizationService', () => {
       const denyService = new AuthorizationService(
         buildRuntimeConfigService({
           schema: gate(['admin'], ['blocked']),
-          createTable: gate(['admin']),
           crud: {
             default: {
               create: gate(['admin']),

@@ -41,7 +41,6 @@ describe('StatusController', () => {
           tableListing: true,
           tableInfo: true,
           schemaDescription: true,
-          createTableSql: true,
         },
         error: null,
       },

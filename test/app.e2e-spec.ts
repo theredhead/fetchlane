@@ -84,7 +84,6 @@ describe('AppModule (e2e)', () => {
         getTableNames: vi.fn(),
         getTableInfo: vi.fn(),
         describeTable: vi.fn(),
-        createTableSql: vi.fn(),
         getPrimaryKeyColumns: vi.fn().mockResolvedValue([]),
         name: 'test',
       })

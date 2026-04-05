@@ -31,25 +31,6 @@ GET {{baseUrl}}/api/data-access/member/schema
 Authorization: Bearer {{authToken}}
 
 ###
-# Create-table SQL
-POST {{baseUrl}}/api/data-access/tables/customer_notes
-Content-Type: application/json
-Authorization: Bearer {{authToken}}
-
-[
-  {
-    "name": "note",
-    "type": "text",
-    "nullable": false
-  },
-  {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-  }
-]
-
-###
 # FetchRequest with positional parameters
 POST {{baseUrl}}/api/data-access/fetch
 Content-Type: application/json

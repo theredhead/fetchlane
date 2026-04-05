@@ -119,7 +119,6 @@ function writeConfig(
           ? {
               authorization: {
                 schema: ['*'],
-                createTable: ['*'],
                 crud: {
                   default: {
                     create: ['*'],
@@ -189,7 +188,6 @@ describe('Optional authentication (e2e)', () => {
         getTableNames: vi.fn().mockResolvedValue([{ table_name: 'member' }]),
         getTableInfo: vi.fn(),
         describeTable: vi.fn(),
-        createTableSql: vi.fn(),
         getPrimaryKeyColumns: vi.fn().mockResolvedValue([]),
       })
       .compile();
