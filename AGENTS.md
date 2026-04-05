@@ -13,15 +13,15 @@ REST API for table access, schema discovery, and structured querying across
 **PostgreSQL**, **MySQL**, and **SQL Server**. It ships as a Docker container
 and requires no code changes to switch engines — only a connection URL.
 
-| Layer          | Responsibility                                                         |
-| -------------- | ---------------------------------------------------------------------- |
-| Controllers    | HTTP routing, Swagger decorators, request validation                   |
-| Services       | Business logic, FetchRequest handling, database lifecycle              |
-| Data           | Engine-specific adapters (Postgres, MySQL, SQL Server), query building |
-| Authentication | Optional OIDC/JWT bearer authentication middleware                     |
-| Config         | Runtime JSON config with env-var interpolation, deep-frozen singleton  |
-| Filters        | Global exception filter with structured error responses                |
-| Middleware     | Request logging, rate limiting                                         |
+| Layer          | Responsibility                                                          |
+| -------------- | ----------------------------------------------------------------------- |
+| Controllers    | HTTP routing, Swagger decorators, request validation                    |
+| Services       | Business logic, FetchRequest handling, database lifecycle               |
+| Data           | Engine-specific adapters (Postgres, MySQL, SQL Server), query building  |
+| Authentication | Optional OIDC/JWT bearer authentication middleware                      |
+| Config         | Runtime JSON config with env-var interpolation, deep-frozen singleton   |
+| Filters        | Global exception filter with structured error responses                 |
+| Middleware     | Request logging, rate limiting with standard headers and bucket cleanup |
 
 ---
 

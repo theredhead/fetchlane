@@ -74,6 +74,12 @@ export interface RuntimeLimitsConfig {
    * Maximum requests allowed per rate-limit window.
    */
   rateLimitMax: number;
+  /**
+   * Maximum requests allowed per rate-limit window for the status endpoint.
+   *
+   * Defaults to five times `rateLimitMax` when omitted from the config file.
+   */
+  statusRateLimitMax: number;
 }
 
 /**
@@ -587,6 +593,18 @@ function validateRuntimeConfig(
         'config.limits.rateLimitMax',
         configPath,
       ),
+      statusRateLimitMax:
+        limits.statusRateLimitMax != null
+          ? readPositiveInteger(
+              limits.statusRateLimitMax,
+              'config.limits.statusRateLimitMax',
+              configPath,
+            )
+          : readPositiveInteger(
+              limits.rateLimitMax,
+              'config.limits.rateLimitMax',
+              configPath,
+            ) * 5,
     },
     authentication: {
       enabled: readBoolean(

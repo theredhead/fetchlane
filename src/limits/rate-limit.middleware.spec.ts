@@ -7,6 +7,7 @@ describe('RateLimitMiddleware', () => {
     getLimits: vi.fn().mockReturnValue({
       rateLimitWindowMs: 60000,
       rateLimitMax: 3,
+      statusRateLimitMax: 10,
     }),
   };
 
@@ -15,10 +16,15 @@ describe('RateLimitMiddleware', () => {
     runtimeConfig.getLimits.mockReturnValue({
       rateLimitWindowMs: 60000,
       rateLimitMax: 3,
+      statusRateLimitMax: 10,
     });
     middleware = new RateLimitMiddleware(
       runtimeConfig as unknown as RuntimeConfigService,
     );
+  });
+
+  afterEach(() => {
+    middleware.onModuleDestroy();
   });
 
   function fakeRequest(overrides: Record<string, any> = {}): any {
@@ -32,7 +38,11 @@ describe('RateLimitMiddleware', () => {
   }
 
   function fakeResponse(): any {
-    const response: any = { status: vi.fn(), json: vi.fn() };
+    const response: any = {
+      status: vi.fn(),
+      json: vi.fn(),
+      setHeader: vi.fn(),
+    };
     response.status.mockReturnValue(response);
     return response;
   }
@@ -168,5 +178,173 @@ describe('RateLimitMiddleware', () => {
     const next = vi.fn();
     middleware.use(request, fakeResponse(), next);
     expect(next).toHaveBeenCalled();
+  });
+
+  describe('rate-limit headers', () => {
+    it('sets X-RateLimit-* headers on allowed requests', () => {
+      const response = fakeResponse();
+      middleware.use(fakeRequest({ ip: '10.1.0.1' }), response, vi.fn());
+
+      expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', 3);
+      expect(response.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Remaining',
+        2,
+      );
+      expect(response.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Reset',
+        expect.any(Number),
+      );
+    });
+
+    it('decrements X-RateLimit-Remaining with each request', () => {
+      const request = fakeRequest({ ip: '10.1.0.2' });
+      const firstResponse = fakeResponse();
+      middleware.use(request, firstResponse, vi.fn());
+      expect(firstResponse.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Remaining',
+        2,
+      );
+
+      const secondResponse = fakeResponse();
+      middleware.use(request, secondResponse, vi.fn());
+      expect(secondResponse.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Remaining',
+        1,
+      );
+
+      const thirdResponse = fakeResponse();
+      middleware.use(request, thirdResponse, vi.fn());
+      expect(thirdResponse.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Remaining',
+        0,
+      );
+    });
+
+    it('sets X-RateLimit-* headers on 429 responses', () => {
+      const request = fakeRequest({ ip: '10.1.0.3' });
+      for (let i = 0; i < 3; i++) {
+        middleware.use(request, fakeResponse(), vi.fn());
+      }
+
+      const response = fakeResponse();
+      middleware.use(request, response, vi.fn());
+
+      expect(response.status).toHaveBeenCalledWith(429);
+      expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', 3);
+      expect(response.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Remaining',
+        0,
+      );
+      expect(response.setHeader).toHaveBeenCalledWith(
+        'X-RateLimit-Reset',
+        expect.any(Number),
+      );
+    });
+
+    it('sets X-RateLimit-Reset to a future epoch-seconds timestamp', () => {
+      const response = fakeResponse();
+      const before = Math.ceil(Date.now() / 1000);
+      middleware.use(fakeRequest({ ip: '10.1.0.4' }), response, vi.fn());
+
+      const resetCall = response.setHeader.mock.calls.find(
+        (call: unknown[]) => call[0] === 'X-RateLimit-Reset',
+      );
+      expect(resetCall).toBeDefined();
+      expect(resetCall![1]).toBeGreaterThanOrEqual(before);
+    });
+  });
+
+  describe('status endpoint relaxed limits', () => {
+    it('uses statusRateLimitMax for /api/status requests', () => {
+      const request = fakeRequest({
+        ip: '10.2.0.1',
+        originalUrl: '/api/status',
+        url: '/api/status',
+      });
+
+      for (let i = 0; i < 10; i++) {
+        const next = vi.fn();
+        middleware.use(request, fakeResponse(), next);
+        expect(next).toHaveBeenCalled();
+      }
+
+      const response = fakeResponse();
+      const next = vi.fn();
+      middleware.use(request, response, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(response.status).toHaveBeenCalledWith(429);
+    });
+
+    it('reports statusRateLimitMax in headers for status requests', () => {
+      const request = fakeRequest({
+        ip: '10.2.0.2',
+        originalUrl: '/api/status',
+        url: '/api/status',
+      });
+      const response = fakeResponse();
+      middleware.use(request, response, vi.fn());
+
+      expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', 10);
+    });
+
+    it('keeps separate buckets for status and data requests', () => {
+      const statusRequest = fakeRequest({
+        ip: '10.2.0.3',
+        originalUrl: '/api/status',
+        url: '/api/status',
+      });
+      const dataRequest = fakeRequest({
+        ip: '10.2.0.3',
+        originalUrl: '/api/data-access/member',
+        url: '/api/data-access/member',
+      });
+
+      for (let i = 0; i < 3; i++) {
+        middleware.use(dataRequest, fakeResponse(), vi.fn());
+      }
+
+      const blockedResponse = fakeResponse();
+      middleware.use(dataRequest, blockedResponse, vi.fn());
+      expect(blockedResponse.status).toHaveBeenCalledWith(429);
+
+      const statusNext = vi.fn();
+      middleware.use(statusRequest, fakeResponse(), statusNext);
+      expect(statusNext).toHaveBeenCalled();
+    });
+
+    it('does not treat /api/status?foo=bar as a non-status path', () => {
+      const request = fakeRequest({
+        ip: '10.2.0.4',
+        originalUrl: '/api/status?foo=bar',
+        url: '/api/status?foo=bar',
+      });
+      const response = fakeResponse();
+      middleware.use(request, response, vi.fn());
+
+      expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', 10);
+    });
+  });
+
+  describe('bucket cleanup', () => {
+    it('prunes expired buckets on the cleanup interval', () => {
+      const request = fakeRequest({ ip: '10.3.0.1' });
+      middleware.use(request, fakeResponse(), vi.fn());
+
+      vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 61000);
+
+      (middleware as any).pruneExpiredBuckets();
+
+      expect((middleware as any).buckets.size).toBe(0);
+      vi.restoreAllMocks();
+    });
+
+    it('preserves buckets that have not expired', () => {
+      const request = fakeRequest({ ip: '10.3.0.2' });
+      middleware.use(request, fakeResponse(), vi.fn());
+
+      (middleware as any).pruneExpiredBuckets();
+
+      expect((middleware as any).buckets.size).toBe(1);
+    });
   });
 });

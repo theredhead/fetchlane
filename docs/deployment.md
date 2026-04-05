@@ -93,7 +93,8 @@ That means health and readiness probes can still hit `/api/status` without ident
     "fetchMaxPredicates": 25,
     "fetchMaxSortFields": 8,
     "rateLimitWindowMs": 60000,
-    "rateLimitMax": 120
+    "rateLimitMax": 120,
+    "statusRateLimitMax": 600
   },
   "enableSchemaFeatures": false,
   "authentication": {
@@ -229,7 +230,8 @@ data:
         "fetchMaxPredicates": 25,
         "fetchMaxSortFields": 8,
         "rateLimitWindowMs": 60000,
-        "rateLimitMax": 120
+        "rateLimitMax": 120,
+        "statusRateLimitMax": 600
       },
       "enableSchemaFeatures": false,
       "authentication": {
@@ -301,19 +303,33 @@ spec:
             name: fetchlane-config
 ```
 
+## Server Reference
+
+| Setting               | Meaning                                                                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server.host`         | Network interface to bind. Defaults to `127.0.0.1` (localhost only). Set to `0.0.0.0` inside containers or when external access is intended |
+| `server.port`         | TCP port the HTTP server listens on                                                                                                         |
+| `server.cors.enabled` | Whether CORS preflight and headers are applied                                                                                              |
+| `server.cors.origins` | Allowed origin list. Use explicit origins — avoid `["*"]` outside of development                                                            |
+
 ## Limits Reference
 
-| Setting                     | Meaning                                             |
-| --------------------------- | --------------------------------------------------- |
-| `limits.requestBodyBytes`   | Maximum accepted JSON payload size                  |
-| `limits.fetchMaxPageSize`   | Maximum `pagination.size` in a `FetchRequest`       |
-| `limits.fetchMaxPredicates` | Maximum total predicate clauses in a `FetchRequest` |
-| `limits.fetchMaxSortFields` | Maximum sort fields in a `FetchRequest`             |
-| `limits.rateLimitWindowMs`  | Duration of the in-memory rate-limit window         |
-| `limits.rateLimitMax`       | Maximum requests allowed per key inside one window  |
+| Setting                     | Meaning                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------- |
+| `limits.requestBodyBytes`   | Maximum accepted JSON payload size                                                    |
+| `limits.fetchMaxPageSize`   | Maximum `pagination.size` in a `FetchRequest`                                         |
+| `limits.fetchMaxPredicates` | Maximum total predicate clauses in a `FetchRequest`                                   |
+| `limits.fetchMaxSortFields` | Maximum sort fields in a `FetchRequest`                                               |
+| `limits.rateLimitWindowMs`  | Duration of the in-memory rate-limit window                                           |
+| `limits.rateLimitMax`       | Maximum requests allowed per key inside one window                                    |
+| `limits.statusRateLimitMax` | Maximum requests per key for `/api/status` (optional, defaults to `rateLimitMax × 5`) |
 
 ## Operational Notes
 
+- The server binds to `127.0.0.1` by default so that first-time users cannot accidentally expose the service to the network. Container and production deployments should set `server.host` to `0.0.0.0` explicitly.
 - Rate limiting is currently in-memory and therefore scoped per process.
+- Expired rate-limit buckets are automatically pruned to prevent unbounded memory growth.
+- Every response includes `X-RateLimit-Limit`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+- The `/api/status` endpoint is rate-limited separately with a more relaxed ceiling (`statusRateLimitMax`).
 - Multi-replica deployments will need a shared store later if they require globally coordinated throttling.
 - `/api/status` exposes only safe effective config and limit values; secrets are intentionally excluded.

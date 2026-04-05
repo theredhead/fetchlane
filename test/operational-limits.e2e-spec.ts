@@ -82,6 +82,7 @@ describe('Operational limits (e2e)', () => {
   async function bootApp(options: {
     authenticationEnabled: boolean;
     rateLimitMax: number;
+    statusRateLimitMax?: number;
     bodyLimitBytes?: number;
     fetchMaxPageSize?: number;
     fetchMaxPredicates?: number;
@@ -115,6 +116,9 @@ describe('Operational limits (e2e)', () => {
           fetchMaxSortFields: options.fetchMaxSortFields || 8,
           rateLimitWindowMs: 60000,
           rateLimitMax: options.rateLimitMax,
+          ...(options.statusRateLimitMax != null && {
+            statusRateLimitMax: options.statusRateLimitMax,
+          }),
         },
         authentication: {
           enabled: options.authenticationEnabled,
@@ -225,6 +229,7 @@ describe('Operational limits (e2e)', () => {
     await bootApp({
       authenticationEnabled: false,
       rateLimitMax: 1,
+      statusRateLimitMax: 1,
     });
 
     await request(app!.getHttpServer()).get('/api/status').expect(200);
@@ -259,6 +264,34 @@ describe('Operational limits (e2e)', () => {
       .get('/api/data-access/table-names')
       .set('Authorization', `Bearer ${tokenB}`)
       .expect(200);
+  });
+
+  it('emits X-RateLimit-* headers on every response', async () => {
+    await bootApp({
+      authenticationEnabled: false,
+      rateLimitMax: 10,
+    });
+
+    const response = await request(app!.getHttpServer())
+      .get('/api/status')
+      .expect(200);
+
+    expect(response.headers['x-ratelimit-limit']).toBeDefined();
+    expect(response.headers['x-ratelimit-remaining']).toBeDefined();
+    expect(response.headers['x-ratelimit-reset']).toBeDefined();
+  });
+
+  it('applies a separate relaxed limit to the status endpoint', async () => {
+    await bootApp({
+      authenticationEnabled: false,
+      rateLimitMax: 1,
+      statusRateLimitMax: 3,
+    });
+
+    await request(app!.getHttpServer()).get('/api/status').expect(200);
+    await request(app!.getHttpServer()).get('/api/status').expect(200);
+    await request(app!.getHttpServer()).get('/api/status').expect(200);
+    await request(app!.getHttpServer()).get('/api/status').expect(429);
   });
 
   it('returns a structured error when the request body exceeds the configured limit', async () => {

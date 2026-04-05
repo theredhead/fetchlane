@@ -127,4 +127,5 @@ Ready for `v1.0`:
 Remaining non-blockers:
 
 - Rate limiting is currently in-memory and therefore per-process; multi-replica deployments will need a shared store if they require globally coordinated throttling
+- Rate-limit buckets are automatically pruned and standard `X-RateLimit-*` headers are emitted on every response; the `/api/status` endpoint uses a separate relaxed ceiling
 - Authorization is still binary authenticated-vs-public; role-based or table-level authorization can layer on top of the authenticated request context later
