@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { AuthenticationError } from '../authentication/oidc-authentication.service';
 import { getRequestId } from '../authentication/request-context';
 import {
   ApiErrorBody,
@@ -60,7 +61,26 @@ export class ApiExceptionFilter implements ExceptionFilter {
       return this.normalizeHttpException(exception);
     }
 
+    if (exception instanceof AuthenticationError) {
+      return this.normalizeAuthenticationError(exception);
+    }
+
     return this.translateUnknownException(exception);
+  }
+
+  private normalizeAuthenticationError(
+    exception: AuthenticationError,
+  ): NormalizedApiError {
+    const statusCode = exception.statusCode;
+    const errorName = HttpStatus[statusCode] ?? 'Error';
+
+    return {
+      statusCode,
+      error: errorName,
+      message: exception.message,
+      hint: exception.hint,
+      ...(exception.details ? { details: exception.details } : {}),
+    };
   }
 
   private normalizeHttpException(exception: HttpException): NormalizedApiError {

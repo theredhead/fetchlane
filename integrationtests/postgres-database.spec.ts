@@ -136,4 +136,182 @@ describe('PostgresDatabase', () => {
     await database.execute(`DROP TABLE "${testTableName}"`);
     expect(await database.tableExists(testTableName)).toBe(false);
   });
+
+  describe('primary key scenarios', () => {
+    const uuidTable = 'pg_pk_uuid_test';
+    const stringTable = 'pg_pk_string_test';
+    const compositeTable = 'pg_pk_composite_test';
+
+    afterEach(async () => {
+      await database.execute(`DROP TABLE IF EXISTS "${uuidTable}"`);
+      await database.execute(`DROP TABLE IF EXISTS "${stringTable}"`);
+      await database.execute(`DROP TABLE IF EXISTS "${compositeTable}"`);
+    });
+
+    it('reports isGenerated correctly for a serial column', async () => {
+      const columns = await database.getPrimaryKeyColumns(testTableName);
+      expect(columns).toEqual([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+      ]);
+    });
+
+    it('performs CRUD with a caller-supplied UUID primary key', async () => {
+      await database.execute(`
+        CREATE TABLE "${uuidTable}" (
+          pk uuid PRIMARY KEY,
+          label varchar(100)
+        )
+      `);
+
+      const columns = await database.getPrimaryKeyColumns(uuidTable);
+      expect(columns).toEqual([
+        { column: 'pk', dataType: 'uuid', isGenerated: false },
+      ]);
+
+      const id = '550e8400-e29b-41d4-a716-446655440000';
+      const inserted = await database.insert(uuidTable, {
+        pk: id,
+        label: 'first',
+      });
+      expect(inserted.pk).toBe(id);
+      expect(inserted.label).toBe('first');
+
+      const updated = await database.update(
+        uuidTable,
+        { pk: id },
+        { label: 'updated' },
+      );
+      expect(updated.pk).toBe(id);
+      expect(updated.label).toBe('updated');
+
+      const deleted = await database.delete(uuidTable, { pk: id });
+      expect(deleted.pk).toBe(id);
+
+      const remaining = await database.select(uuidTable);
+      expect(remaining.rows).toHaveLength(0);
+    });
+
+    it('performs CRUD with a varchar primary key', async () => {
+      await database.execute(`
+        CREATE TABLE "${stringTable}" (
+          code varchar(20) PRIMARY KEY,
+          description varchar(200)
+        )
+      `);
+
+      const columns = await database.getPrimaryKeyColumns(stringTable);
+      expect(columns).toEqual([
+        {
+          column: 'code',
+          dataType: 'character varying',
+          isGenerated: false,
+        },
+      ]);
+
+      const inserted = await database.insert(stringTable, {
+        code: 'US',
+        description: 'United States',
+      });
+      expect(inserted.code).toBe('US');
+
+      const updated = await database.update(
+        stringTable,
+        { code: 'US' },
+        { description: 'United States of America' },
+      );
+      expect(updated.description).toBe('United States of America');
+
+      const deleted = await database.delete(stringTable, { code: 'US' });
+      expect(deleted.code).toBe('US');
+    });
+
+    it('performs CRUD with a composite primary key', async () => {
+      await database.execute(`
+        CREATE TABLE "${compositeTable}" (
+          tenant_id int,
+          record_id int,
+          value varchar(100),
+          PRIMARY KEY (tenant_id, record_id)
+        )
+      `);
+
+      const columns = await database.getPrimaryKeyColumns(compositeTable);
+      expect(columns).toEqual([
+        { column: 'tenant_id', dataType: 'integer', isGenerated: false },
+        { column: 'record_id', dataType: 'integer', isGenerated: false },
+      ]);
+
+      const inserted = await database.insert(compositeTable, {
+        tenant_id: 1,
+        record_id: 100,
+        value: 'original',
+      });
+      expect(inserted.tenant_id).toBe(1);
+      expect(inserted.record_id).toBe(100);
+
+      const updated = await database.update(
+        compositeTable,
+        { tenant_id: 1, record_id: 100 },
+        { value: 'modified' },
+      );
+      expect(updated.value).toBe('modified');
+
+      await database.insert(compositeTable, {
+        tenant_id: 1,
+        record_id: 200,
+        value: 'second',
+      });
+
+      const deleted = await database.delete(compositeTable, {
+        tenant_id: 1,
+        record_id: 100,
+      });
+      expect(deleted.value).toBe('modified');
+
+      const remaining = await database.select(compositeTable);
+      expect(remaining.rows).toHaveLength(1);
+      expect(remaining.rows[0].record_id).toBe(200);
+    });
+  });
+
+  describe('connection lifecycle', () => {
+    it('does not leak connections across many sequential queries', async () => {
+      for (let i = 0; i < 100; i++) {
+        await database.executeScalar('SELECT 1');
+      }
+
+      const result = await database.executeScalar('SELECT 1');
+      expect(result).toBe(1);
+    });
+
+    it('does not leak connections when creating and releasing many adapters', async () => {
+      for (let i = 0; i < 20; i++) {
+        const adapter = new PostgresDatabase({
+          engine: 'postgres',
+          user: 'postgres',
+          password: 'password',
+          host: container.host,
+          port: container.port,
+          database: 'testdb',
+        });
+
+        const value = await adapter.executeScalar('SELECT 1');
+        expect(value).toBe(1);
+        adapter.release();
+      }
+
+      const result = await database.executeScalar('SELECT 1');
+      expect(result).toBe(1);
+    });
+
+    it('handles concurrent queries without exhausting the pool', async () => {
+      const promises = Array.from({ length: 50 }, () =>
+        database.executeScalar('SELECT 1'),
+      );
+
+      const results = await Promise.all(promises);
+      expect(results).toHaveLength(50);
+      expect(results.every((value) => value === 1)).toBe(true);
+    });
+  });
 });

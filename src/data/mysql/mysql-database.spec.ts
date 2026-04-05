@@ -166,6 +166,10 @@ describe('MySqlDatabase', () => {
       .mockResolvedValueOnce({ rows: [], fields: [] })
       .mockResolvedValueOnce({ rows: [{ id: 7 }], fields: [] });
 
+    vi.spyOn(database, 'getPrimaryKeyColumns').mockResolvedValueOnce([
+      { column: 'id', dataType: 'int', isGenerated: true },
+    ]);
+
     vi.spyOn(database, 'selectSingle').mockResolvedValueOnce({
       id: 7,
       name: 'Alice',

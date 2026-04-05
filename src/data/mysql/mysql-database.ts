@@ -87,10 +87,20 @@ export class MySqlDatabase
     await this.execute(statement, values);
 
     const lastId = await this.executeScalar<number>(
-      'SELECT LAST_INSERT_ID() AS id',
+      'SELECT LAST_INSERT_ID() AS last_insert_id',
     );
     if (lastId) {
-      return await this.selectSingle(table, 'WHERE id=?', [lastId]);
+      const primaryKeyColumns = await this.getPrimaryKeyColumns(table);
+      const autoIncrementColumn = primaryKeyColumns.find(
+        (column) => column.isGenerated,
+      );
+      if (autoIncrementColumn) {
+        return await this.selectSingle(
+          table,
+          `WHERE ${this.quoteIdentifier(autoIncrementColumn.column)}=?`,
+          [lastId],
+        );
+      }
     }
 
     return record;

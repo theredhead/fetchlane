@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
+import { AuthenticationError } from '../authentication/oidc-authentication.service';
 import { ApiExceptionFilter } from './api-exception.filter';
 
 function createHost(url = '/api/data-access/member'): {
@@ -327,5 +328,72 @@ describe('ApiExceptionFilter', () => {
     filter.catch(new InternalServerErrorException('boom'), host);
 
     expect(status).toHaveBeenCalledWith(500);
+  });
+
+  it('translates AuthenticationError with status 403 into a forbidden response', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const error = new AuthenticationError(
+      403,
+      'Authorization denied for schema: principal lacks a required role.',
+      'Ensure the token includes a role listed in the authorization config.',
+    );
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(403);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 403,
+        error: 'FORBIDDEN',
+        message:
+          'Authorization denied for schema: principal lacks a required role.',
+        hint: 'Ensure the token includes a role listed in the authorization config.',
+        requestId: 'test-request-id',
+      }),
+    );
+  });
+
+  it('translates AuthenticationError with status 401 into an unauthorized response', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const error = new AuthenticationError(
+      401,
+      'The bearer token has expired.',
+      'Obtain a fresh access token and retry the request.',
+    );
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(401);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 401,
+        error: 'UNAUTHORIZED',
+        message: 'The bearer token has expired.',
+        hint: 'Obtain a fresh access token and retry the request.',
+      }),
+    );
+  });
+
+  it('includes details from AuthenticationError when present', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const error = new AuthenticationError(
+      401,
+      'Token validation failed.',
+      'Obtain a valid token.',
+      'issuer mismatch: expected "https://a.com", got "https://b.com"',
+    );
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(401);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details:
+          'issuer mismatch: expected "https://a.com", got "https://b.com"',
+      }),
+    );
   });
 });
