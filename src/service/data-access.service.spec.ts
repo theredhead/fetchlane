@@ -290,6 +290,216 @@ describe('DataAccessService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  describe('update', () => {
+    it('delegates update to the adapter and returns the updated record', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: false },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        id: 7,
+        name: 'updated',
+      });
+
+      await expect(
+        service.update('member', { id: 7 }, { name: 'updated' }),
+      ).resolves.toEqual({ id: 7, name: 'updated' });
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'member',
+        { id: 7 },
+        { name: 'updated' },
+      );
+    });
+
+    it('strips auto-generated primary key columns from the update payload', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+      ]);
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        id: 7,
+        name: 'updated',
+      });
+
+      await service.update('member', { id: 7 }, { id: 7, name: 'updated' });
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'member',
+        { id: 7 },
+        { name: 'updated' },
+      );
+    });
+
+    it('returns not found when the record does not exist after update', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([]);
+      vi.mocked(adapter.update).mockResolvedValueOnce(undefined as any);
+
+      await expect(
+        service.update('member', { id: 999 }, { name: 'ghost' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns not found when the table does not exist', async () => {
+      vi.mocked(adapter.tableExists).mockResolvedValueOnce(false);
+
+      await expect(
+        service.update('missing', { id: 1 }, { name: 'test' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('delete', () => {
+    it('delegates delete to the adapter and returns the deleted record', async () => {
+      vi.mocked(adapter.delete).mockResolvedValueOnce({
+        id: 7,
+        name: 'Alice',
+      });
+
+      await expect(service.delete('member', { id: 7 })).resolves.toEqual({
+        id: 7,
+        name: 'Alice',
+      });
+
+      expect(adapter.delete).toHaveBeenCalledWith('member', { id: 7 });
+    });
+
+    it('returns not found when the record does not exist', async () => {
+      vi.mocked(adapter.delete).mockResolvedValueOnce(undefined as any);
+
+      await expect(
+        service.delete('member', { id: 999 }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('returns not found when the table does not exist', async () => {
+      vi.mocked(adapter.tableExists).mockResolvedValueOnce(false);
+
+      await expect(service.delete('missing', { id: 1 })).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('getColumnFromRecord', () => {
+    it('returns a column value from a record', async () => {
+      vi.mocked(adapter.selectSingle).mockResolvedValueOnce({
+        id: 7,
+        email: 'alice@example.com',
+      });
+
+      await expect(
+        service.getColumnFromRecord('member', { id: 7 }, 'email'),
+      ).resolves.toBe('alice@example.com');
+    });
+
+    it('returns null when the column value is null', async () => {
+      vi.mocked(adapter.selectSingle).mockResolvedValueOnce({
+        id: 7,
+        email: null,
+      });
+
+      await expect(
+        service.getColumnFromRecord('member', { id: 7 }, 'email'),
+      ).resolves.toBeNull();
+    });
+
+    it('throws bad request when the column does not exist on the record', async () => {
+      vi.mocked(adapter.selectSingle).mockResolvedValueOnce({
+        id: 7,
+        name: 'Alice',
+      });
+
+      await expect(
+        service.getColumnFromRecord('member', { id: 7 }, 'nonexistent'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('throws not found when the record does not exist', async () => {
+      vi.mocked(adapter.selectSingle).mockResolvedValueOnce(undefined as any);
+
+      await expect(
+        service.getColumnFromRecord('member', { id: 999 }, 'email'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('updateColumnForRecord', () => {
+    it('updates a single column and returns the full record', async () => {
+      vi.mocked(adapter.update).mockResolvedValueOnce({
+        id: 7,
+        email: 'new@example.com',
+      });
+
+      await expect(
+        service.updateColumnForRecord(
+          'member',
+          { id: 7 },
+          'email',
+          'new@example.com',
+        ),
+      ).resolves.toEqual({ id: 7, email: 'new@example.com' });
+
+      expect(adapter.update).toHaveBeenCalledWith(
+        'member',
+        { id: 7 },
+        { email: 'new@example.com' },
+      );
+    });
+
+    it('throws not found when the record does not exist', async () => {
+      vi.mocked(adapter.update).mockResolvedValueOnce(undefined as any);
+
+      await expect(
+        service.updateColumnForRecord('member', { id: 999 }, 'email', 'x'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('getPrimaryKeyColumns', () => {
+    it('returns config override when available', async () => {
+      const override = [{ column: 'id', dataType: 'uuid', isGenerated: false }];
+      vi.mocked(runtimeConfig.getPrimaryKeyOverride).mockReturnValueOnce(
+        override,
+      );
+
+      await expect(service.getPrimaryKeyColumns('member')).resolves.toEqual(
+        override,
+      );
+
+      expect(adapter.getPrimaryKeyColumns).not.toHaveBeenCalled();
+    });
+
+    it('falls back to adapter when no config override exists', async () => {
+      vi.mocked(adapter.getPrimaryKeyColumns).mockResolvedValueOnce([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+      ]);
+
+      await expect(service.getPrimaryKeyColumns('member')).resolves.toEqual([
+        { column: 'id', dataType: 'integer', isGenerated: true },
+      ]);
+    });
+  });
+
+  describe('composite primary key where clause', () => {
+    it('builds multi-column where clauses for composite keys', async () => {
+      vi.mocked(adapter.selectSingle).mockResolvedValueOnce({
+        orderId: 1,
+        productCode: 'ABC',
+        quantity: 5,
+      });
+
+      await service.selectSingleByPrimaryKey('orderItem', {
+        orderId: 1,
+        productCode: 'ABC',
+      });
+
+      expect(adapter.selectSingle).toHaveBeenCalledWith(
+        'orderItem',
+        'WHERE "orderId"=$1 AND "productCode"=$2',
+        [1, 'ABC'],
+      );
+    });
+  });
+
   it('returns not found errors for missing tables and records', async () => {
     vi.mocked(adapter.tableExists).mockResolvedValueOnce(false);
 

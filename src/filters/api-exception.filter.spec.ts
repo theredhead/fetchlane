@@ -1,6 +1,8 @@
 import {
   ArgumentsHost,
   BadRequestException,
+  HttpException,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiExceptionFilter } from './api-exception.filter';
@@ -89,5 +91,241 @@ describe('ApiExceptionFilter', () => {
         requestId: 'test-request-id',
       }),
     );
+  });
+
+  it('translates missing driver errors into service unavailable responses', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const error = new Error(
+      'Failed to load the pg driver. Install it with `npm install pg`.',
+    );
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(503);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 503,
+        message: 'The configured database driver is not available.',
+      }),
+    );
+  });
+
+  it('translates connectivity errors into service unavailable responses', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const error = Object.assign(new Error('connection refused'), {
+      code: 'ECONNREFUSED',
+    });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(503);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 503,
+        message: 'The service could not connect to the configured database.',
+      }),
+    );
+  });
+
+  it('translates connectivity errors from error message keywords', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = new Error('login failed for user sa');
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(503);
+  });
+
+  it('translates query errors into bad request responses', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const error = Object.assign(new Error('relation does not exist'), {
+      code: '42P01',
+    });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(400);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        message: 'The database rejected the request.',
+      }),
+    );
+  });
+
+  it('recognizes MySQL constraint conflict codes', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = Object.assign(new Error('Duplicate entry for key'), {
+      code: '1062',
+    });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(409);
+  });
+
+  it('recognizes MySQL query error codes', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = Object.assign(
+      new Error('You have an error in your SQL syntax'),
+      { code: '1064' },
+    );
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(400);
+  });
+
+  it('recognizes SQL Server constraint codes', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = Object.assign(new Error('Cannot insert duplicate key row'), {
+      code: '2627',
+    });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(409);
+  });
+
+  it('recognizes SQL Server query error codes', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = Object.assign(new Error('Invalid column name'), {
+      code: '207',
+    });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(400);
+  });
+
+  it('falls back to 500 for unrecognized errors', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+
+    filter.catch(new Error('something unexpected'), host);
+
+    expect(status).toHaveBeenCalledWith(500);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 500,
+        message: 'An unexpected server error occurred.',
+        details: 'something unexpected',
+      }),
+    );
+  });
+
+  it('handles non-Error exceptions gracefully', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+
+    filter.catch('string error', host);
+
+    expect(status).toHaveBeenCalledWith(500);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 500,
+        message: 'An unexpected server error occurred.',
+      }),
+    );
+  });
+
+  it('handles HttpException with a string response', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json, status } = createHost();
+    const exception = new HttpException('plain string body', 422);
+
+    filter.catch(exception, host);
+
+    expect(status).toHaveBeenCalledWith(422);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 422,
+        message: 'plain string body',
+      }),
+    );
+  });
+
+  it('joins array messages from validation pipes', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json } = createHost();
+    const exception = new BadRequestException({
+      message: ['field1 is required', 'field2 must be a number'],
+    });
+
+    filter.catch(exception, host);
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'field1 is required; field2 must be a number',
+      }),
+    );
+  });
+
+  it('includes details from the exception body', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json } = createHost();
+    const exception = new BadRequestException({
+      message: 'Validation failed',
+      hint: 'Fix the input.',
+      details: 'column "age" must be positive',
+    });
+
+    filter.catch(exception, host);
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: 'column "age" must be positive',
+      }),
+    );
+  });
+
+  it('reads error codes from errno and number properties', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = Object.assign(new Error('timeout'), { errno: 'ETIMEDOUT' });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(503);
+  });
+
+  it('reads error codes from originalError.info.number', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+    const error = Object.assign(new Error('SQL Server error'), {
+      originalError: { info: { number: '2627' } },
+    });
+
+    filter.catch(error, host);
+
+    expect(status).toHaveBeenCalledWith(409);
+  });
+
+  it('includes a timestamp in the response', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, json } = createHost();
+
+    filter.catch(new BadRequestException('test'), host);
+
+    const payload = json.mock.calls[0][0];
+    expect(payload.timestamp).toBeDefined();
+    expect(() => new Date(payload.timestamp)).not.toThrow();
+  });
+
+  it('logs 500+ errors via the logger', () => {
+    const filter = new ApiExceptionFilter();
+    const { host, status } = createHost();
+
+    filter.catch(new InternalServerErrorException('boom'), host);
+
+    expect(status).toHaveBeenCalledWith(500);
   });
 });

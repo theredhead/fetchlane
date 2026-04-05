@@ -187,4 +187,253 @@ describe('FetchRequestSQLWriter', () => {
       }),
     ).toThrow(BadRequestException);
   });
+
+  it('writes compound OR predicates', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    const result = writer.write({
+      table: 'member',
+      predicates: [
+        {
+          type: 'OR',
+          predicates: [
+            { text: 'age > ?', args: [18] },
+            { text: 'status = ?', args: ['active'] },
+          ],
+        },
+      ],
+      sort: [],
+    });
+
+    expect(result.args).toEqual([18, 'active']);
+    expect(result.text.replace(/\s+/g, ' ').trim()).toBe(
+      'SELECT * FROM "member" WHERE ((age > $1) OR (status = $2))',
+    );
+  });
+
+  it('rejects compound predicates with an empty child array', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [{ type: 'AND', predicates: [] }],
+        sort: [],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects sort clauses missing a column', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [],
+        sort: [{ column: '', direction: 'ASC' }],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects sort clauses with an invalid direction', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [],
+        sort: [{ column: 'name', direction: 'INVALID' as any }],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('generates ORDER BY with multiple sort clauses', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    const result = writer.write({
+      table: 'member',
+      predicates: [],
+      sort: [
+        { column: 'name', direction: 'ASC' },
+        { column: 'age', direction: 'DESC' },
+      ],
+    });
+
+    expect(result.text).toContain('ORDER BY "name" ASC, "age" DESC');
+  });
+
+  it('rejects pagination with zero size', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [],
+        sort: [],
+        pagination: { index: 0, size: 0 },
+      }),
+    ).toThrow(/pagination.size/);
+  });
+
+  it('rejects pagination with size exceeding max page size', () => {
+    const writer = new FetchRequestSQLWriter(
+      undefined,
+      undefined,
+      undefined,
+      50,
+    );
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [],
+        sort: [],
+        pagination: { index: 0, size: 51 },
+      }),
+    ).toThrow(/pagination.size/);
+  });
+
+  it('rejects pagination with a negative index', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [],
+        sort: [],
+        pagination: { index: -1, size: 10 },
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects a request with a missing table', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: '',
+        predicates: [],
+        sort: [],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects a request with non-array predicates', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: 'invalid' as any,
+        sort: [],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects a request with non-array sort', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [],
+        sort: 'invalid' as any,
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects named predicates with array args', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [
+          {
+            text: 'status = :status',
+            args: ['open'],
+          },
+        ],
+        sort: [],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects positional predicates with object args', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [
+          {
+            text: 'status = ?',
+            args: { status: 'open' },
+          },
+        ],
+        sort: [],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects positional predicates when arg count does not match placeholder count', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    expect(() =>
+      writer.write({
+        table: 'member',
+        predicates: [
+          {
+            text: 'status = ? AND age > ?',
+            args: ['open'],
+          },
+        ],
+        sort: [],
+      }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('writes a query without pagination when pagination is omitted', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    const result = writer.write({
+      table: 'member',
+      predicates: [],
+      sort: [{ column: 'name', direction: 'ASC' }],
+    });
+
+    expect(result.text).toContain('ORDER BY "name" ASC');
+    expect(result.text).not.toContain('LIMIT');
+  });
+
+  it('allows predicates with no placeholders and empty args array', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    const result = writer.write({
+      table: 'member',
+      predicates: [{ text: 'is_active = true', args: [] }],
+      sort: [],
+    });
+
+    expect(result.text).toContain('(is_active = true)');
+    expect(result.args).toEqual([]);
+  });
+
+  it('allows predicates with no placeholders and empty object args', () => {
+    const writer = new FetchRequestSQLWriter();
+
+    const result = writer.write({
+      table: 'member',
+      predicates: [{ text: 'is_active = true', args: {} }],
+      sort: [],
+    });
+
+    expect(result.text).toContain('(is_active = true)');
+  });
+
+  it('quotes identifiers using the provided quoting function', () => {
+    const writer = new FetchRequestSQLWriter((name) => `[${name}]`);
+
+    expect(writer.quote('member')).toBe('[member]');
+  });
 });

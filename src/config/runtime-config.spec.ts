@@ -555,4 +555,261 @@ describe('runtime-config', () => {
       read: { allow: ['admin'], deny: ['intern'] },
     });
   });
+
+  it('loads primaryKeys config with simple primary key definitions', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: { enabled: true, origins: ['*'] },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuerUrl: '',
+          audience: '',
+          jwksUrl: '',
+          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
+        },
+        primaryKeys: {
+          member: [{ column: 'id', dataType: 'integer', isGenerated: true }],
+          orderItem: [
+            { column: 'orderId', dataType: 'integer' },
+            { column: 'productCode', dataType: 'varchar' },
+          ],
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.primaryKeys).toBeDefined();
+    expect(result.primaryKeys!.member).toEqual([
+      { column: 'id', dataType: 'integer', isGenerated: true },
+    ]);
+    expect(result.primaryKeys!.orderItem).toEqual([
+      { column: 'orderId', dataType: 'integer', isGenerated: false },
+      { column: 'productCode', dataType: 'varchar', isGenerated: false },
+    ]);
+  });
+
+  it('omits primaryKeys when the section is absent', () => {
+    const configFile = createConfigFile(
+      buildConfig('postgres://postgres:password@127.0.0.1:5432/northwind'),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.primaryKeys).toBeUndefined();
+  });
+
+  it('fails when primaryKeys entry is an empty array', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: { enabled: true, origins: ['*'] },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuerUrl: '',
+          audience: '',
+          jwksUrl: '',
+          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
+        },
+        primaryKeys: {
+          member: [],
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(/config.primaryKeys.member/);
+  });
+
+  it('fails when a primaryKeys entry is missing the column name', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: { enabled: true, origins: ['*'] },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuerUrl: '',
+          audience: '',
+          jwksUrl: '',
+          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
+        },
+        primaryKeys: {
+          member: [{ column: '', dataType: 'integer' }],
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(
+      /column must be a non-empty string/,
+    );
+  });
+
+  it('fails when a primaryKeys entry is missing the data type', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: { enabled: true, origins: ['*'] },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuerUrl: '',
+          audience: '',
+          jwksUrl: '',
+          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
+        },
+        primaryKeys: {
+          member: [{ column: 'id', dataType: '' }],
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(
+      /dataType must be a non-empty string/,
+    );
+  });
+
+  it('fails when a primaryKeys entry is not an object', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: { enabled: true, origins: ['*'] },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuerUrl: '',
+          audience: '',
+          jwksUrl: '',
+          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
+        },
+        primaryKeys: {
+          member: ['not-an-object'],
+        },
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    expect(() => getRuntimeConfig()).toThrow(/must be an object/);
+  });
+
+  it('reads enableSchemaFeatures from the config', () => {
+    const configFile = createConfigFile(
+      JSON.stringify({
+        server: {
+          host: '0.0.0.0',
+          port: 3000,
+          cors: { enabled: true, origins: ['*'] },
+        },
+        database: {
+          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
+        },
+        limits: {
+          requestBodyBytes: 1048576,
+          fetchMaxPageSize: 1000,
+          fetchMaxPredicates: 25,
+          fetchMaxSortFields: 8,
+          rateLimitWindowMs: 60000,
+          rateLimitMax: 120,
+        },
+        authentication: {
+          enabled: false,
+          mode: 'oidc-jwt',
+          issuerUrl: '',
+          audience: '',
+          jwksUrl: '',
+          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
+        },
+        enableSchemaFeatures: false,
+      }),
+    );
+    createdDirs.push(configFile.dir);
+    process.env.FETCHLANE_CONFIG = configFile.path;
+
+    const result = getRuntimeConfig();
+
+    expect(result.enableSchemaFeatures).toBe(false);
+  });
 });
