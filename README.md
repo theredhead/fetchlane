@@ -134,9 +134,9 @@ However, hardcoding secrets in the config file is discouraged for any shared, co
 
 Two tracked example configs are available:
 
-| File                                | Purpose                                                                                              |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `config/config.local.example.json`  | Local development — auth disabled, schema features enabled, hardcoded database URL                   |
+| File                                | Purpose                                                                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config/config.local.example.json`  | Local development — auth disabled, schema features enabled, hardcoded database URL                                                                               |
 | `config/config.secure.example.json` | Production template — auth enabled with OIDC placeholders, schema features disabled, authorization configured. Rebind host and fill in secrets before deploying. |
 
 ### Config Areas at a Glance
