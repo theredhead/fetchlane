@@ -350,10 +350,12 @@ export class MySqlDatabase
     return (
       await this.execute(
         `
-        SELECT table_name, table_type
-        FROM information_schema.tables
-        WHERE table_schema = DATABASE()
-        ORDER BY table_type ASC, table_name ASC
+        SELECT
+          t.TABLE_NAME AS table_name,
+          t.TABLE_TYPE AS table_type
+        FROM information_schema.tables t
+        WHERE t.TABLE_SCHEMA = DATABASE()
+        ORDER BY t.TABLE_TYPE ASC, t.TABLE_NAME ASC
         `,
         [],
       )
@@ -367,11 +369,19 @@ export class MySqlDatabase
     return (
       await this.execute(
         `
-        SELECT c.*
+        SELECT
+          c.ORDINAL_POSITION AS ordinal_position,
+          c.COLUMN_NAME AS column_name,
+          c.DATA_TYPE AS data_type,
+          c.IS_NULLABLE AS is_nullable,
+          c.COLUMN_DEFAULT AS column_default,
+          c.CHARACTER_MAXIMUM_LENGTH AS character_maximum_length,
+          c.NUMERIC_PRECISION AS numeric_precision,
+          c.NUMERIC_SCALE AS numeric_scale
         FROM information_schema.columns c
-        WHERE c.table_schema = DATABASE()
-          AND c.table_name = ?
-        ORDER BY c.ordinal_position ASC
+        WHERE c.TABLE_SCHEMA = DATABASE()
+          AND c.TABLE_NAME = ?
+        ORDER BY c.ORDINAL_POSITION ASC
         `,
         [table],
       )
@@ -391,12 +401,12 @@ export class MySqlDatabase
     }>(
       `
       SELECT
-        t.table_name,
-        t.table_schema,
-        t.table_type
+        t.TABLE_NAME AS table_name,
+        t.TABLE_SCHEMA AS table_schema,
+        t.TABLE_TYPE AS table_type
       FROM information_schema.tables t
-      WHERE t.table_schema = DATABASE()
-        AND t.table_name = ?
+      WHERE t.TABLE_SCHEMA = DATABASE()
+        AND t.TABLE_NAME = ?
       `,
       [table],
     );
@@ -409,21 +419,21 @@ export class MySqlDatabase
       await this.execute(
         `
         SELECT
-          c.ordinal_position,
-          c.column_name,
-          c.data_type,
-          c.column_type AS udt_name,
-          c.is_nullable = 'YES' AS is_nullable,
-          c.column_default,
-          c.extra LIKE '%auto_increment%' AS is_identity,
+          c.ORDINAL_POSITION AS ordinal_position,
+          c.COLUMN_NAME AS column_name,
+          c.DATA_TYPE AS data_type,
+          c.COLUMN_TYPE AS udt_name,
+          c.IS_NULLABLE = 'YES' AS is_nullable,
+          c.COLUMN_DEFAULT AS column_default,
+          c.EXTRA LIKE '%auto_increment%' AS is_identity,
           NULL AS identity_generation,
-          c.character_maximum_length,
-          c.numeric_precision,
-          c.numeric_scale
+          c.CHARACTER_MAXIMUM_LENGTH AS character_maximum_length,
+          c.NUMERIC_PRECISION AS numeric_precision,
+          c.NUMERIC_SCALE AS numeric_scale
         FROM information_schema.columns c
-        WHERE c.table_schema = DATABASE()
-          AND c.table_name = ?
-        ORDER BY c.ordinal_position ASC
+        WHERE c.TABLE_SCHEMA = DATABASE()
+          AND c.TABLE_NAME = ?
+        ORDER BY c.ORDINAL_POSITION ASC
         `,
         [table],
       )
@@ -450,30 +460,30 @@ export class MySqlDatabase
       await this.execute(
         `
         SELECT
-          tc.constraint_name,
-          tc.constraint_type,
-          GROUP_CONCAT(kcu.column_name ORDER BY kcu.ordinal_position SEPARATOR ',') AS columns_csv,
-          MAX(kcu.referenced_table_schema) AS referenced_table_schema,
-          MAX(kcu.referenced_table_name) AS referenced_table,
+          tc.CONSTRAINT_NAME AS constraint_name,
+          tc.CONSTRAINT_TYPE AS constraint_type,
+          GROUP_CONCAT(kcu.COLUMN_NAME ORDER BY kcu.ORDINAL_POSITION SEPARATOR ',') AS columns_csv,
+          MAX(kcu.REFERENCED_TABLE_SCHEMA) AS referenced_table_schema,
+          MAX(kcu.REFERENCED_TABLE_NAME) AS referenced_table,
           GROUP_CONCAT(
-            kcu.referenced_column_name
-            ORDER BY kcu.ordinal_position
+            kcu.REFERENCED_COLUMN_NAME
+            ORDER BY kcu.ORDINAL_POSITION
             SEPARATOR ','
           ) AS referenced_columns_csv,
-          MAX(rc.update_rule) AS update_rule,
-          MAX(rc.delete_rule) AS delete_rule
+          MAX(rc.UPDATE_RULE) AS update_rule,
+          MAX(rc.DELETE_RULE) AS delete_rule
         FROM information_schema.table_constraints tc
         LEFT JOIN information_schema.key_column_usage kcu
-          ON tc.constraint_schema = kcu.constraint_schema
-         AND tc.table_name = kcu.table_name
-         AND tc.constraint_name = kcu.constraint_name
+          ON tc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA
+         AND tc.TABLE_NAME = kcu.TABLE_NAME
+         AND tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
         LEFT JOIN information_schema.referential_constraints rc
-          ON tc.constraint_schema = rc.constraint_schema
-         AND tc.constraint_name = rc.constraint_name
-        WHERE tc.table_schema = DATABASE()
-          AND tc.table_name = ?
-        GROUP BY tc.constraint_name, tc.constraint_type
-        ORDER BY tc.constraint_type ASC, tc.constraint_name ASC
+          ON tc.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
+         AND tc.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+        WHERE tc.TABLE_SCHEMA = DATABASE()
+          AND tc.TABLE_NAME = ?
+        GROUP BY tc.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE
+        ORDER BY tc.CONSTRAINT_TYPE ASC, tc.CONSTRAINT_NAME ASC
         `,
         [table],
       )
@@ -507,22 +517,22 @@ export class MySqlDatabase
       await this.execute(
         `
         SELECT
-          s.index_name,
-          s.non_unique = 0 AS is_unique,
-          s.index_name = 'PRIMARY' AS is_primary,
-          s.index_type AS method,
-          GROUP_CONCAT(s.column_name ORDER BY s.seq_in_index SEPARATOR ',') AS columns_csv
+          s.INDEX_NAME AS index_name,
+          s.NON_UNIQUE = 0 AS is_unique,
+          s.INDEX_NAME = 'PRIMARY' AS is_primary,
+          s.INDEX_TYPE AS method,
+          GROUP_CONCAT(s.COLUMN_NAME ORDER BY s.SEQ_IN_INDEX SEPARATOR ',') AS columns_csv
         FROM information_schema.statistics s
-        WHERE s.table_schema = DATABASE()
-          AND s.table_name = ?
+        WHERE s.TABLE_SCHEMA = DATABASE()
+          AND s.TABLE_NAME = ?
         GROUP BY
-          s.index_name,
-          s.non_unique,
-          s.index_type
+          s.INDEX_NAME,
+          s.NON_UNIQUE,
+          s.INDEX_TYPE
         ORDER BY
           is_primary DESC,
           is_unique DESC,
-          s.index_name ASC
+          s.INDEX_NAME ASC
         `,
         [table],
       )

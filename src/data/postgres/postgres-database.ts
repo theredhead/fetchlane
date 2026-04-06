@@ -317,7 +317,15 @@ export class PostgresDatabase
     return (
       await this.execute(
         `
-        SELECT c.*
+        SELECT
+          c.ordinal_position,
+          c.column_name,
+          c.data_type,
+          c.is_nullable,
+          c.column_default,
+          c.character_maximum_length,
+          c.numeric_precision,
+          c.numeric_scale
         FROM information_schema.columns c
         WHERE c.table_schema = 'public'
           AND c.table_name = $1

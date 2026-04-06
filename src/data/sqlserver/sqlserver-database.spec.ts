@@ -412,6 +412,279 @@ describe('SqlServerDatabase', () => {
     expect(() => database.release()).not.toThrow();
   });
 
+  describe('schema metadata', () => {
+    function mockEmployeeSchema(): void {
+      vi.spyOn(database, 'executeSingle').mockResolvedValueOnce({
+        table_name: 'Employee',
+        table_schema: 'dbo',
+        table_type: 'BASE TABLE',
+      } as any);
+
+      vi.spyOn(database, 'execute')
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              ordinal_position: 1,
+              column_name: 'EmployeeId',
+              data_type: 'int',
+              udt_name: 'int',
+              is_nullable: false,
+              column_default: null,
+              is_identity: 1,
+              identity_generation: null,
+              character_maximum_length: null,
+              numeric_precision: 10,
+              numeric_scale: 0,
+            },
+            {
+              ordinal_position: 2,
+              column_name: 'LastName',
+              data_type: 'nvarchar',
+              udt_name: 'nvarchar',
+              is_nullable: false,
+              column_default: null,
+              is_identity: 0,
+              identity_generation: null,
+              character_maximum_length: 20,
+              numeric_precision: null,
+              numeric_scale: null,
+            },
+            {
+              ordinal_position: 3,
+              column_name: 'HireDate',
+              data_type: 'datetime',
+              udt_name: 'datetime',
+              is_nullable: true,
+              column_default: null,
+              is_identity: 0,
+              identity_generation: null,
+              character_maximum_length: null,
+              numeric_precision: null,
+              numeric_scale: null,
+            },
+            {
+              ordinal_position: 4,
+              column_name: 'ReportsTo',
+              data_type: 'int',
+              udt_name: 'int',
+              is_nullable: true,
+              column_default: null,
+              is_identity: 0,
+              identity_generation: null,
+              character_maximum_length: null,
+              numeric_precision: 10,
+              numeric_scale: 0,
+            },
+          ],
+          fields: [],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              constraint_name: 'PK_Employee',
+              constraint_type: 'PRIMARY KEY',
+              columns_csv: 'EmployeeId',
+              referenced_table_schema: null,
+              referenced_table: null,
+              referenced_columns_csv: null,
+              update_rule: null,
+              delete_rule: null,
+            },
+            {
+              constraint_name: 'FK_EmployeeReportsTo',
+              constraint_type: 'FOREIGN KEY',
+              columns_csv: 'ReportsTo',
+              referenced_table_schema: 'dbo',
+              referenced_table: 'Employee',
+              referenced_columns_csv: 'EmployeeId',
+              update_rule: 'NO_ACTION',
+              delete_rule: 'NO_ACTION',
+            },
+          ],
+          fields: [],
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              index_name: 'PK_Employee',
+              is_unique: true,
+              is_primary: true,
+              method: 'CLUSTERED',
+              columns_csv: 'EmployeeId',
+            },
+            {
+              index_name: 'IFK_EmployeeReportsTo',
+              is_unique: false,
+              is_primary: false,
+              method: 'NONCLUSTERED',
+              columns_csv: 'ReportsTo',
+            },
+          ],
+          fields: [],
+        });
+    }
+
+    it('maps every column field with correct names, types, and values', async () => {
+      mockEmployeeSchema();
+
+      const result = await database.describeTable('Employee');
+
+      expect(result).not.toBeNull();
+      expect(result!.columns).toHaveLength(4);
+
+      const pk = result!.columns[0];
+      expect(pk.ordinal_position).toBe(1);
+      expect(pk.column_name).toBe('EmployeeId');
+      expect(pk.data_type).toBe('int');
+      expect(pk.udt_name).toBe('int');
+      expect(pk.is_nullable).toBe(false);
+      expect(pk.column_default).toBeNull();
+      expect(pk.is_identity).toBe(true);
+      expect(pk.identity_generation).toBeNull();
+      expect(pk.character_maximum_length).toBeNull();
+      expect(pk.numeric_precision).toBe(10);
+      expect(pk.numeric_scale).toBe(0);
+
+      const varchar = result!.columns[1];
+      expect(varchar.column_name).toBe('LastName');
+      expect(varchar.data_type).toBe('nvarchar');
+      expect(varchar.udt_name).toBe('nvarchar');
+      expect(varchar.is_nullable).toBe(false);
+      expect(varchar.character_maximum_length).toBe(20);
+      expect(varchar.numeric_precision).toBeNull();
+
+      const nullable = result!.columns[2];
+      expect(nullable.column_name).toBe('HireDate');
+      expect(nullable.data_type).toBe('datetime');
+      expect(nullable.is_nullable).toBe(true);
+      expect(nullable.column_default).toBeNull();
+
+      const fk = result!.columns[3];
+      expect(fk.column_name).toBe('ReportsTo');
+      expect(fk.is_nullable).toBe(true);
+    });
+
+    it('maps every constraint field with correct names, types, and values', async () => {
+      mockEmployeeSchema();
+
+      const result = await database.describeTable('Employee');
+
+      expect(result!.constraints).toHaveLength(2);
+
+      const pkConstraint = result!.constraints[0];
+      expect(pkConstraint.constraint_name).toBe('PK_Employee');
+      expect(pkConstraint.constraint_type).toBe('PRIMARY KEY');
+      expect(pkConstraint.columns).toEqual(['EmployeeId']);
+      expect(pkConstraint.referenced_table_schema).toBeNull();
+      expect(pkConstraint.referenced_table).toBeNull();
+      expect(pkConstraint.referenced_columns).toEqual([]);
+      expect(pkConstraint.update_rule).toBeNull();
+      expect(pkConstraint.delete_rule).toBeNull();
+
+      const fkConstraint = result!.constraints[1];
+      expect(fkConstraint.constraint_name).toBe('FK_EmployeeReportsTo');
+      expect(fkConstraint.constraint_type).toBe('FOREIGN KEY');
+      expect(fkConstraint.columns).toEqual(['ReportsTo']);
+      expect(fkConstraint.referenced_table_schema).toBe('dbo');
+      expect(fkConstraint.referenced_table).toBe('Employee');
+      expect(fkConstraint.referenced_columns).toEqual(['EmployeeId']);
+      expect(fkConstraint.update_rule).toBe('NO_ACTION');
+      expect(fkConstraint.delete_rule).toBe('NO_ACTION');
+    });
+
+    it('maps every index field with correct names, types, and values', async () => {
+      mockEmployeeSchema();
+
+      const result = await database.describeTable('Employee');
+
+      expect(result!.indexes).toHaveLength(2);
+
+      const pkIndex = result!.indexes[0];
+      expect(pkIndex.index_name).toBe('PK_Employee');
+      expect(pkIndex.is_unique).toBe(true);
+      expect(pkIndex.is_primary).toBe(true);
+      expect(pkIndex.method).toBe('CLUSTERED');
+      expect(pkIndex.predicate).toBeNull();
+      expect(pkIndex.columns).toEqual(['EmployeeId']);
+      expect(pkIndex.definition).toContain('PRIMARY KEY');
+      expect(pkIndex.definition).toContain('CLUSTERED');
+
+      const secondaryIndex = result!.indexes[1];
+      expect(secondaryIndex.index_name).toBe('IFK_EmployeeReportsTo');
+      expect(secondaryIndex.is_unique).toBe(false);
+      expect(secondaryIndex.is_primary).toBe(false);
+      expect(secondaryIndex.method).toBe('NONCLUSTERED');
+      expect(secondaryIndex.columns).toEqual(['ReportsTo']);
+      expect(secondaryIndex.definition).toContain('IFK_EmployeeReportsTo');
+    });
+
+    it('returns normalized getTableInfo rows', async () => {
+      vi.spyOn(database, 'execute').mockResolvedValue({
+        rows: [
+          {
+            ordinal_position: 1,
+            column_name: 'EmployeeId',
+            data_type: 'int',
+            is_nullable: 'NO',
+            column_default: null,
+            character_maximum_length: null,
+            numeric_precision: 10,
+            numeric_scale: 0,
+          },
+          {
+            ordinal_position: 2,
+            column_name: 'LastName',
+            data_type: 'nvarchar',
+            is_nullable: 'NO',
+            column_default: null,
+            character_maximum_length: 20,
+            numeric_precision: null,
+            numeric_scale: null,
+          },
+        ],
+        fields: [],
+      });
+
+      const result = await database.getTableInfo('Employee');
+
+      expect(result).toHaveLength(2);
+      expect(Object.keys(result[0]).sort()).toEqual([
+        'character_maximum_length',
+        'column_default',
+        'column_name',
+        'data_type',
+        'is_nullable',
+        'numeric_precision',
+        'numeric_scale',
+        'ordinal_position',
+      ]);
+      expect(result[0].column_name).toBe('EmployeeId');
+      expect(result[0].data_type).toBe('int');
+      expect(result[1].column_name).toBe('LastName');
+      expect(result[1].character_maximum_length).toBe(20);
+    });
+
+    it('returns normalized getTableNames rows', async () => {
+      vi.spyOn(database, 'execute').mockResolvedValue({
+        rows: [
+          { table_name: 'Album', table_type: 'BASE TABLE' },
+          { table_name: 'Artist', table_type: 'BASE TABLE' },
+        ],
+        fields: [],
+      });
+
+      const result = await database.getTableNames();
+
+      expect(result).toHaveLength(2);
+      expect(Object.keys(result[0]).sort()).toEqual([
+        'table_name',
+        'table_type',
+      ]);
+      expect(result[0].table_name).toBe('Album');
+      expect(result[0].table_type).toBe('BASE TABLE');
+    });
+  });
+
   it('falls back to empty rows when recordset and recordsets are both absent', async () => {
     vi.spyOn(database as any, 'getPool').mockResolvedValue({
       request: () => ({

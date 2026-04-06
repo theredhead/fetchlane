@@ -332,7 +332,15 @@ export class SqlServerDatabase
     return (
       await this.execute(
         `
-        SELECT c.*
+        SELECT
+          c.ORDINAL_POSITION AS ordinal_position,
+          c.COLUMN_NAME AS column_name,
+          c.DATA_TYPE AS data_type,
+          c.IS_NULLABLE AS is_nullable,
+          c.COLUMN_DEFAULT AS column_default,
+          c.CHARACTER_MAXIMUM_LENGTH AS character_maximum_length,
+          c.NUMERIC_PRECISION AS numeric_precision,
+          c.NUMERIC_SCALE AS numeric_scale
         FROM INFORMATION_SCHEMA.COLUMNS c
         WHERE c.TABLE_SCHEMA = SCHEMA_NAME()
           AND c.TABLE_NAME = @p1
