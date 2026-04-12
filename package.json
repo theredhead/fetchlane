@@ -22,6 +22,9 @@
     "test:integration:postgres": "vitest run --project integration integrationtests/postgres-database.spec.ts",
     "test:integration:mysql": "vitest run --project integration integrationtests/mysql-database.spec.ts",
     "test:integration:sqlserver": "vitest run --project integration integrationtests/sqlserver-database.spec.ts",
+    "docker:build": "docker build -t theredhead/fetchlane:latest .",
+    "docker:push": "docker push theredhead/fetchlane:latest",
+    "docker:deploy": "npm run build && npm run docker:build && npm run docker:push",
     "docs:api": "typedoc --options typedoc.json",
     "docs:api:watch": "typedoc --options typedoc.json --watch",
     "prepare": "husky"

@@ -193,7 +193,7 @@ docker run --rm \
   --env FETCHLANE_CONFIG=/app/config/fetchlane.json \
   --env FETCHLANE_DATABASE_URL=postgres://postgres:password@db:5432/northwind \
   --mount type=bind,src="$(pwd)/config/config.secure.example.json",dst=/app/config/fetchlane.json,readonly \
-  fetchlane:latest
+  theredhead/fetchlane:latest
 ```
 
 ## Kubernetes ConfigMap and Secret
@@ -280,7 +280,7 @@ spec:
     spec:
       containers:
         - name: fetchlane
-          image: fetchlane:latest
+          image: theredhead/fetchlane:latest
           env:
             - name: FETCHLANE_CONFIG
               value: /app/config/fetchlane.json
