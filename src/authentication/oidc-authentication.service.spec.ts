@@ -59,12 +59,13 @@ async function createOidcServer() {
       overrides: {
         subject?: string;
         audience?: string;
+        omitAudience?: boolean;
         issuer?: string;
         expiresIn?: string;
         claims?: Record<string, unknown>;
       } = {},
     ): Promise<string> {
-      return await new SignJWT({
+      let builder = new SignJWT({
         realm_access: {
           roles: ['reader', 'writer'],
         },
@@ -73,10 +74,14 @@ async function createOidcServer() {
         .setProtectedHeader({ alg: 'RS256', kid: 'fetchlane-test' })
         .setIssuedAt()
         .setIssuer(overrides.issuer || issuer)
-        .setAudience(overrides.audience || 'fetchlane-api')
         .setSubject(overrides.subject || 'user-123')
-        .setExpirationTime(overrides.expiresIn || '10m')
-        .sign(privateKey);
+        .setExpirationTime(overrides.expiresIn || '10m');
+
+      if (!overrides.omitAudience) {
+        builder = builder.setAudience(overrides.audience || 'fetchlane-api');
+      }
+
+      return await builder.sign(privateKey);
     },
   };
 }
@@ -214,6 +219,22 @@ describe('OidcAuthenticationService', () => {
     const token = await oidcServer.signToken({
       audience: 'another-audience',
     });
+
+    await expect(
+      service.authenticateAuthorizationHeader(`Bearer ${token}`),
+    ).rejects.toMatchObject({
+      message:
+        'The access token audience does not match the configured audience.',
+    });
+  });
+
+  it('rejects tokens that omit the audience claim when an audience is configured', async () => {
+    const service = new OidcAuthenticationService(
+      createRuntimeConfigService({
+        issuerUrl: oidcServer.issuer,
+      }),
+    );
+    const token = await oidcServer.signToken({ omitAudience: true });
 
     await expect(
       service.authenticateAuthorizationHeader(`Bearer ${token}`),

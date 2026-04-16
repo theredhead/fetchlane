@@ -984,53 +984,6 @@ describe('runtime-config', () => {
     expect(() => getRuntimeConfig()).toThrow(/origins must not be empty/);
   });
 
-  it('fails when authentication is enabled without an audience', () => {
-    const configFile = createConfigFile(
-      JSON.stringify({
-        server: {
-          host: '0.0.0.0',
-          port: 3000,
-          cors: { enabled: true, origins: ['*'] },
-        },
-        database: {
-          url: 'postgres://postgres:password@127.0.0.1:5432/northwind',
-        },
-        limits: {
-          requestBodyBytes: 1048576,
-          fetchMaxPageSize: 1000,
-          fetchMaxPredicates: 25,
-          fetchMaxSortFields: 8,
-          rateLimitWindowMs: 60000,
-          rateLimitMax: 120,
-        },
-        authentication: {
-          enabled: true,
-          mode: 'oidc-jwt',
-          issuerUrl: 'https://issuer.example.com',
-          audience: '',
-          jwksUrl: '',
-          claimMappings: { subject: 'sub', roles: 'realm_access.roles' },
-          authorization: {
-            schema: ['admin'],
-            crud: {
-              default: {
-                create: ['admin'],
-                read: ['admin'],
-                update: ['admin'],
-                delete: ['admin'],
-              },
-              tables: {},
-            },
-          },
-        },
-      }),
-    );
-    createdDirs.push(configFile.dir);
-    process.env.FETCHLANE_CONFIG = configFile.path;
-
-    expect(() => getRuntimeConfig()).toThrow(/audience is required/);
-  });
-
   it('fails when authentication is enabled without issuer or JWKS URL', () => {
     const configFile = createConfigFile(
       JSON.stringify({

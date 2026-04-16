@@ -209,9 +209,9 @@ export interface RuntimeAuthenticationConfig {
    */
   issuerUrl: string;
   /**
-   * JWT audience expected by the service.
+   * JWT audience expected by the service. When omitted or empty, audience validation is skipped.
    */
-  audience: string;
+  audience?: string;
   /**
    * Optional JWKS URL override.
    */
@@ -622,7 +622,7 @@ function validateRuntimeConfig(
         'config.authentication.issuerUrl',
         configPath,
       ),
-      audience: readString(
+      audience: readOptionalString(
         authenticationSection.audience,
         'config.authentication.audience',
         configPath,
@@ -660,15 +660,6 @@ function validateRuntimeConfig(
       formatDeveloperError(
         'Invalid runtime config: config.server.cors.origins must not be empty when CORS is enabled.',
         'Add at least one allowed origin, or set config.server.cors.enabled to false.',
-      ),
-    );
-  }
-
-  if (config.authentication.enabled && !config.authentication.audience.trim()) {
-    throw new Error(
-      formatDeveloperError(
-        'Invalid runtime config: config.authentication.audience is required when authentication is enabled.',
-        'Set config.authentication.audience to the JWT audience expected by Fetchlane.',
       ),
     );
   }
@@ -724,6 +715,27 @@ function readString(value: unknown, path: string, configPath: string): string {
     formatDeveloperError(
       `Invalid runtime config: ${path} must be a string.`,
       `Provide a string value at ${path} in "${configPath}".`,
+    ),
+  );
+}
+
+function readOptionalString(
+  value: unknown,
+  path: string,
+  configPath: string,
+): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim() || undefined;
+  }
+
+  throw new Error(
+    formatDeveloperError(
+      `Invalid runtime config: ${path} must be a string.`,
+      `Provide a string value at ${path} in "${configPath}", or omit it entirely.`,
     ),
   );
 }

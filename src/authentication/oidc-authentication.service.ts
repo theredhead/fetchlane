@@ -79,7 +79,7 @@ export class OidcAuthenticationService {
     try {
       const { payload } = await jwtVerify(token, jwks, {
         issuer: authenticationConfig.issuerUrl || undefined,
-        audience: authenticationConfig.audience,
+        audience: authenticationConfig.audience || undefined,
       });
 
       return this.mapPrincipal(payload, authenticationConfig);
