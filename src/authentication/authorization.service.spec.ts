@@ -282,12 +282,16 @@ describe('AuthorizationService', () => {
       ).not.toThrow();
     });
 
-    it('allows wildcard even without a principal on the request', () => {
-      // Wildcard means "any" — the check short-circuits before looking at the principal
+    it('denies an unauthenticated request even on a wildcard gate', () => {
+      // "*" means any authenticated principal — it does not permit anonymous callers.
+      // Use "anonymous" in the allow list for unauthenticated access.
       const request = createMockRequest();
       expect(() =>
         service.authorizeCrud(request, 'public_data', 'read'),
-      ).not.toThrow();
+      ).toThrow(AuthenticationError);
+      expect(() =>
+        service.authorizeCrud(request, 'public_data', 'read'),
+      ).toThrow(/no authenticated principal/);
     });
   });
 
@@ -501,8 +505,8 @@ describe('AuthorizationService', () => {
       );
     });
 
-    it('logs wildcard allow without principal lookup', () => {
-      const request = createMockRequest();
+    it('logs wildcard allow for an authenticated principal', () => {
+      const request = createAuthenticatedRequest(['some-role']);
       service.authorizeCrud(request, 'public_data', 'read');
 
       expect(mockLogger.log).toHaveBeenCalledWith(
@@ -534,6 +538,104 @@ describe('AuthorizationService', () => {
 
       expect(mockLogger.log).toHaveBeenCalledWith(
         expect.stringContaining('denied role'),
+      );
+    });
+  });
+
+  describe('anonymous access ["anonymous"]', () => {
+    const anonymousAuthorization = {
+      schema: gate(['admin', 'schema-viewer']),
+      crud: {
+        default: {
+          create: gate(['admin']),
+          read: gate(['admin', 'viewer']),
+          update: gate(['admin']),
+          delete: gate(['admin']),
+        },
+        tables: {
+          public_table: {
+            read: gate(['anonymous']),
+          },
+          public_writable: {
+            read: gate(['anonymous']),
+            create: gate(['anonymous']),
+          },
+          restricted_anonymous: {
+            read: gate(['anonymous'], ['blocked']),
+          },
+        },
+      },
+    };
+
+    let service: AuthorizationService;
+
+    beforeEach(() => {
+      service = new AuthorizationService(
+        buildRuntimeConfigService(anonymousAuthorization),
+        mockLogger,
+      );
+    });
+
+    it('allows an unauthenticated request when the gate includes anonymous', () => {
+      const request = createMockRequest();
+      expect(() =>
+        service.authorizeCrud(request, 'public_table', 'read'),
+      ).not.toThrow();
+    });
+
+    it('allows an authenticated request on an anonymous gate', () => {
+      const request = createAuthenticatedRequest(['some-random-role']);
+      expect(() =>
+        service.authorizeCrud(request, 'public_table', 'read'),
+      ).not.toThrow();
+    });
+
+    it('allows unauthenticated access for all anonymous gates in the config', () => {
+      const request = createMockRequest();
+      expect(() =>
+        service.authorizeCrud(request, 'public_writable', 'read'),
+      ).not.toThrow();
+      expect(() =>
+        service.authorizeCrud(request, 'public_writable', 'create'),
+      ).not.toThrow();
+    });
+
+    it('denies an unauthenticated request on a non-anonymous gate', () => {
+      const request = createMockRequest();
+      expect(() =>
+        service.authorizeCrud(request, 'public_table', 'create'),
+      ).toThrow(AuthenticationError);
+      expect(() =>
+        service.authorizeCrud(request, 'public_table', 'create'),
+      ).toThrow(/no authenticated principal/);
+    });
+
+    it('denies an authenticated request on an anonymous gate when principal holds a denied role', () => {
+      const request = createAuthenticatedRequest(['blocked']);
+      expect(() =>
+        service.authorizeCrud(request, 'restricted_anonymous', 'read'),
+      ).toThrow(AuthenticationError);
+      expect(() =>
+        service.authorizeCrud(request, 'restricted_anonymous', 'read'),
+      ).toThrow(/denied role/);
+    });
+
+    it('allows an authenticated request on an anonymous gate when principal does not hold a denied role', () => {
+      const request = createAuthenticatedRequest(['viewer']);
+      expect(() =>
+        service.authorizeCrud(request, 'restricted_anonymous', 'read'),
+      ).not.toThrow();
+    });
+
+    it('logs anonymous allowed decisions with the subject set to anonymous', () => {
+      const request = createMockRequest();
+      service.authorizeCrud(request, 'public_table', 'read');
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('"anonymous"'),
+      );
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('allowed'),
       );
     });
   });

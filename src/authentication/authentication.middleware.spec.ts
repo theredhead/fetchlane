@@ -112,7 +112,13 @@ describe('AuthenticationMiddleware', () => {
     const response = fakeResponse();
     const next = vi.fn();
 
-    await middleware.use(fakeRequest() as any, response as any, next);
+    await middleware.use(
+      fakeRequest({
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
+      }) as any,
+      response as any,
+      next,
+    );
 
     expect(response.status).toHaveBeenCalledWith(401);
     expect(response.json).toHaveBeenCalledWith(
@@ -139,7 +145,13 @@ describe('AuthenticationMiddleware', () => {
     const response = fakeResponse();
     const next = vi.fn();
 
-    await middleware.use(fakeRequest() as any, response as any, next);
+    await middleware.use(
+      fakeRequest({
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
+      }) as any,
+      response as any,
+      next,
+    );
 
     expect(response.status).toHaveBeenCalledWith(403);
     expect(response.json).toHaveBeenCalledWith(
@@ -164,7 +176,13 @@ describe('AuthenticationMiddleware', () => {
     const response = fakeResponse();
     const next = vi.fn();
 
-    await middleware.use(fakeRequest() as any, response as any, next);
+    await middleware.use(
+      fakeRequest({
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
+      }) as any,
+      response as any,
+      next,
+    );
 
     expect(response.status).toHaveBeenCalledWith(503);
     expect(response.json).toHaveBeenCalledWith(
@@ -185,7 +203,13 @@ describe('AuthenticationMiddleware', () => {
     const next = vi.fn();
     const response = fakeResponse();
 
-    await middleware.use(fakeRequest() as any, response as any, next);
+    await middleware.use(
+      fakeRequest({
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
+      }) as any,
+      response as any,
+      next,
+    );
 
     expect(next).toHaveBeenCalledWith(error);
     expect(response.status).not.toHaveBeenCalled();
@@ -204,7 +228,10 @@ describe('AuthenticationMiddleware', () => {
     const next = vi.fn();
 
     await middleware.use(
-      fakeRequest({ originalUrl: '/api/docs' }) as any,
+      fakeRequest({
+        originalUrl: '/api/docs',
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
+      }) as any,
       response as any,
       next,
     );
@@ -225,7 +252,10 @@ describe('AuthenticationMiddleware', () => {
     const response = fakeResponse();
 
     await middleware.use(
-      fakeRequest({ originalUrl: '/api/data-access/member' }) as any,
+      fakeRequest({
+        originalUrl: '/api/data-access/member',
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
+      }) as any,
       response as any,
       vi.fn(),
     );
@@ -236,6 +266,20 @@ describe('AuthenticationMiddleware', () => {
         timestamp: expect.any(String),
       }),
     );
+  });
+
+  it('passes through without a principal when no Authorization header is present', async () => {
+    authenticationService.isEnabled.mockReturnValue(true);
+    const request = fakeRequest({ header: vi.fn().mockReturnValue(undefined) });
+    const next = vi.fn();
+
+    await middleware.use(request as any, fakeResponse() as any, next);
+
+    expect(
+      authenticationService.authenticateAuthorizationHeader,
+    ).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith();
+    expect(request.fetchlaneContext).toBeUndefined();
   });
 
   it('falls back to request.url when originalUrl is absent', async () => {
@@ -253,6 +297,7 @@ describe('AuthenticationMiddleware', () => {
       fakeRequest({
         originalUrl: undefined,
         url: '/api/data-access/member',
+        header: vi.fn().mockReturnValue('Bearer invalid-token'),
       }) as any,
       response as any,
       vi.fn(),

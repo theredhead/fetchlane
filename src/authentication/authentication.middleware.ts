@@ -32,10 +32,16 @@ export class AuthenticationMiddleware implements NestMiddleware {
       return;
     }
 
+    const authorizationHeader = request.header('authorization');
+    if (!authorizationHeader) {
+      next();
+      return;
+    }
+
     try {
       const principal =
         await this.authenticationService.authenticateAuthorizationHeader(
-          request.header('authorization'),
+          authorizationHeader,
         );
       setAuthenticatedPrincipal(request, principal);
       next();

@@ -110,7 +110,9 @@ export type CrudOperation = 'create' | 'read' | 'update' | 'delete';
 export interface RoleGate {
   /**
    * Roles that grant access. `["*"]` means any authenticated principal.
-   * An empty array locks the gate completely.
+   * `["anonymous"]` means unauthenticated callers are permitted; authenticated
+   * callers are also allowed unless a deny rule applies. An empty array locks
+   * the gate completely.
    */
   allow: string[];
   /**

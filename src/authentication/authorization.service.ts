@@ -23,6 +23,8 @@ type AuthorizationVerdict = 'allowed' | 'denied';
  * authenticated user has unrestricted access (backward-compatible).
  *
  * Role semantics:
+ *  - `allow: ["anonymous"]` — any caller is allowed, with or without a token.
+ *    Authenticated callers are still rejected if they hold a denied role.
  *  - `allow: ["*"]` — any authenticated principal is allowed (wildcard).
  *  - `allow: []`    — nobody is allowed (channel is completely locked).
  *  - `allow: ["role1", "role2"]` — principal must hold at least one listed role.
@@ -105,13 +107,36 @@ export class AuthorizationService {
       throw new AuthenticationError(403, reason, hint);
     };
 
-    if (gate.allow.includes('*') && gate.deny.length === 0) {
+    if (gate.allow.includes('anonymous')) {
+      if (!principal) {
+        this.logDecision(
+          requestId,
+          subject,
+          channel,
+          'allowed',
+          'Anonymous access is permitted on this channel.',
+        );
+        return;
+      }
+
+      const matchedDenyRole = principal.roles.find((role) =>
+        gate.deny.includes(role),
+      );
+
+      if (matchedDenyRole) {
+        deny(
+          'denied',
+          `Authorization denied for ${channel}: principal holds denied role "${matchedDenyRole}".`,
+          `Remove the denied role from the caller or update config.authentication.authorization to adjust the deny list.`,
+        );
+      }
+
       this.logDecision(
         requestId,
         subject,
         channel,
         'allowed',
-        'Wildcard allow with no deny rules.',
+        'Anonymous access is permitted on this channel and principal is not denied.',
       );
       return;
     }
@@ -122,6 +147,17 @@ export class AuthorizationService {
         `Authorization denied for ${channel}: no authenticated principal on request.`,
         'Ensure authentication is enabled and the request carries a valid bearer token.',
       );
+    }
+
+    if (gate.allow.includes('*') && gate.deny.length === 0) {
+      this.logDecision(
+        requestId,
+        subject,
+        channel,
+        'allowed',
+        'Wildcard allow with no deny rules.',
+      );
+      return;
     }
 
     if (gate.deny.length > 0) {
